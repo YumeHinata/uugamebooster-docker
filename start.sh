@@ -17,19 +17,29 @@ fi
 cd /arm-root
 
 # ── 动态链接器检查 ──
-[ -s /arm-root/lib/ld-musl-aarch64.so.1 ] || ln -sf libc.so /arm-root/lib/ld-musl-aarch64.so.1
+echo "[DIAG] Dynamic linker state:"
+ls -la /arm-root/lib/ld-musl-aarch64.so.1 2>&1 | sed 's/^/  /'
+ls -la /arm-root/lib/libc.so 2>&1 | sed 's/^/  /'
+# 强制重建符号链接（无论当前状态如何）
+ln -sf libc.so /arm-root/lib/ld-musl-aarch64.so.1
+echo "  After fix: $(ls -la /arm-root/lib/ld-musl-aarch64.so.1 2>&1)"
 
-# ── 验证 ARM 二进制可执行性 ──
+# ── 验证 ARM 二进制可执行性（显示完整错误） ──
 echo "[DIAG] Testing ARM binary execution..."
-if /usr/bin/qemu-aarch64-static -L /arm-root /arm-root/bin/busybox true 2>/dev/null; then
+echo "  qemu binary: $(ls -la /usr/bin/qemu-aarch64-static 2>&1)"
+echo "  busybox ELF header:"
+head -c 20 /arm-root/bin/busybox | od -A x -t x1z 2>&1 | head -2 | sed 's/^/    /'
+BUSYBOX_ERR=$(/usr/bin/qemu-aarch64-static -L /arm-root /arm-root/bin/busybox true 2>&1)
+BUSYBOX_RET=$?
+echo "  busybox test: exit=$BUSYBOX_RET output='$BUSYBOX_ERR'"
+if [ $BUSYBOX_RET -eq 0 ]; then
     echo "  [OK] busybox (ARM) runs"
 else
     echo "  [FAIL] busybox (ARM) cannot execute!"
-fi
-if /usr/bin/qemu-aarch64-static -L /arm-root ./xuplugin-guardian --version 2>&1 | head -1; then
-    echo "  [OK] xuplugin-guardian loadable"
-else
-    echo "  [WARN] xuplugin-guardian test (may need args)"
+    echo "  Trying without -L:"
+    /usr/bin/qemu-aarch64-static /arm-root/bin/busybox true 2>&1 | sed 's/^/    /'
+    echo "  Trying with QEMU_LD_PREFIX only:"
+    QEMU_LD_PREFIX=/arm-root /usr/bin/qemu-aarch64-static /arm-root/bin/busybox true 2>&1 | sed 's/^/    /'
 fi
 
 # ── iptables legacy 切换 ──
@@ -75,4 +85,10 @@ fi
 
 # ── 启动 ──
 echo "[INFO] Starting uuplugin (with -L /arm-root for child exec)..."
-exec /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin
+/usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin
+RET=$?
+echo "[ERROR] uuplugin exited with code $RET"
+echo "[DEBUG] Keeping container alive for inspection (Ctrl+C to stop)..."
+echo "  Check: docker exec -it <container> /bin/sh"
+# 保持容器运行以便调试
+while true; do sleep 3600; done
