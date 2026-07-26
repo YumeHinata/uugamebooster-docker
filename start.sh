@@ -3,13 +3,34 @@ echo "=================================="
 echo "UU Plugin Docker Runtime"
 echo "=================================="
 
-# ── QEMU 环境（仅影响动态库加载，不影响 openat 等文件 syscall） ──
+# ── QEMU 环境 ──
+# -L 参数确保 QEMU 对子进程 exec 也使用正确的动态链接器路径
 export QEMU_LD_PREFIX=/arm-root
 export LD_LIBRARY_PATH=/lib:/usr/lib
+# QEMU 调试日志（设置 QEMU_DEBUG=1 开启，日志写入 /tmp/qemu.log）
+if [ "${QEMU_DEBUG}" = "1" ]; then
+    export QEMU_LOG_FILENAME=/tmp/qemu.log
+    export QEMU_LOG=exec,cpu_reset
+    export QEMU_STRACE=1
+    echo "[DIAG] QEMU debug logging enabled -> /tmp/qemu.log"
+fi
 cd /arm-root
 
 # ── 动态链接器检查 ──
 [ -s /arm-root/lib/ld-musl-aarch64.so.1 ] || ln -sf libc.so /arm-root/lib/ld-musl-aarch64.so.1
+
+# ── 验证 ARM 二进制可执行性 ──
+echo "[DIAG] Testing ARM binary execution..."
+if /usr/bin/qemu-aarch64-static -L /arm-root /arm-root/bin/busybox true 2>/dev/null; then
+    echo "  [OK] busybox (ARM) runs"
+else
+    echo "  [FAIL] busybox (ARM) cannot execute!"
+fi
+if /usr/bin/qemu-aarch64-static -L /arm-root ./xuplugin-guardian --version 2>&1 | head -1; then
+    echo "  [OK] xuplugin-guardian loadable"
+else
+    echo "  [WARN] xuplugin-guardian test (may need args)"
+fi
 
 # ── iptables legacy 切换 ──
 update-alternatives --set iptables /usr/sbin/iptables-legacy 2>/dev/null
@@ -53,5 +74,5 @@ if [ ! -f /var/tmp/uu/h3c_info ]; then
 fi
 
 # ── 启动 ──
-echo "[INFO] Starting uuplugin..."
-exec /usr/bin/qemu-aarch64-static ./uuplugin
+echo "[INFO] Starting uuplugin (with -L /arm-root for child exec)..."
+exec /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin
