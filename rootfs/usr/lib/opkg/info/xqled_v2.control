@@ -1,0 +1,8 @@
+Package: xqled_v2
+Version: 1-1.0
+Depends: libc, libubus, libblobmsg-json, libubox, libjson-c
+Source: package/miwifi/xqled_v2
+Section: util
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 12270
+Description:  New framework for miwifi led status controll.

@@ -1,0 +1,5 @@
+#!/bin/sh
+
+logger -p notice -t "wan_check" "40-ntpd: run because internet connect"
+
+[ -x /usr/sbin/ntpsetclock ] && /usr/sbin/ntpsetclock post >/dev/null 2>&1 &

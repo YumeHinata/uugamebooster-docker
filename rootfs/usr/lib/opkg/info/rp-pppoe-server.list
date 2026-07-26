@@ -1,0 +1,6 @@
+/etc/uci-defaults/pppoe-server.default
+/etc/ppp/pppoe-server-options
+/etc/init.d/pppoe-server
+/etc/ppp/pap-secrets
+/lib/upgrade/keep.d/rp-pppoe-server
+/usr/sbin/pppoe-server

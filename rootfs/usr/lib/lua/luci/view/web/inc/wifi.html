@@ -1,0 +1,1145 @@
+<%
+--[[
+    Info    路由器Wi-Fi设置
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+local wifiUtil = require("xiaoqiang.util.XQWifiUtil")
+local LuciJson = require("luci.json")
+local XQFunction = require("xiaoqiang.common.XQFunction")
+local XQSysUtil = require("xiaoqiang.util.XQSysUtil")
+
+local remote_addr = luci.http.getenv("REMOTE_ADDR") or ""
+local mac = luci.sys.net.ip4mac(remote_addr) or ""
+
+local channel1 = wifiUtil.getDefaultWifiChannels(1)
+local channel2 = wifiUtil.getDefaultWifiChannels(2)
+local wifi_pddk = LuciJson.encode(channel1)
+local wifi5_pddk = LuciJson.encode(channel2)
+
+local romChannel = XQSysUtil.getChannel()
+
+local uci = require("luci.model.uci").cursor()
+local features = require("xiaoqiang.XQFeatures").FEATURES
+local hardware = string.lower( XQSysUtil.getHardware() )
+%>
+<%include("web/inc/head")%>
+<title><%:Redmi路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/wifi.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div id="bd">
+        <%if features["wifi"]["wifimerge"] == "1" then%>
+        <div class="mod-set mod-wifi">
+            <div class="hd">
+                <h3><%:Wi-Fi双频合一%></h3>
+                <div class="switch">
+                    <a href="#" id="bsdswitch" class="btn-switch btn-switch-off" data-on="0"></a>
+                </div>
+            </div>
+            <div class="bd">
+                <p><%:开启后，2.4G和5G会使用同一名称，路由器会自动为终端选择最佳WiFi网络，如离路由器较近，会切换至5G网络，反之会切换至2.4G网络。但由于终端设备存在差异，可能存在：自动切换信号源时网络会短暂中断，甚至频繁掉线等问题。%></p>
+            </div>
+        </div>
+        <%end%>
+<!-- fixed password autocomplete bug -->
+<input type="text" style="display:none">
+<input type="password" style="display:none">
+<!-- end -->
+        <div class="mod-set mod-wifi mod-wifi24">
+            <div class="hd">
+            <%if features["wifi"]["wifi50"] == "1" then%>
+                <h3><%:2.4G Wi-Fi%></h3>
+            <%else%>
+                <h3><%:Wi-Fi设置%></h3>
+            <%end%>
+            </div>
+            <div class="bd">
+                <form class="form form-horizontal" id="wifiset24" name="wifiset24"  action="<%=luci.dispatcher.build_url("api", "xqnetwork", "set_wifi")%>" autocomplete="off">
+                </form>
+            </div>
+        </div>
+        <%if features["wifi"]["wifi50"] == "1" then%>
+        <div class="mod-set mod-wifi mod-wifi50">
+            <div class="hd">
+                <h3><%:5G Wi-Fi%></h3>
+            </div>
+            <div class="bd">
+                <form class="form form-horizontal" id="wifiset50" name="wifiset50" action="<%=luci.dispatcher.build_url("api", "xqnetwork", "set_wifi")%>" autocomplete="off">
+                </form>
+            </div>
+        </div>
+        <%end%>
+
+        <!-- hidden guest wifi -->
+        <!-- <%if XQFunction.getNetModeType() ~= 2 then%> -->
+        <!-- <%include("web/inc/guestwifi")%> -->
+        <!-- <%end%> -->
+<!-- end -->
+    <%if romChannel == "release" and features["system"]["i18n"] == "1" then%>
+        <div class="mod-set mod-countrycode">
+            <div class="hd">
+                <h3><%:无线网络所在区域%></h3>
+            </div>
+            <div class="bd">
+                <p><%:请选择Redmi路由器当前工作的国家/地区%></p>
+                <br>
+                <div class="clearfix">
+                    <div class="form-item-select">
+                        <label class="k">&nbsp;</label>
+                        <span class="v">
+                        <select name="countrycode" id="countrycode" class="beautify" >
+                        </select>
+                        </span>
+                        <em class="t"></em>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <%end%>
+     <%if features["wifi"]["wifi_mu_mimo"] == "1" then%>
+        <div class="mod-set mod-wifi">
+            <div class="hd">
+                <h3><%:MU-MIMO/Beamforming%></h3>
+                <div class="switch">
+                    <a href="#txbfswitch" id="txbfswitch" class="btn-switch btn-switch-on" data-on="1"></a>
+                </div>
+            </div>
+            <div class="bd">
+                <p><%:MU-MIMO“多用户多入多出”技术，与其依赖的Beamforming“波束成形”技术结合，可以让路由器与多台终端同时通信，极大改善无线资源利用效率，提升Wi-Fi体验。该功能生效需要路由器和终端同时支持。开启开关会同时启用MU-MIMO和Beamforming。%></p>
+            </div>
+        </div>
+        <%end%>
+        <div class="mod-set mod-wifi">
+            <div class="hd">
+                <h3><%:802.11k/v/r%></h3>
+                <div class="switch">
+                    <a href="#kvrswitch" id="kvrswitch" class="btn-switch btn-switch-on" data-on="1"></a>
+                </div>
+            </div>
+            <div class="bd">
+                <p><%:开启802.11k/v/r技术后可实现与周边无线路由器设备以及不同频段之间的负载均衡，支持客户端设备在无线路由器设备以及不同频段之间的无缝漫游。%></p>
+            </div>
+        </div>
+    </div>
+    <%include("web/inc/footer")%>
+
+</div>
+
+<%include("web/inc/g.js")%>
+<script type="text/tmpl" id="tplbsdWrap">
+    <form class="form form-horizontal" id="wifisetbsd">
+        <div id="wifisetbsdtop">
+        </div>
+        <p class="bsd-ground"><%:2.4G 选项%></p>
+        <div id="wifiset24" class="form">
+        </div>
+        <p class="bsd-ground"><%:5G 选项%></p>
+        <div id="wifiset50" class="form">
+        </div>
+    </form>
+</script>
+<script type="text/tmpl" id="tplWifiBsdTop">
+    <div class="item">
+        <span class="k"><%:开关%></span>
+        <span class="v">
+            <label><input type="radio" name="on" value="1"{if ($status == 1)} checked{/if}> <span><%:开启%></span></label>
+            <label><input type="radio" name="on" value="0"{if ($status == 0)} checked{/if}> <span><%:关闭%></span></label>
+        </span>
+    </div>
+    <div class="form-item">
+        <label class="k"><%:名称%></label>
+        <span class="v"><input type="text" name="ssid" value="{$ssid}" class="ipt-text" autocomplete="off" datatype="ssid" maxLength="31" minLength="1" reqMsg="<%:Wi-Fi名称%>" /></span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item">
+        <label for="hidessid{$wifitype}"> <input type="checkbox" id="hidessid{$wifitype}" name="hidden" value="1" {if ($hidden == 1)}checked{/if}> <span><%:隐藏网络不被发现%></span></label>
+    </div>
+    <div class="form-item-select">
+        <label class="k"><%:加密方式%></label>
+        <span class="v">
+            <select name="encryption" class="beautify encryption" >
+                <option value="psk2-mixed"{if ($encryption == "psk2-mixed")} selected{/if}><%:WPA2-PSK-AS/TKIP %></option>
+                <option value="psk2-ccmp"{if ($encryption == "psk2-ccmp")} selected{/if}><%:WPA2-PSK-AES %></option>
+                <option value="psk2-tkip"{if ($encryption == "psk2-tkip")} selected{/if}><%:WPA2-PSK-TKIP %></option>
+                <option value="psk/psk2-mixed"{if ($encryption == "psk/psk2-mixed")} selected{/if}><%:WPA/WPA2-PSK-AES/TKIP %></option>
+                <option value="psk/psk2-ccmp"{if ($encryption == "psk/psk2-ccmp")} selected{/if}><%:WPA/WPA2-PSK-AES %></option>
+                <option value="psk/psk2-tkip"{if ($encryption == "psk/psk2-tkip")} selected{/if}><%:WPA/WPA2-PSK-TKIP %></option>
+
+               <option value="psk-mixed"{if ($encryption == "psk-mixed")} selected{/if}><%:WPA-PSK-AES/TKIP %></option>
+                <option value="psk-ccmp"{if ($encryption == "psk-ccmp")} selected{/if}><%:WPA-PSK-AES %></option>
+                <option value="psk-tkip"{if ($encryption == "psk-tkip")} selected{/if}><%:WPA-PSK-TKIP %></option>
+                <option value="none"{if ($encryption == "none")} selected{/if}><%:无加密(允许所有人连接)%></option>
+            </select>
+        </span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item" {if($encryption == "none")} style="display:none;"{/if}>
+        <label class="k"><%:密码%></label>
+        <span class="v">
+            <input type="password" data-type="password" name="pwd" value="{$password}" class="ipt-text" autocomplete="off" datatype="wifipassword" minLength="8" maxLength="63" reqMsg="<%:Wi-Fi密码%>" />
+        </span>
+        <em class="t"></em>
+    </div>
+</script>
+<script type="text/tmpl" id="tplWifiBsd">
+    {if ($wifitype == 2)}
+    <input type="hidden" value="{$wifiIndex}" name="wifiIndex">
+    <div class="item">
+        <span class="k"><%:开关%></span>
+        <span class="v">
+        {if ($wifitype == 2)}
+            <label><input type="radio" name="on" value="1"{if ($enabled == 1 && $status == 1)} checked{/if}> <span><%:开启%></span></label>
+            <label><input type="radio" name="on" value="0"{if ($enabled == 0 || $status == 0)} checked{/if}> <span><%:关闭%></span></label>
+        {else}
+            <label><input type="radio" name="on" value="1"{if ($status == 1)} checked{/if}> <span><%:开启%></span></label>
+            <label><input type="radio" name="on" value="0"{if ($status == 0)} checked{/if}> <span><%:关闭%></span></label>
+        {/if}
+        </span>
+    </div>
+    <div class="form-item">
+        <label class="k"><%:名称%></label>
+        <span class="v"><input type="text" name="ssid" value="{$ssid}" class="ipt-text" autocomplete="off" datatype="ssid" maxLength="31" minLength="1" reqMsg="<%:Wi-Fi名称%>" /></span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item-select">
+        <label class="k"><%:加密方式%></label>
+        <span class="v">
+            <select name="encryption" class="beautify encryption">
+                <option value="psk2-mixed"{if ($encryption == "psk2-mixed")} selected{/if}><%:WPA2-PSK-AES/TKIP %></option>
+                <option value="psk2-ccmp"{if ($encryption == "psk2-ccmp")} selected{/if}><%:WPA2-PSK-AES %></option>
+                <option value="psk2-tkip"{if ($encryption == "psk2-tkip")} selected{/if}><%:WPA2-PSK-TKIP %></option>
+                <option value="psk/psk2-mixed"{if ($encryption == "psk/psk2-mixed")} selected{/if}><%:WPA/WPA2-PSK-AES/TKIP %></option>
+                <option value="psk/psk2-ccmp"{if ($encryption == "psk/psk2-ccmp")} selected{/if}><%:WPA/WPA2-PSK-AES %></option>
+                <option value="psk/psk2-tkip"{if ($encryption == "psk/psk2-tkip")} selected{/if}><%:WPA/WPA2-PSK-TKIP %></option>
+
+               <option value="psk-mixed"{if ($encryption == "psk-mixed")} selected{/if}><%:WPA-PSK-AES/TKIP %></option>
+                <option value="psk-ccmp"{if ($encryption == "psk-ccmp")} selected{/if}><%:WPA-PSK-AES %></option>
+                <option value="psk-tkip"{if ($encryption == "psk-tkip")} selected{/if}><%:WPA-PSK-TKIP %></option>
+                <option value="none"{if ($encryption == "none")} selected{/if}><%:无加密(允许所有人连接)%></option>
+            </select>
+        </span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item" {if($encryption == "none")} style="display:none;"{/if}>
+        <label class="k"><%:密码%></label>
+        <span class="v">
+            <input type="password" data-type="password" name="pwd" value="{$password}" class="ipt-text" autocomplete="off" datatype="wifipassword" minLength="8" maxLength="63" reqMsg="<%:Wi-Fi密码%>" />
+        </span>
+        <em class="t"></em>
+    </div>
+    {/if}
+
+    {if ($wifitype != 2)}
+    <div class="form-item-select">
+        <label class="k"><%:无线信道%></label>
+        <span class="v">
+        <select name="channel" class="beautify channel" data-id="{$wifitype}">
+            {for(var i=0, len=$channels.length; i<len; i++)}
+                <option value="{$channels[i]['c']}" {if ($channel==$channels[i]['c'])}selected{/if}>
+                {if ($channels[i]['c']==0)}<%:自动%>
+                    {if ($channelInfo["channel"] != "0")}
+                        ({$channelInfo["channel"]})
+                    {/if}
+                {else}
+                    {$channels[i]['c']}
+                {/if}
+                </option>
+            {/for}
+        </select>
+        </span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item-select itemBandwidth" {if ($channel == "0")}style="display:none;"{/if}>
+        <label class="k"><%:频段带宽%></label>
+        <span class="v">
+            {if ($channel == "0")}
+            <select name="bandwidth" class="beautify" id="bandwidth" >
+                <option value="0"><%:自动%></option>
+            </select>
+            {else}
+            <select name="bandwidth" class="beautify" >
+                <option value="0" {if ($bandwidth  == "0")}selected="selected"{/if}><%:自动%></option>
+                {for(var i=0, len=$channelInfo["bandList"].length; i<len; i++)}
+                    <option value="{$channelInfo["bandList"][i]}" {if ($channelInfo["bandList"][i] == $bandwidth)}selected="selected"{/if}>{$channelInfo["bandList"][i]}M</option>
+                {/for}
+            </select>
+            {/if}
+        </span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item-select">
+        <label class="k"><%:模式%></label>
+        <span class="v">
+            <select name="hwmode" class="beautify hwmode" data-id="{$wifitype}">
+            {if ($wifitype == 0)}
+                <option value="11b/g/n_mixed"{if ($hwmode == "11b/g/n_mixed")} selected{/if}><%:11b/g/n mixed%></option>
+                <option value="11b/g_mixed"{if ($hwmode == "11b/g_mixed")} selected{/if}><%:11b/g mixed%></option>
+                <option value="11b_only"{if ($hwmode == "11b_only")} selected{/if}><%:11b only%></option>
+                <option value="11g_only"{if ($hwmode == "11g_only")} selected{/if}><%:11g only%></option>
+                <option value="11n_only"{if ($hwmode == "11n_only")} selected{/if}><%:11n only%></option>
+            {else}
+                <option value="11a/an/ac_mixed"{if ($hwmode == "11a/an/ac_mixed")} selected{/if}><%:11a/an/ac mixed%></option>
+                <option value="11a_only"{if ($hwmode == "11a_only")} selected{/if}><%:11a only%></option>
+                <option value="11an_only"{if ($hwmode == "11an_only")} selected{/if}><%:11an only%></option>
+            {/if}
+            </select>
+        </span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item-select">
+        <label class="k"><%:信号强度%></label>
+        <span class="v">
+            <select name="txpwr" class="beautify txpwr">
+                <option value="max"{if ($txpwr == "max")} selected{/if}><%:穿墙%></option>
+                <option value="mid"{if ($txpwr == "mid")} selected{/if}><%:标准%></option>
+                <option value="min"{if ($txpwr == "min")} selected{/if}><%:节能%></option>
+            </select>
+        </span>
+        <em class="t"></em>
+    </div>
+
+    {/if}
+    {if ($wifitype != 0)}
+    <div class="form-contral">
+        <button type="submit" class="btn btn-primary btn-l hidden"><span><%:保存%></span></button>
+    </div>
+    {/if}
+</script>
+<script type="text/tmpl" id="tplWifi">
+    <input type="hidden" value="{$wifiIndex}" name="wifiIndex">
+    <div class="item">
+        <span class="k"><%:开关%></span>
+        <span class="v">
+        {if ($wifitype == 2)}
+            <label><input type="radio" name="on" value="1"{if ($enabled == 1 && $status == 1)} checked{/if}> <span><%:开启%></span></label>
+            <label><input type="radio" name="on" value="0"{if ($enabled == 0 || $status == 0)} checked{/if}> <span><%:关闭%></span></label>
+        {else}
+            <label><input type="radio" name="on" value="1"{if ($status == 1)} checked{/if}> <span><%:开启%></span></label>
+            <label><input type="radio" name="on" value="0"{if ($status == 0)} checked{/if}> <span><%:关闭%></span></label>
+        {/if}
+        </span>
+    </div>
+     <div class="form-item">
+        <label for="hidessid{$wifitype}"> <input type="checkbox" id="hidessid{$wifitype}" name="hidden" value="1" {if ($hidden == 1)}checked{/if}> <span><%:隐藏网络不被发现%></span></label>
+    </div>
+    <div class="form-item">
+        <label class="k"><%:名称%></label>
+        <span class="v"><input type="text" name="ssid" value="{$ssid}" class="ipt-text" autocomplete="off" datatype="ssid" maxLength="31" minLength="1" reqMsg="<%:Wi-Fi名称%>" /></span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item-select">
+        <label class="k"><%:加密方式%></label>
+        <span class="v">
+            <select name="encryption" class="beautify encryption" >
+                <option value="psk2-mixed"{if ($encryption == "psk2-mixed")} selected{/if}><%:WPA2-PSK-AES/TKIP %></option>
+                <option value="psk2-ccmp"{if ($encryption == "psk2-ccmp")} selected{/if}><%:WPA2-PSK-AES %></option>
+                <option value="psk2-tkip"{if ($encryption == "psk2-tkip")} selected{/if}><%:WPA2-PSK-TKIP %></option>
+                <option value="psk/psk2-mixed"{if ($encryption == "psk/psk2-mixed")} selected{/if}><%:WPA/WPA2-PSK-AES/TKIP %></option>
+                <option value="psk/psk2-ccmp"{if ($encryption == "psk/psk2-ccmp")} selected{/if}><%:WPA/WPA2-PSK-AES %></option>
+                <option value="psk/psk2-tkip"{if ($encryption == "psk/psk2-tkip")} selected{/if}><%:WPA/WPA2-PSK-TKIP %></option>
+
+               <option value="psk-mixed"{if ($encryption == "psk-mixed")} selected{/if}><%:WPA-PSK-AES/TKIP %></option>
+                <option value="psk-ccmp"{if ($encryption == "psk-ccmp")} selected{/if}><%:WPA-PSK-AES %></option>
+                <option value="psk-tkip"{if ($encryption == "psk-tkip")} selected{/if}><%:WPA-PSK-TKIP %></option>
+                <option value="none"{if ($encryption == "none")} selected{/if}><%:无加密(允许所有人连接)%></option>
+            </select>
+        </span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item" {if($encryption == "none")} style="display:none;"{/if}>
+        <label class="k"><%:密码%></label>
+        <span class="v">
+            <input type="password" data-type="password" name="pwd" value="{$password}" class="ipt-text" autocomplete="off" datatype="wifipassword" minLength="8" maxLength="63" reqMsg="<%:Wi-Fi密码%>" />
+        </span>
+        <em class="t"></em>
+    </div>
+    {if ($wifitype != 2)}
+    <div class="form-item-select">
+        <label class="k"><%:无线信道%></label>
+        <span class="v">
+        <select name="channel" class="beautify channel" data-id="{$wifitype}">
+            {for(var i=0, len=$channels.length; i<len; i++)}
+                <option value="{$channels[i]['c']}" {if ($channel==$channels[i]['c'])}selected{/if}>
+                {if ($channels[i]['c']==0)}<%:自动%>
+                    {if ($channelInfo["channel"] != "0")}
+                        ({$channelInfo["channel"]})
+                    {/if}
+                {else}
+                    {$channels[i]['c']}
+                {/if}
+                </option>
+            {/for}
+        </select>
+        </span>
+        <em class="t"></em>
+    </div>
+     <div class="form-item-select">
+        <label class="k"><%:模式%></label>
+        <span class="v">
+            <select name="hwmode" class="beautify hwmode" data-id="{$wifitype}">
+               {if ($wifitype == 0)}
+                <option value="11b/g/n_mixed"{if ($hwmode == "11b/g/n_mixed")} selected{/if}><%:11b/g/n mixed%></option>
+                <option value="11b/g_mixed"{if ($hwmode == "11b/g_mixed")} selected{/if}><%:11b/g mixed%></option>
+                <option value="11b_only"{if ($hwmode == "11b_only")} selected{/if}><%:11b only%></option>
+                <option value="11g_only"{if ($hwmode == "11g_only")} selected{/if}><%:11g only%></option>
+                <option value="11n_only"{if ($hwmode == "11n_only")} selected{/if}><%:11n only%></option>
+            {else}
+                <option value="11a/an/ac_mixed"{if ($hwmode == "11a/an/ac_mixed")} selected{/if}><%:11a/an/ac mixed%></option>
+                <option value="11a_only"{if ($hwmode == "11a_only")} selected{/if}><%:11a only%></option>
+                <option value="11an_only"{if ($hwmode == "11an_only")} selected{/if}><%:11an only%></option>
+            {/if}
+            </select>
+        </span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item-select itemBandwidth" {if ($channel == "0")}style="display:none;"{/if}>
+        <label class="k"><%:频段带宽%></label>
+        <span class="v">
+            {if ($channel == "0")}
+            <select name="bandwidth" class="beautify" id="bandwidth">
+                <option value="0"><%:自动%></option>
+            </select>
+            {else}
+            <select name="bandwidth" class="beautify" >
+                <option value="0" {if ("0" == $bandwidth)}selected="selected"{/if}><%:自动%></option>
+                {for(var i=0, len=$channelInfo["bandList"].length; i<len; i++)}
+                    <option value="{$channelInfo["bandList"][i]}" {if ($channelInfo["bandList"][i] == $bandwidth)}selected="selected"{/if}>{$channelInfo["bandList"][i]}M</option>
+                {/for}
+            </select>
+            {/if}
+        </span>
+        <em class="t"></em>
+    </div>
+    <div class="form-item-select">
+        <label class="k"><%:信号强度%></label>
+        <span class="v">
+            <select name="txpwr" class="beautify txpwr" >
+                <option value="max"{if ($txpwr == "max")} selected{/if}><%:穿墙%></option>
+                <option value="mid"{if ($txpwr == "mid")} selected{/if}><%:标准%></option>
+                <option value="min"{if ($txpwr == "min")} selected{/if}><%:节能%></option>
+            </select>
+        </span>
+        <em class="t"></em>
+    </div>
+    {/if}
+    <div class="form-contral">
+        <button type="submit" class="btn btn-primary btn-l hidden"><span><%:保存%></span></button>
+    </div>
+</script>
+
+<script>
+(function(){
+    var global = {};
+    var generateMixed = function (n) {
+         var res = "";
+         var chars = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+         for(var i = 0; i < n ; i ++) {
+             var id = Math.ceil(Math.random()*35);
+             res += chars[id];
+         }
+         return res;
+    }
+    function onControlFocus() {
+        $(this).parents('form').find('.btn-primary').removeClass('hidden');
+    }
+    $.sub( 'wifi:init', function(evt, data){
+        global.wifi = {
+            configs: [],
+            pddk: {
+                '1': '<%=wifi_pddk%>',
+                '2': '<%=wifi5_pddk%>'
+            }
+        };
+
+        // get wifi and rander html
+        var containers = ['wifiset24', 'wifiset50', 'wifisetguest24', 'wifisetguest50'],
+            tpl = $('#tplWifi').html();
+        $.getJSON('<%=luci.dispatcher.build_url("api","xqnetwork","wifi_detail_all")%>')
+        .done(function( rsp ){
+            if ( rsp.code == 0 ) {
+                if( rsp.bsd == 1 ){
+                 
+
+                    $('#bsdswitch')
+                    .removeClass('btn-switch-off')
+                    .addClass('btn-switch-on')
+                    .attr('data-on', '1');
+                    $('.mod-wifi24 .hd h3').text('<%:Wi-Fi%>');
+                    $('.mod-wifi24 .bd').html( $('#tplbsdWrap').html() );
+                    $('.mod-wifi50').remove();
+                    $('#wifisetbsd').delegate('input[type=text], input[type=checkbox], input[type=radio]', 'click', onControlFocus)
+                        .delegate('.ipt-text', 'click', onControlFocus);
+                    tpl = $('#tplWifiBsd').html();
+                }
+                var wifiinfo = rsp.info;
+                var haswifi50 = $('#wifiset50').length > 0 ? true : false;
+                for(var i = 0, len = wifiinfo.length; i < len; i ++){
+                    var id = containers[i];
+                    var container;
+                    if( !haswifi50 && i == 1 ){
+                        container = $(document.getElementById( 'wifisetguest24' ));
+                    }else{
+                        if (haswifi50 && i == 1) {
+                            if ( wifiinfo[i].txbf == 0 || wifiinfo[i].txbf == "0") {
+                                 $('#txbfswitch')
+                                .removeClass('btn-switch-on')
+                                .addClass('btn-switch-off')
+                                .attr('data-on', '0');
+                            }
+             
+                        }
+                        container = $(document.getElementById(id));
+                    }
+                    var wifiitem = wifiinfo[i];
+                    var password = wifiitem.password;
+                    var encryption = wifiitem.encryption;
+                    if ( encryption == 'none' ) {
+                        password = '';
+                    }
+                    var tplData = {
+                        wifitype: (!haswifi50 && i == 1) ? i+1 : i,
+                        wifiIndex: (!haswifi50 && i == 1) ? i+2 : i+1,
+                        status: wifiitem.status,
+                        ssid: StringH.encode4HtmlValue(wifiitem.ssid),
+                        password: StringH.encode4HtmlValue(password),
+                        encryption: wifiitem.encryption,
+                        channels: $.parseJSON(global.wifi.pddk[i+1]),
+                        channel: wifiitem.channel,
+                        hwmode: wifiitem.hwmode,
+                        bandwidth: wifiitem.bandwidth,
+                        channelInfo: wifiitem.channelInfo,
+                        hidden: wifiitem.hidden,
+                        txpwr: wifiitem.txpwr,
+                        txbf: wifiitem.txbf,
+                        enabled: wifiitem.enabled
+                    };
+                    if( i == 0 && rsp.bsd == 1 ){
+                        $('#wifisetbsdtop').html( $('#tplWifiBsdTop').html().tmpl(tplData) );
+                    }
+                    container.html( tpl.tmpl(tplData) );
+                    global.wifi.configs[i+1] = tplData;
+                }
+            }
+            setTimeout( function(){
+                $.selectBeautify();
+                $.formInit();
+                $.pub('wifi:bindEventEncryption');
+                $.pub('wifi:bindEventChannel');
+            }, 100 );
+        });
+    });
+
+    $.sub( 'wifi:bindEventEncryption', function(){
+        $( '.encryption' ).on( 'change', function( e ){
+            var val = $( this ).val(),
+                root = $( this ).parents('form'),
+                pwd = root.find('.form-item-pwd'),
+                tips = $(this.parentNode).next('.t');
+            if ( val === 'none' ) {
+                pwd.hide();
+            } else {
+                pwd.show();
+            }
+            if (val === 'psk2') {
+                tips.html('<%:仅支持WPA加密方式的设备将无法连接%>').show();
+            }else{
+                tips.html('');
+            }
+        } );
+    });
+
+    $.sub( 'wifi:bindEventChannel', function(){
+        $( '.channel' ).on( 'change', function( e ){
+            var channelVal = this.value,
+                that = this,
+                id = $(this).attr('data-id'),
+                id = parseInt(id, 10) + 1,
+                root = $( this ).parents('form'),
+                pwd = root.find('.form-item-pwd'),
+                $bandwidth = $( this ).closest('.form').find('[name=bandwidth]'),
+                $itemBandwidth = $( this ).closest('.form').find('.itemBandwidth'),
+                tips = $(this.parentNode).next('.t'),
+                pddk,
+                item = '<option value="0"><%:自动%></option>',
+                bdlist = [];
+
+            if ( channelVal === '0' ) {
+                $itemBandwidth.hide();
+                return;
+            }
+
+            pddk = $.parseJSON( global.wifi.pddk[id] );
+            for (var i = 0; i < pddk.length; i++) {
+                var _c = pddk[i]['c'];
+                if ( _c == channelVal ) {
+                    bdlist = pddk[i]['b'];
+                    break;
+                }
+            }
+            for ( var i = 0; i <  bdlist.length; i++ ) {
+                item += '<option value="'+bdlist[i]+'">'+ bdlist[i] +'M</option>';
+            }
+            $bandwidth.html( item ).val( '0' );
+            $itemBandwidth
+                .find( '.dummy' )
+                .text("自动");
+            $itemBandwidth.show();
+
+        });
+
+        $( '.hwmode' ).on( 'change', function( e ){
+            var hwmode = this.value,
+                that = this,
+                id = $(this).attr('data-id'),
+                root = $( this ).parents('form'),
+                pwd = root.find('.form-item-pwd'),
+                $bandwidth = $( this ).closest('.form').find('[name=bandwidth]'),
+                $itemBandwidth = $( this ).closest('.form').find('.itemBandwidth'),
+                tips = $(this.parentNode).next('.t'),
+                item = '<option value="0"><%:自动%></option>',
+                bdlist = [];
+
+            if ( id == 0 && hwmode == '11b/g_mixed' || hwmode == '11b_only' || hwmode == '11g_only') {
+                $itemBandwidth.hide();
+                return;
+            }else if (id == 0) {
+                bdlist = ["20","40"];
+            }
+
+            if ( id == 1 && hwmode == '11a_only') {
+                $itemBandwidth.hide();
+                return;
+            }else if( id == 1 && hwmode == '11a/an/ac_mixed'){
+                bdlist = ["20","40","80"];
+            }else if(id == 1){
+                bdlist = ["20","40"];
+            }
+
+            for ( var i = 0; i <  bdlist.length; i++ ) {
+                item += '<option value="'+bdlist[i]+'">'+ bdlist[i] +'M</option>';
+            }
+            $bandwidth.html( item ).val( '0' );
+            $itemBandwidth
+                .find( '.dummy' )
+                .text("自动");
+            $itemBandwidth.show();
+
+        });
+    } );
+
+    $.sub( 'wifi:bindEvent', function( evt, data ){
+
+        function wifiSubmitHandler(e){
+            e.preventDefault();
+            var formOjb = this,
+                formAction = this.action,
+                validator = Valid.checkAll(formOjb);
+            if ( validator) {
+                var wifiIndex = $( 'input[name=wifiIndex]', formOjb ).val(),
+                    on = $( 'input[name=on]:checked', formOjb ).val(),
+                    pwd =  $( 'input[name=pwd]', formOjb ).val(),
+                    ssid = $( 'input[name=ssid]', formOjb ).val(),
+                    encryption = $( 'select[name=encryption]', formOjb ).val(),
+                    channel = $( 'select[name=channel]', formOjb ).val(),
+                    bandwidth = $( 'select[name=bandwidth]', formOjb ).val(),
+                    txpwr = $( 'select[name=txpwr]', formOjb ).val(),
+                    hwmode = $( 'select[name=hwmode]', formOjb ).val(),
+                    hidden = $('input[name=hidden]', formOjb ).prop('checked') ? '1' : '0';
+                    pwd = $.pwddecode( pwd );
+
+                var requestData = {
+                    wifiIndex: wifiIndex,
+                    on: on,
+                    ssid: ssid,
+                    pwd: pwd,
+                    encryption: encryption,
+                    channel: channel,
+                    bandwidth: bandwidth,
+                    hidden: hidden,
+                    hwmode : hwmode,
+                    txpwr: txpwr
+                };
+
+                $.pub( 'wifi:confirm', {
+                    ok : function(){
+                        $.pub( 'wifi:modify', {
+                            requestData : requestData,
+                            url : formAction
+                        } );
+                    },
+                    cancel : function(){}
+                } );
+            }
+        }
+
+        function wifiGuest24SubmitHandler(e){
+            e.preventDefault();
+            e.preventDefault();
+            var formOjb = this,
+                formAction = this.action,
+                validator = Valid.checkAll(formOjb);
+            if ( validator) {
+                var wifiIndex = $( 'input[name=wifiIndex]', formOjb ).val(),
+                    on = $( 'input[name=on]:checked', formOjb ).val(),
+                    pwd =  $( 'input[name=pwd]', formOjb ).val(),
+                    ssid = $( 'input[name=ssid]', formOjb ).val(),
+                    encryption = $( 'select[name=encryption]', formOjb ).val();
+                    pwd = $.pwddecode( pwd );
+
+                var ssid24 = global.wifi.configs[1].ssid;
+                if ( ssid == ssid24 ) {
+                    Valid.fail( $( 'input[name=ssid]', formOjb )[0], '<%:访客SSID和2.4G SSID不能相同%>', true);
+                    return;
+                }
+                var requestData = {
+                    wifiIndex: wifiIndex,
+                    on: on,
+                    ssid: ssid,
+                    pwd: pwd,
+                    encryption: encryption
+                };
+
+                $.pub( 'wifi:confirm', {
+                    ok : function(){
+                        $.pub( 'wifi:modify', {
+                            requestData : requestData,
+                            url : formAction
+                        } );
+                    },
+                    cancel : function(){}
+                } );
+            }
+        }
+
+        function wifiGuest50SubmitHandler(e){
+            e.preventDefault();
+            e.preventDefault();
+            var formOjb = this,
+                formAction = this.action,
+                validator = Valid.checkAll(formOjb);
+            if ( validator) {
+                var wifiIndex = $( 'input[name=wifiIndex]', formOjb ).val(),
+                    on = $( 'input[name=on]:checked', formOjb ).val(),
+                    pwd =  $( 'input[name=pwd]', formOjb ).val(),
+                    ssid = $( 'input[name=ssid]', formOjb ).val(),
+                    encryption = $( 'select[name=encryption]', formOjb ).val();
+                    pwd = $.pwddecode( pwd );
+
+                var ssid50 = global.wifi.configs[2].ssid;
+                if ( ssid == ssid50 ) {
+                    Valid.fail( $( 'input[name=ssid]', formOjb )[0], '<%:访客SSID和5G SSID不能相同%>', true);
+                    return;
+                }
+                var requestData = {
+                    wifiIndex: wifiIndex,
+                    on: on,
+                    ssid: ssid,
+                    pwd: pwd,
+                    encryption: encryption
+                };
+
+                $.pub( 'wifi:confirm', {
+                    ok : function(){
+                        $.pub( 'wifi:modify', {
+                            requestData : requestData,
+                            url : formAction
+                        } );
+                    },
+                    cancel : function(){}
+                } );
+            }
+        }
+
+        function bsdWiFiSubmitHandler(e){
+            e && e.preventDefault();
+            var bsd = $('#bsdswitch').attr('data-on') == 1 ? 1 : 0;
+            var topContainer = $('#wifisetbsdtop');
+            var form1 = $('#wifiset24');
+            var form2 = $('#wifiset50');
+            var on1 = $( 'input[name=on]:checked', topContainer ).val(),
+                ssid1 = $( 'input[name=ssid]', topContainer ).val(),
+                pwd1 =  $( 'input[name=pwd]', topContainer ).val(),
+                encryption1 = $( 'select[name=encryption]', topContainer ).val(),
+                hidden1 = $('input[name=hidden]', topContainer ).prop('checked') ? '1' : '0';
+                channel1 = $( 'select[name=channel]', form1 ).val(),
+                bandwidth1 = $( 'select[name=bandwidth]', form1 ).val(),
+                txpwr1 = $( 'select[name=txpwr]', form1 ).val(),
+                hwmode1 = $( 'select[name=hwmode]', form1 ).val(),
+                pwd1 = $.pwddecode( pwd1 ),
+                on2 = on1,
+                ssid2 = ssid1,
+                pwd2 = pwd1,
+                encryption2 = encryption1,
+                hidden2 = hidden1,
+                channel2 = $( 'select[name=channel]', form2 ).val(),
+                bandwidth2 = $( 'select[name=bandwidth]', form2 ).val(),
+                txpwr2 = $( 'select[name=txpwr]', form2 ).val(),
+                hwmode2 = $( 'select[name=hwmode]', form2 ).val();
+            var requestData = {
+                bsd: bsd,
+                on1: on1,
+                ssid1: ssid1,
+                encryption1: encryption1,
+                channel1: channel1,
+                bandwidth1: bandwidth1,
+                hidden1: hidden1,
+                txpwr1: txpwr1,
+                hwmode1 : hwmode1,
+                pwd1: pwd1,
+                on2: on2,
+                ssid2: ssid2,
+                encryption2: encryption2,
+                channel2: channel2,
+                bandwidth2: bandwidth2,
+                hidden2: hidden2,
+                txpwr2: txpwr2,
+                hwmode2 : hwmode2,
+                pwd2: pwd2
+            };
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "xqnetwork", "set_all_wifi")%>',
+                dataType: 'json',
+                timeout: 5000,
+                type: 'POST',
+                data: requestData,
+                success: function( rsp ){
+                    if( rsp.code === 0 ){
+                        $.pub( 'wifi:success' );
+                    } else {
+                        if ( rsp.code !== 401) {
+                            var msg = StringH.encode4Html( rsp.msg );
+                            $.alert( msg ).lock();
+                        }
+                    }
+                },
+                error: function() {
+                    $.alert( '<%:网络异常，请检查是否联网%>' );
+                }
+            });
+        }
+
+        $('#wifiset24').delegate('[name=on]', 'click', function(e){
+            var val = $(this).val();
+            if( global.wifi.configs[3] && global.wifi.configs[3].status ){
+                var wifigueststatus = global.wifi.configs[3].status;
+                var netModeType = parseInt('<%=XQFunction.getNetModeType()%>');
+                if ( val != wifigueststatus) {
+                    if ( val == 0 && netModeType !== 2) {
+                        $.alert('<%:关闭2.4G Wi-Fi会同时关闭访客Wi-Fi%>').time(3000);
+                    }
+                }
+            }
+        });
+
+        $('body').delegate('#wifisetbsd input[name=on]', 'click', function(e){
+            var val = $(this).val();
+            if( global.wifi.configs[3] && global.wifi.configs[3].status ){
+                var wifigueststatus = global.wifi.configs[3].status;
+                var netModeType = parseInt('<%=XQFunction.getNetModeType()%>');
+                if ( val != wifigueststatus) {
+                    if ( val == 0 && netModeType !== 2) {
+                        $.alert('<%:关闭Wi-Fi会同时关闭访客Wi-Fi%>').time(3000);
+                    }
+                }
+            }
+        });
+
+        $('#wifisetguest24').delegate('[name=on]', 'click', function(e){
+            var val = $(this).val();
+            var wifi24status = global.wifi.configs[1].status;
+            if ( val != wifi24status ) {
+                if ( val == 1 ) {
+                    $.alert('<%:打开访客Wi-Fi会同时打开Wi-Fi%>').time(3000);
+                }
+            }
+        });
+        $('#wifisetguest50').delegate('[name=on]', 'click', function(e){
+            var val = $(this).val();
+            var wifi50status = global.wifi.configs[1].status;
+            if ( val != wifi50status ) {
+                if ( val == 1 ) {
+                    $.alert('<%:打开访客Wi-Fi会同时打开Wi-Fi%>').time(3000);
+                }
+            }
+        });
+
+        $('#wifiset24').on('submit', wifiSubmitHandler);
+        $('#wifiset50').on('submit', wifiSubmitHandler);
+        $('#wifisetguest24').on('submit', wifiGuest24SubmitHandler);
+        $('#wifisetguest50').on('submit', wifiGuest50SubmitHandler);
+        $('body').delegate('#wifisetbsd', 'submit', bsdWiFiSubmitHandler);
+
+        $('body').delegate('input[name=ssid]' ,'blur', function(e){
+            var tar = e.currentTarget;
+            if ( escape(tar.value).indexOf("%u") >= 0 ) {
+                $(tar.parentNode).next('.t').text('<%:少数设备可能不支持中文或特殊字符%>').show();
+            }
+        });
+
+        $('#wifiset24, #wifiset50, #wifisetguest24, #wifisetguest50').delegate('input[type=text], input[type=checkbox], input[type=radio]', 'click', onControlFocus)
+                .delegate('.ipt-text', 'click', onControlFocus);
+        $('#txbfswitch').on('click', function(e){
+            e.preventDefault();
+            var txbf = $(this).attr('data-on') == 1 ? 0 : 3;
+            var self = this;
+               
+            var requestData = {
+                wifiIndex: 2,
+                txbf: txbf
+            };
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "xqnetwork", "set_wifi")%>',
+                dataType: 'json',
+                timeout: 5000,
+                type: 'POST',
+                data: requestData,
+                success: function( rsp ){
+                    if( rsp.code === 0 ){
+                        if(txbf == 0) {
+                            $(self)
+                            .removeClass('btn-switch-on')
+                            .addClass('btn-switch-off')
+                            .attr('data-on', '0');
+                        }else {
+                            $(self)
+                            .removeClass('btn-switch-off')
+                            .addClass('btn-switch-on')
+                            .attr('data-on', '1');
+                            }
+                        
+                        $.pub( 'wifi:success' );
+                    } else {
+                        if ( rsp.code !== 401) {
+                            var msg = StringH.encode4Html( rsp.msg );
+                            $.alert( msg ).lock();
+                        }
+                    }
+                },
+                error: function() {
+                    $.alert( '<%:网络异常，请检查是否联网%>' );
+                }
+            });
+
+        });
+        $('#bsdswitch').on('click', function(e){
+            e.preventDefault();
+            var on = $(this).attr('data-on');
+            var self = this;
+            if( on == 0 ){
+                var formOjb = $('#wifiset24');
+                var on1 = $( 'input[name=on]:checked', formOjb ).val(),
+                    ssid1 = $( 'input[name=ssid]', formOjb ).val(),
+                    pwd1 =  $( 'input[name=pwd]', formOjb ).val(),
+                    encryption1 = $( 'select[name=encryption]', formOjb ).val(),
+                    channel1 = $( 'select[name=channel]', formOjb ).val(),
+                    bandwidth1 = $( 'select[name=bandwidth]', formOjb ).val(),
+                    hidden1 = $('input[name=hidden]', formOjb ).prop('checked') ? '1' : '0',
+                    txpwr1 = $( 'select[name=txpwr]', formOjb ).val(),
+                    pwd1 = $.pwddecode( pwd1 );
+                var requestData = {
+                    bsd: 1,
+                    on1: on1,
+                    ssid1: ssid1,
+                    encryption1: encryption1,
+                    channel1: channel1,
+                    bandwidth1: bandwidth1,
+                    hidden1: hidden1,
+                    txpwr1: txpwr1,
+                    pwd1: pwd1
+                };
+                $.ajax({
+                    url: '<%=luci.dispatcher.build_url("api", "xqnetwork", "set_all_wifi")%>',
+                    dataType: 'json',
+                    timeout: 5000,
+                    type: 'POST',
+                    data: requestData,
+                    success: function( rsp ){
+                        if( rsp.code === 0 ){
+                            $(self)
+                            .removeClass('btn-switch-off')
+                            .addClass('btn-switch-on')
+                            .attr('data-on', '1');
+                            $.pub( 'wifi:success' );
+                        } else {
+                            if ( rsp.code !== 401) {
+                                var msg = StringH.encode4Html( rsp.msg );
+                                $.alert( msg ).lock();
+                            }
+                        }
+                    },
+                    error: function() {
+                        $.alert( '<%:网络异常，请检查是否联网%>' );
+                    }
+                });
+            }else{
+                $.dialog({
+                    width: 390,
+                    title : "<%:提示信息%>",
+                    content : '<%:WiFi双频合一关闭，5G会默认使用2.4G相同的网络名称（加后缀_5G）和密码，如需设成不一样，请进行修改。%>',
+                    ok: function(){
+                        $(self)
+                        .removeClass('btn-switch-on')
+                        .addClass('btn-switch-off')
+                        .attr('data-on', '0');
+                        setTimeout(function(){
+                            bsdWiFiSubmitHandler();
+                        }, 0);
+                    }
+                });
+            }
+        });
+    });
+
+    $.sub( 'wifi:success', function( evt, data ){
+        $.loadingDialog({
+            title : '<%:修改 Wi-Fi 设置%>',
+            content : '<%:设置成功正在重启，需要30秒请等待...%>',
+            cancel: false
+        }).lock().time( 30*1000 );
+        setTimeout( function(){
+            window.location.reload( true );
+        }, 30*1000 );
+    } );
+
+    $.sub( 'wifi:confirm', function( evt, data ){
+        var ok = data.ok || function(){},
+            cancel = data.cancel || function(){};
+
+        $.dialog({
+            id : "confirm",
+            width: 390,
+            title : "<%:修改Wi-Fi设置%>",
+            content : '<%:该操作将重启 Wi-Fi 并导致 Wi-Fi 下的所有设备失去连接，是否确认修改？%>',
+            ok: function(){
+                ok();
+            },
+            cancel: function () {
+                cancel();
+            }
+        }).lock();
+    } );
+
+    $.sub( 'wifi:modify', function( evt, data ){
+        var requestData =  data.requestData;
+        var url = data.url;
+        $.ajax({
+            url: url,
+            dataType: 'json',
+            timeout: 5000,
+            type: "POST",
+            data: requestData,
+            success: function( rsp ) {
+                if( rsp.code === 0 ){
+                    $.pub( 'wifi:success' );
+                } else {
+                    if ( rsp.code !== 401) {
+                        var msg = StringH.encode4Html( rsp.msg );
+                        $.alert( msg ).lock();
+                    }
+                }
+            },
+            error: function() {
+                $.alert( '<%:网络异常，请检查是否联网%>' );
+            }
+        });
+    });
+
+    $.sub( 'wifi:txpwr', function( evt, data ){
+        var txpwr = '<%=wifiTxpwr%>',
+            setTxpwr = function( root , data ){
+                var that = root,
+                    requestData = data,
+                    requestURL = '<%=luci.dispatcher.build_url("api", "xqnetwork","set_wifi_txpwr")%>';
+
+                return function(){
+                    $.getJSON( requestURL, requestData, function( rsp ){
+                        if ( rsp.code === 0 ) {
+                            $.loadingDialog({
+                                title: '<%:Wi-Fi 信号强度设置%>',
+                                content : '<%:设置已经生效，等待30秒后 Wi-Fi 重启。%>'
+                            }).lock().time( 30*1000 );
+
+                            setTimeout(function(){
+                                window.location.reload( 1 );
+                            }, 30 * 1000);
+
+                        } else {
+                            $.alert( rsp.msg );
+                        }
+                    });
+                };
+            };
+
+        $( '#wifiSetTxpwr' ).on( 'submit', function( e ){
+            e.preventDefault();
+            var that = this,
+                requestData = {
+                    txpwr: $('#txpwr').val()
+                },
+                ok;
+
+            if ( requestData.txpwr === txpwr ) {
+                $.alert( '<%:你什么都没改变，提交什么啊%>' );
+                return;
+            }
+
+            ok = setTxpwr( that, requestData );
+
+            $.pub( 'wifi:confirm', {
+                ok : ok,
+                cancel : function(){}
+            } );
+        } );
+    } );
+
+    $.sub('countrycode', function(evt, data){
+        var apiGet = '<%=luci.dispatcher.build_url("api", "xqsystem", "country_code")%>',
+            apiSet = '<%=luci.dispatcher.build_url("api", "xqsystem", "set_country_code")%>',
+            $select = $('#countrycode');
+
+        $.get(apiGet, function( rsp ){
+            var rsp = $.parseJSON( rsp );
+            var selectContent = [];
+            if ( rsp.code == 0 ) {
+                for (var i = 0; i < rsp.list.length; i++) {
+                    var item = rsp.list[i],
+                        selected = item.code == rsp.current ? 'selected' : '',
+                        option = '<option value="' + item.code + '" '+ selected +'>' + item['name'] + '</option>';
+                    selectContent.push(option);
+                };
+                $select.html( selectContent.join('') );
+            }
+            $.selectBeautify({container: '#countrycode'});
+        });
+
+        $select.on('change', function( e ){
+            var el = this,
+                val = $(this).val();
+            $.confirm('<%:切换国家或地区将会变更路由器的无线网络工作信道，需要重启后生效，是否确定？%>', function(){
+                $.post(apiSet, {country: val}, function( rsp ){
+                    var rsp = $.parseJSON( rsp );
+                    if ( rsp.code == 0 ) {
+                        rebootWait({ action: '<%:切换国家或地区%>', refresh: true});
+                    } else {
+                        $.alert( rsp.msg );
+                    }
+                });
+            })
+
+        });
+    });
+
+
+
+    $(function(){
+        $.pub( 'wifi:init' );
+        $.pub( 'wifi:bindEvent' );
+        $.pub( 'wifi:txpwr' );
+        //$.pub( 'countrycode' );
+    });
+}());
+</script>

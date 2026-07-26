@@ -1,0 +1,42 @@
+# $1: mld_id
+# 1: hostap, 2: bh_ap, 3: bh_sta, others
+
+#!/bin/sh
+
+if [ -z "$1" ]; then
+	echo "$0 mld_id"
+	echo "  mld_id: 1=hostap, 2=bh_ap, 3=bh_sta, others"
+	exit
+fi
+
+lan_mac=$(getmac lan)
+if [ -z "$lan_mac" ]; then
+	echo "lan_mac is null!"
+	exit
+fi
+
+mld_id=
+case $1 in
+	hostap)
+		mld_id=1
+		;;
+	bh_ap)
+		mld_id=2
+		;;
+	bh_sta)
+		mld_id=3
+		;;
+	*)
+		mld_id=7
+		;;
+esac
+
+mac_prefix=${lan_mac%%:*}
+mac_postfix=${lan_mac#*:}
+
+mac_dec=$(printf %d 0x$mac_prefix)
+new_mac_dec=$(( ((mac_dec|0x02) + mld_id*16)&0xFF ))
+new_mac_prefix=$(printf %.2x $new_mac_dec)
+mld_macaddr=$(echo "$new_mac_prefix:$mac_postfix")
+
+echo -n "$mld_macaddr"

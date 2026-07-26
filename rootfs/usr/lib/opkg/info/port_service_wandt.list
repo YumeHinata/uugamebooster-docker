@@ -1,0 +1,4 @@
+/usr/sbin/wan_detect.sh
+/lib/modules/5.4.213/wandt_filter.ko
+/usr/sbin/wan_detect
+/etc/hotplug.d/iface/96-wan_detect

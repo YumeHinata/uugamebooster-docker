@@ -1,0 +1,8 @@
+Package: kmod-diag-char
+Version: 5.4.213+1-1
+Depends: kernel (=5.4.213-1-b03fef75f247f6a85b8c8530633d37c5), kmod-lib-crc-ccitt
+Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/platform_utils/platform_drivers
+Section: kernel
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 124811
+Description:  CHAR DIAG

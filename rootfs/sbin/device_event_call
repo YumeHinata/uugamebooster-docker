@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# mac addr, such as: 00:11:22:33:44:55
+MAC=$2
+
+# event type, 0: offline, 1: online, 3: ip changed
+EVENT=$3
+
+# interface name, such as: eth1 wl0 ''
+IFNAME=$4
+
+export MAC EVENT IFNAME
+logger -t trafficd_notify -p notice "script:$1,mac:$MAC,event:$EVENT,ifname:$IFNAME"
+
+script_dir="/etc/traffic.d/${1:-notexist}"
+script_file=
+
+if [ -d "$script_dir" ]; then
+	for script_file in "$script_dir"/*; do
+		[ -x "$script_file" ] && "$script_file"
+	done
+fi

@@ -1,0 +1,11 @@
+Package: wireless-tools
+Version: 29-5
+Depends: libc, kmod-qca-wifi
+Source: package/network/utils/wireless-tools
+License: GPL-2.0
+Section: net
+Maintainer: Felix Fietkau <nbd@nbd.name>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 27179
+Description:  This package contains a collection of tools for configuring wireless
+ adapters implementing the "Linux Wireless Extensions".

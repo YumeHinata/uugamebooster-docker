@@ -1,0 +1,6 @@
+#!/bin/sh
+
+cc=`nvram get CountryCode`
+[ -z "$cc" ] && cc="CN"
+
+echo $cc 

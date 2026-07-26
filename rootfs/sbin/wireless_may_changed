@@ -1,0 +1,19 @@
+#!/bin/sh
+
+file="/etc/config/wireless"
+md5sum_file="/var/wireless_md5"
+
+if [ -f $md5sum_file ]; then
+    last_md5sum=$(cat $md5sum_file)
+else
+    last_md5sum=""
+fi
+
+current_md5sum=$(md5sum $file | awk '{print $1}')
+if [ "$current_md5sum" != "$last_md5sum" ]; then
+    echo "$current_md5sum" > $md5sum_file
+    ubus call service event '{"type":"config.change","data":{"package":"MiwifiEvent_wireless_changed"}}'
+    exit 1
+else
+    exit 0
+fi

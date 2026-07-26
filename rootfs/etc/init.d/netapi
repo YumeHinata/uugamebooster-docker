@@ -1,0 +1,19 @@
+#!/bin/sh /etc/rc.common
+
+START=98
+USE_PROCD=1
+PROG=/usr/sbin/netapi
+
+start_service() {
+    netmode=`uci -q -S get xiaoqiang.common.NETMODE`
+    if [ "$netmode" = "wifiapmode" -o "$netmode" = "lanapmode" ]; then
+	return 0
+    fi
+    [ -f "$PROG" ] && {
+	procd_open_instance
+	procd_set_param command "$PROG"
+	procd_set_param respawn
+	procd_close_instance
+    }
+}
+

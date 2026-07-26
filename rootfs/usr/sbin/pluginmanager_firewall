@@ -1,0 +1,123 @@
+#!/bin/sh
+
+PLUGINS_ROOT='/userdisk/appdata'
+
+
+plugin_is_plugin_running() {
+    uci show pluginmanager | grep -qsw "status='5'"
+}
+
+plugin_firewall_deinit() {
+    iptables-restore --noflush -w <<EOF
+*nat
+-D PREROUTING -j plugin_PREROUTING
+-D INPUT -j plugin_INPUT
+-D OUTPUT -j plugin_OUTPUT
+-D POSTROUTING -j plugin_POSTROUTING
+-F plugin_INPUT
+-F plugin_OUTPUT
+-F plugin_POSTROUTING
+-F plugin_PREROUTING
+-X plugin_INPUT
+-X plugin_OUTPUT
+-X plugin_POSTROUTING
+-X plugin_PREROUTING
+COMMIT
+*mangle
+-D PREROUTING -j plugin_PREROUTING
+-D INPUT -j plugin_INPUT
+-D FORWARD -j plugin_FORWARD
+-D OUTPUT -j plugin_OUTPUT
+-D POSTROUTING -j plugin_POSTROUTING
+-F plugin_FORWARD
+-F plugin_INPUT
+-F plugin_OUTPUT
+-F plugin_POSTROUTING
+-F plugin_PREROUTING
+-X plugin_FORWARD
+-X plugin_INPUT
+-X plugin_OUTPUT
+-X plugin_POSTROUTING
+-X plugin_PREROUTING
+COMMIT
+*filter
+-D INPUT -j plugin_INPUT
+-D FORWARD -j plugin_FORWARD
+-D OUTPUT -j plugin_OUTPUT
+-F plugin_FORWARD
+-F plugin_INPUT
+-F plugin_OUTPUT
+-X plugin_FORWARD
+-X plugin_INPUT
+-X plugin_OUTPUT
+COMMIT
+EOF
+    return
+}
+
+plugin_firewall_is_init() {
+    iptables -t filter -w -S plugin_INPUT &>/dev/null
+}
+
+plugin_firewall_init() {
+    iptables-restore --noflush -w <<EOF
+*nat
+:plugin_INPUT - [0:0]
+:plugin_OUTPUT - [0:0]
+:plugin_POSTROUTING - [0:0]
+:plugin_PREROUTING - [0:0]
+-I PREROUTING -j plugin_PREROUTING
+-I INPUT -j plugin_INPUT
+-I OUTPUT -j plugin_OUTPUT
+-I POSTROUTING -j plugin_POSTROUTING
+COMMIT
+*mangle
+:plugin_FORWARD - [0:0]
+:plugin_INPUT - [0:0]
+:plugin_OUTPUT - [0:0]
+:plugin_POSTROUTING - [0:0]
+:plugin_PREROUTING - [0:0]
+-I PREROUTING -j plugin_PREROUTING
+-I INPUT -j plugin_INPUT
+-I FORWARD -j plugin_FORWARD
+-I OUTPUT -j plugin_OUTPUT
+-I POSTROUTING -j plugin_POSTROUTING
+COMMIT
+*filter
+:plugin_FORWARD - [0:0]
+:plugin_INPUT - [0:0]
+:plugin_OUTPUT - [0:0]
+-I INPUT -j plugin_INPUT
+-I FORWARD -j plugin_FORWARD
+-I OUTPUT -j plugin_OUTPUT
+COMMIT
+EOF
+    return
+}
+
+plugin_firewall_reload() {
+    if [ -d "$PLUGINS_ROOT" ]; then
+        find "$PLUGINS_ROOT" -type f -name "firewall.sh" -exec sh -c 'sh $1 reload' _ {} \;
+    fi
+}
+
+case $1 in
+    "reload")
+        if plugin_is_plugin_running; then
+            plugin_firewall_is_init || plugin_firewall_init
+            plugin_firewall_reload
+        else
+            plugin_firewall_is_init && plugin_firewall_deinit
+        fi
+    ;;
+    "init")
+        plugin_firewall_init
+        ;;
+    "deinit")
+        plugin_firewall_deinit
+        ;;
+    *)
+        echo "plugin_firewall: not support cmd: $1"
+    ;;
+esac
+exit 0

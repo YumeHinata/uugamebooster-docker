@@ -1,0 +1,18 @@
+Package: libidn2
+Version: 2.0.4-1
+Depends: libc, libunistring
+Source: feeds/packages/libs/libidn2
+License: GPL-2.0-or-later LGPL-3.0-or-later
+LicenseFiles: COPYING COPYINGv2 COPYING.LESSERv3
+Section: libs
+Maintainer: Kevin Darbyshire-Bryant <ldir@darbyshire-bryant.me.uk>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 60346
+Description:  Libidn2 is a free software implementation of IDNA2008,
+ Punycode and TR46 in library form. It contains
+ functionality to convert internationalized domain
+ names to and from ASCII Compatible Encoding (ACE),
+ following the IDNA2008 and TR46 standards.
+ 
+ Library only package
+ 

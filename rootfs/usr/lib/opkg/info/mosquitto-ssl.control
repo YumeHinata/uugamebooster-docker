@@ -1,0 +1,18 @@
+Package: mosquitto-ssl
+Version: 2.0.13-1
+Depends: libc, librt, libopenssl, libwebsockets-openssl
+Provides: mosquitto
+Source: feeds/packages/net/mosquitto
+License: EPL-2.0
+LicenseFiles: LICENSE.txt
+Section: net
+Maintainer: Karl Palsson <karlp@etactica.com>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 107309
+Description:  Mosquitto is an open source (BSD licensed) message broker that implements
+ the MQTT protocol version 3.1, 3.1.1 and 5. MQTT provides a lightweight
+ method of carrying out messaging using a publish/subscribe model.
+ 
+ This package also includes some basic support for configuring via UCI
+ This package is built with SSL support.  TLS-PSK will be included (in both
+ the client and broker) if OpenSSL is built with TLS-PSK support.

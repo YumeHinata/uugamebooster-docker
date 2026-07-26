@@ -1,0 +1,9 @@
+Package: libnl-nf
+Version: 3.4.0-2
+Depends: libc, libnl-route
+Source: package/libs/libnl
+License: LGPL-2.1
+Section: libs
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 26657
+Description:  Netfilter Netlink Library Functions

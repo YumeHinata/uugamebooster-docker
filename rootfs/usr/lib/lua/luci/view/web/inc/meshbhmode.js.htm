@@ -1,0 +1,91 @@
+<%
+local XQFunction = require("xiaoqiang.common.XQFunction")
+local mesh_bhtype_mode_supported = XQFunction.getFeature("0", "system", "mesh_bhtype_mode")
+local mode = XQFunction.getNetMode()
+if mesh_bhtype_mode_supported ~= '0' and mode == "whc_re" then
+%>
+<script>
+  $(function () {
+    function getBhMode(bhmode) {
+        if (bhmode != "wired" && bhmode != "auto") {
+            bhmode = "auto";
+        }
+        $("#bhModeForm select[name=bhmode]").val(bhmode);
+        if (bhmode == "wired") {
+            $(".bhtip").show();
+        }
+        else {
+            $(".bhtip").hide();
+        }
+        $.formInit();
+        $.selectBeautify();
+    }
+    // function onControlFocus() {
+    //     $("#btnBhModeSubmit").removeClass('hidden');
+    // }
+    $( '#btnBhModeSubmit' ).on( 'click', function( e ){
+        e.preventDefault();
+        var bhmode = $("#bhModeForm select[name=bhmode]").val();
+
+        if (bhmode != "wired" && bhmode != "auto") {
+            $.dialog({
+                width: 390,
+                title : "<%:提示信息%>",
+                content : "<%:参数错误%>",
+                ok: function(){}
+            });
+            return;
+        }
+
+        $.pub('loading:start');
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api", "misystem","set_mesh_bh_mode")%>',
+            type: "POST",
+            data: {bhmode: bhmode},
+            dataType: "json",
+            success : function( rsp ){
+                $.pub('loading:stop');
+                if( rsp.code === 0 ){
+                    $.alert('<%:设置成功%>').time(1.5 * 1000);
+                    getBhMode(bhmode);
+                } else {
+                    $.alert( rsp.msg );
+                }
+            },
+            error: function() {
+                $.pub('loading:stop');
+                $.alert( '<%:网络异常，请检查是否联网%>' );
+            }
+        });
+    });
+
+
+    $(document).ready(function(){
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api", "misystem","get_mesh_bh_mode")%>',
+            type: "GET",
+            dataType: "json",
+            success : function( rsp ){
+                if ( rsp.code === 0 ) { 
+                    getBhMode(rsp.bhmode);
+                }
+                else {
+                    $.alert( rsp.msg );
+                }
+            }
+        });
+    });
+    $("#bhModeForm select[name=bhmode]").on("change", function() {
+        var bhmode = $(this).val();
+        if (bhmode == "wired") {
+            $(".bhtip").show();
+        }
+        else {
+            $(".bhtip").hide();
+        }
+    });
+
+    // $('#bhModeForm').delegate('select', 'click', onControlFocus);
+  });
+</script>
+<%end%>

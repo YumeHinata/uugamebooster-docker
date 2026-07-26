@@ -1,0 +1,22 @@
+config system
+	option hostname 'XiaoQiang'
+	option timezone 'UTC'
+	option log_type 'file'
+	option log_size '1024'
+	option log_file '/tmp/messages'
+	option cronloglevel '9'
+
+config hostdns 'netdt'
+	option cn_domain 'www.baidu.com www.taobao.com'
+	option cn_dns '180.76.76.76 114.114.114.114'
+	option world_domain 'www.google.com www.facebook.com www.amazon.com'
+	option world_dns '8.8.8.8 8.8.4.4'
+
+config timeserver ntp
+	list server '0.pool.ntp.org'
+	list server '1.pool.ntp.org'
+	list server '2.pool.ntp.org'
+	list server '3.pool.ntp.org'
+	list server '0.cn.pool.ntp.org'
+	option enabled 1
+	option enable_server 0

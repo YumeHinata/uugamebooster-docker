@@ -1,0 +1,6 @@
+/usr/sbin/thermald
+/etc/config/thermal
+/etc/thermal/ipq-thermald-8069.conf
+/etc/init.d/thermal
+/etc/thermal/ipq-thermald-8064.conf
+/etc/thermal/ipq-thermald-8066.conf

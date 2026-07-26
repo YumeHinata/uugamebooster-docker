@@ -1,0 +1,4 @@
+/etc/modules.d/52-qca-nss-eip
+/lib/modules/5.4.213/qca-nss-eip.ko
+/usr/include/qca-nss-eip/eip.h
+/usr/bin/eip_dump.sh

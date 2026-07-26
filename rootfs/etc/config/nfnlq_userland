@@ -1,0 +1,26 @@
+# restart to apply changes of meta/extension
+# reload(sighup) to apply changes of consumer
+
+#Examples:
+#config meta nfnlq
+#    option queue_base '0'
+#    list cpu_affinity '0001'
+#    list cpu_affinity '0010'
+#    list cpu_affinity '0100'
+#    list cpu_affinity '1000'
+#
+#config extension haohan
+#    option path '/usr/lib/libxxx.so'
+#    list pre_targets '-m comment --comment pre_target'
+#    list matches '-m comment --comment matches'
+#
+#config consumer mipctl
+#    list depends 'haohan'
+#
+config meta nfnlq
+    option queue_base '0'
+    list cpu_affinity '0001'
+    list cpu_affinity '0010'
+    list cpu_affinity '0100'
+    list cpu_affinity '1000'
+

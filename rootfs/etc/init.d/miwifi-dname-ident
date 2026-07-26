@@ -1,0 +1,43 @@
+#!/bin/sh /etc/rc.common
+
+START=51
+
+start() {
+    if [ "$(uci get nfnlq_userland.miwifi_dname_ident.version)" != "0" ]; then
+        ubus call uci add '{
+            "config": "nfnlq_userland",
+            "type": "extension",
+            "name": "miwifi_dname_ident"
+        }'
+        ubus call uci set '{
+            "config": "nfnlq_userland",
+            "section": "miwifi_dname_ident",
+            "values": {
+                "version": "0",
+                "path": "\/usr\/lib\/libmiwifi_dname_ident.so",
+                "pre_targets": [
+                    "IF",
+                    "-m miwifi-xthostset --need-check",
+                    "AND",
+                    "-p tcp",
+                    "AND",
+                    "NOT -m conntrack --ctstate ESTABLISHED --ctstatus ASSURED",
+                    "THEN",
+                    "-j MARK --set-mark 0x20\/0x20",
+                    "FI"
+                ],
+                "matches": [
+                    "-m miwifi-xthostset --need-check",
+                    "AND",
+                    "(",
+                    "! -p tcp",
+                    "OR",
+                    "-m conntrack --ctstate ESTABLISHED --ctstatus ASSURED",
+                    ")"
+                ]
+            }
+        }'
+        ubus call uci commit '{"config": "nfnlq_userland"}'
+        echo "flushed miwifi-dname-ident nfnlq configurations"
+    fi
+}

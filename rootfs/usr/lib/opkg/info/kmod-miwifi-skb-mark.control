@@ -1,0 +1,8 @@
+Package: kmod-miwifi-skb-mark
+Version: 5.4.213+1.0-1.0
+Depends: kernel (=5.4.213-1-b03fef75f247f6a85b8c8530633d37c5)
+Source: package/miwifi/miwifi-skb-mark
+Section: kernel
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 105
+Description:  miwifi skb mark

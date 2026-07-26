@@ -1,0 +1,3 @@
+/lib/modules/5.4.213/qca-ssdk.ko
+/etc/init.d/qca-ssdk
+/etc/modules.d/30-qca-ssdk-nohnat

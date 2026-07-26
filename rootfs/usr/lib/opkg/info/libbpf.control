@@ -1,0 +1,10 @@
+Package: libbpf
+Version: 5.10.10-2
+Depends: libc, libelf
+Source: package/network/utils/bpftools
+License: LGPL-2.1 OR BSD-2-Clause
+Section: libs
+Maintainer: Tony Ambardar <itugrok@yahoo.com>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 86130
+Description:  libbpf is a library for loading eBPF programs and reading and manipulating eBPF objects from user-space.

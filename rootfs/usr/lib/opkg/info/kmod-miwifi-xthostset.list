@@ -1,0 +1,2 @@
+/etc/modules.d/49-miwifi-xthostset
+/lib/modules/5.4.213/miwifi-xthostset.ko

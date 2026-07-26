@@ -1,0 +1,3 @@
+config local_gw_security settings
+    option enabled '0'
+    option alarm_interval '10'

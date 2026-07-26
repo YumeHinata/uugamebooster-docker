@@ -1,0 +1,30 @@
+<%
+local remote_addr = luci.http.getenv("REMOTE_ADDR") or ""
+local mac = string.upper(luci.sys.net.ip4mac(remote_addr) or "")
+local XQMultiWan = require "xiaoqiang.module.XQMultiWanPolicy"
+local MultiWanEnable = XQMultiWan.getStatus() == 1 and true or false
+if MultiWanEnable then
+%>
+<div class="mod-set multiwan">
+    <h3><%:WAN2:%></h3>
+    <form action="#" class="form form-macclone" name="macClone" id="wan2_macClone">
+        <input type="hidden" name="oldmac">
+        <div class="item">
+            <p><%:当前使用的MAC地址是%><span id="wan2_currMac"><%:获取中...%></span></p>
+        </div>
+        <div class="set">
+            <div class="form-item">
+                <label class="k"><%:MAC地址%></label>
+                <span class="v">
+                    <input type="text" name="mac" id="wan2_macAddr" class="ipt-text"  maxlength="17" datatype="macaddr" value="<%=mac%>" reqMsg="<%:MAC地址%>">
+                </span>
+                <em class="t"><%:当前管理终端的MAC地址，可以手动更改为其他MAC地址%></em>
+            </div>
+        </div>
+        <div class="form-contral clearfix">
+            <button type="submit" id="wan2_btnMacSubmit" class="btn btn-primary btn-m l"><span><%:克隆%></span></button>
+            <button type="submit" id="wan2_btnMacRecover" class="btn btn-primary btn-m r"><span><%:恢复%></span></button>
+        </div>
+    </form>
+</div>
+<%end%>

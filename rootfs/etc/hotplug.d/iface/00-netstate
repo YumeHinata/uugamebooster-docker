@@ -1,0 +1,9 @@
+
+logger -p notice -t "hotplug.d" "00-netstate: run because of $INTERFACE $ACTION"
+
+[ ifup = "$ACTION" ] && {
+	uci_toggle_state network "$INTERFACE" up 1
+	[ -n "$DEVICE" ] && {
+		uci_toggle_state network "$INTERFACE" ifname "$DEVICE"
+	}
+}

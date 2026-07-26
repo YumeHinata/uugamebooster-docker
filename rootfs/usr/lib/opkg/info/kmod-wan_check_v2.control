@@ -1,0 +1,8 @@
+Package: kmod-wan_check_v2
+Version: 5.4.213+1.1-1.1
+Depends: kernel (=5.4.213-1-b03fef75f247f6a85b8c8530633d37c5), kmod-nf-conntrack
+Source: package/miwifi/wan_check_v2
+Section: kernel
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 1642
+Description:  wan_check_v2

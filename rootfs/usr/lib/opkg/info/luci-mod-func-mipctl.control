@@ -1,0 +1,9 @@
+Package: luci-mod-func-mipctl
+Version: 0.11.1-1
+Depends: libc, luci-mod-admin-core
+Source: feeds/luci/luci
+Section: luci
+Maintainer: LuCI Development Team <luci@lists.subsignal.org>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 1471
+Description:  Error page for access intercepted by miparentalctl

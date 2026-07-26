@@ -1,0 +1,4 @@
+/usr/sbin/smartcontroller
+/usr/sbin/set_customer_wifi
+/usr/sbin/set_guest_wifi
+/etc/init.d/smartcontroller

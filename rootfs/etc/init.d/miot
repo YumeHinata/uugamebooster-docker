@@ -1,0 +1,33 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2015 OpenWrt.org
+
+START=91
+
+start()
+{
+	local miot_status led_status
+
+	[ "$(uci -q get misc.features.miot_led)" = "1" ] || exit 0
+
+	miot_status=$(uci -q get wireless.miot_2G.userswitch)
+	led_status=$(uci -q get xiaoqiang.common.BLUE_LED)
+
+	if [ "${led_status:=1}" = "1" ] && [ "$miot_status" = "1" ]; then
+		xqled iot_on
+	else
+		xqled iot_off
+	fi
+}
+
+stop() {
+	xqled iot_off
+}
+
+restart() {
+	stop
+	start
+}
+
+boot() {
+	start
+}

@@ -1,0 +1,3 @@
+/etc/logrotate.conf
+/usr/sbin/logrotate
+/lib/config_post_ota/logrotate_post_ota.sh

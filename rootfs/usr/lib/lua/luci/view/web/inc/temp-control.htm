@@ -1,0 +1,63 @@
+<%
+local features = require("xiaoqiang.XQFeatures").FEATURES
+if features["apps"] and features["apps"]["temp_control"] == "1" then
+%>
+<div class="mod-set">
+  <div class="hd">
+    <div class="help" id="fan_help_open">
+      <span class="info" style="right: 65px"><%:如何设置合适的风扇模式%></span>
+      <span class="ico"></span>
+      <span class="arrow-wrap" id="fan_help_arrow">
+        <span class="arrow1"></span>
+        <span class="arrow2"></span>
+      </span>
+    </div>
+    <h3><%:风扇调节%></h3>
+  </div>
+  <div class="bd">
+    <div class="section section-help" id="fan_help_section">
+      <div class="help-cont">
+        <span class="help-close" id="fan_help_close"></span>
+        <div class="qa">
+          <h3><%:可在此设置路由器的风扇转速模式%></h3>
+          <h4><%:均衡模式%></h4>
+          <p><%:智能平衡散热与噪音(推荐)%></p>
+          <h4><%:散热优先%></h4>
+          <p><%:散热优先，风扇转速较快，噪音较大（建议高负载时使用）%></p>
+          <h4><%:降噪优先%></h4>
+          <p><%:降噪优先，风扇转速较慢，噪音较小（建议休息时使用）%></p>
+        </div>
+      </div>
+    </div>
+    <form
+      action="#"
+      name="fan_ctrl_form"
+      id="fan_ctrl_form"
+      class="form"
+      autocomplete="off"
+    >
+      <div class="form-item-select" id="fan_mode">
+        <span class="v">
+          <select name="fan_mode" id="fan_mode_select" class="beautify">
+            <option value="0"><%:均衡模式%></option>
+            <option value="1"><%:散热优先%></option>
+            <option value="2"><%:降噪优先%></option>
+          </select>
+        </span>
+        <div
+          class="form-contral clearfix"
+          id="fan_ctrl_btn"
+          style="display: none; margin-top: 20px"
+        >
+          <button type="submit" class="btn btn-primary btn-m l">
+            <span><%:应用%></span>
+          </button>
+          <a href="#" class="btn btn-dft btn-m r btncancelset"
+            ><span><%:取消%></span></a
+          >
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+<%end%>

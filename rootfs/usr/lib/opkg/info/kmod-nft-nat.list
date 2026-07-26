@@ -1,0 +1,3 @@
+/lib/modules/5.4.213/nft_nat.ko
+/lib/modules/5.4.213/nft_masq.ko
+/etc/modules.d/nft-nat

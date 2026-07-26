@@ -1,0 +1,58 @@
+#!/bin/sh
+
+#trace caller
+#ppid=$PPID
+#XQLED_LOGI " xqled [$1], called by ppid[$ppid],<`cat /proc/${ppid}/cmdline`>"
+
+[ "$#" -lt 1 ] && {
+	echo -e "usage:"
+	echo -e "xqled [ACTION] FUNCTION"
+	echo -e "\tACTION: reset update hangup resume"
+	echo -e "\t\t reset: change to backup led of its group"
+	echo -e "\t\t update: update led behavior"
+	echo -e "\t\t hangup: hangup led, do not light it"
+	echo -e "\t\t resume: resume led, light it"
+	echo -e "\tFUNCTION: func defined in /etc/config/xqled"
+	exit 2
+}
+
+if ubus list led_service 2>/dev/null >/dev/null; then
+	case $1 in
+	reset)
+		if [ -z "$2" ]; then
+			ubus call led_service reset >>/dev/null
+		else
+			ubus call led_service reset {\"status\":\"$2\"} >>/dev/null
+		fi
+		;;
+	update)
+		if [ -z "$2" ]; then
+			echo " usage: xqled update STATUS,  STATUS defined in xqled.uci"
+		else
+			ubus call led_service update {\"status\":\"$2\"} >>/dev/null
+		fi
+		;;
+	hangup)
+		if [ -z "$2" ]; then
+			echo " usage: xqled hangup STATUS,  STATUS defined in xqled.uci"
+		else
+			ubus call led_service flag_set {\"set\":true,\"flag\":1,\"status\":\"$2\"} >>/dev/null
+		fi
+		;;
+	resume)
+		if [ -z "$2" ]; then
+			echo " usage: xqled resume STATUS,  STATUS defined in xqled.uci"
+		else
+			ubus call led_service flag_set {\"set\":false,\"flag\":1,\"status\":\"$2\"} >>/dev/null
+		fi
+		;;
+	*)
+		[ "$1" = "compat" ] && shift 1
+		ubus -t5 call led_service led_ctrl {\"status\":\"$1\"} >>/dev/null
+		;;
+	esac
+else
+	/lib/xqled/xqled_hal.sh $1
+fi
+
+exit $ret

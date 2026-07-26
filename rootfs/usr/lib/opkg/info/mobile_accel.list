@@ -1,0 +1,3 @@
+/etc/init.d/mobile_accel
+/usr/sbin/mobile_accel.sh
+/etc/config/mobile_accel

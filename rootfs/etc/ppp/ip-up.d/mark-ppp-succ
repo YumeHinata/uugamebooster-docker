@@ -1,0 +1,10 @@
+#!/usr/bin/env lua
+
+local uci = require("luci.model.uci").cursor()
+local name = uci:get("network", "wan", "username")
+local password = uci:get("network", "wan", "password")
+
+if name and password then
+  uci:set("network", "wan", "last_succeed", "1")
+  uci:commit("network")
+end

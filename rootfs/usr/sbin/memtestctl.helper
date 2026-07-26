@@ -1,0 +1,58 @@
+#!/bin/sh
+
+[ -f /usr/sbin/memtester ] || return
+
+flag_memtest=`nvram get auto_memtest`
+if [ "$flag_memtest" = "auto" ];then
+	echo "memtest is autostart everytime"
+elif [ "$flag_memtest" = "once" ]; then
+	nvram unset auto_memtest
+	nvram commit
+	echo "memtest start only one time"
+else
+	echo "auto_memtest unset"
+	return
+fi
+
+while true;do
+	boot_done=$(cat /tmp/boot_check_done)
+	[ "$boot_done" = "boot_done" ] && break
+	sleep 2
+done
+
+#wait wireless load
+sleep 20
+
+xqled systest_ongo
+
+cnt=0
+nvram set memtestres=0
+nvram commit
+while true;do
+	if [ -z "$1" ]; then
+		#echo 3 > /proc/sys/vm/drop_caches
+		mem=`free -k | awk 'NR==2 {print $4}'`
+		mem=`expr $mem / 10`
+		mem=`expr $mem \* 6`
+	fi
+
+	echo "Testcnt:$cnt Mem size:$mem KB" > /data/resofmemtest
+	memtester ${mem}K 1 >>/data/resofmemtest
+	res=`grep FAILURE /data/resofmemtest`
+	if [ -n "$res" ]; then
+
+		xqled systest_fail
+
+		nvram set memtestres=1
+		nvram commit
+		echo "memtester result fail($cnt)! blink red led" >> /data/resofmemtest
+		echo `uptime` >> /data/resofmemtest
+		echo `date` >> /data/resofmemtest
+		sync
+		return
+	fi
+	sync
+	cnt=`expr $cnt + 1`
+done
+
+return

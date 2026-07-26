@@ -1,0 +1,3 @@
+
+config global 'cfg'
+    option enable '1'

@@ -1,0 +1,114 @@
+find_network_config() {
+	local vif="$1"
+	local cfg
+	local ifname
+
+	config_get cfg "$vif" network
+
+	[ -z "$cfg" ] && {
+		include /lib/network
+		scan_interfaces
+
+		config_get ifname "$vif" ifname
+
+		cfg="$(find_config "$ifname")"
+	}
+	[ -z "$cfg" ] && return 0
+	echo "$cfg"
+}
+
+find_bridge_interface() {
+	local cfgs="$1"
+	[ -z "$cfgs" ] && return 0
+
+	include /lib/network
+	scan_interfaces
+
+	for cfg in $cfgs; do
+		config_get iftype "$cfg" type
+		[ "$iftype" = bridge ] && config_get "$cfg" ifname
+		prepare_interface_bridge "$cfg" > /dev/null 2>&1
+		return
+	done
+}
+
+scan_wifi_devices() {
+	local cfgfile="$1"
+	WIFI_DEVICES=
+	WIFI_MLD_DEVICES=
+	config_cb() {
+		local type="$1"
+		local section="$2"
+
+		# section start
+		case "$type" in
+			wifi-device)
+				append WIFI_DEVICES "$section"
+				config_set "$section" vifs ""
+				config_set "$section" ht_capab ""
+			;;
+		esac
+
+		# section end
+		config_get TYPE "$CONFIG_SECTION" TYPE
+		case "$TYPE" in
+			wifi-iface)
+				config_get device "$CONFIG_SECTION" device
+				config_get vifs "$device" vifs
+
+				if ! echo $vifs | grep -q $CONFIG_SECTION; then
+					append vifs "$CONFIG_SECTION"
+				fi
+				config_set "$device" vifs "$vifs"
+			;;
+			wifi-mld)
+				append WIFI_MLD_DEVICES "$CONFIG_SECTION"
+			;;
+		esac
+	}
+	config_load "${cfgfile:-wireless}"
+}
+
+add_mld_to_bridge() {
+	local net_cfg
+	local bridge
+	local mld
+	local mld_bridge_added
+	local ldevice
+	local vifs
+	local vif
+	local ifmld
+
+	config_load wireless
+	for mld in ${WIFI_MLD_DEVICES}; do
+		mld_bridge_added=0
+		for ldevice in ${WIFI_DEVICES}; do
+			config_get vifs "$ldevice" vifs
+			for vif in $vifs; do
+				config_get ifmld "$vif" mld
+				if [ "$ifmld" = $mld ]; then
+					net_cfg="$(find_network_config "$vif")"
+					bridge="$(find_bridge_interface "$net_cfg")"
+					if [ -z "$bridge" ]; then
+						logger -p notice -t "hotplug.d" "$INTERFACE $ACTION: bridge for $mld if is NULL"
+					else
+						local exist=$(brctl show $bridge | grep -wc $mld)
+						[ "$exist" = "0" ] && brctl addif $bridge $mld
+						mld_bridge_added=1
+						logger -p notice -t "hotplug.d" "$INTERFACE $ACTION: Add MLD $mld to Bridge $bridge"
+						break
+					fi
+				fi
+			done
+			if [ $mld_bridge_added -eq 1 ]; then
+				break
+			fi
+		done
+	done
+}
+
+[ "$INTERFACE" = "lan" -o "${INTERFACE:0:3}" = "wan" ] && {
+	logger -p notice -t "hotplug.d" "21-add_mld_bridge: run because of $INTERFACE $ACTION"
+	scan_wifi_devices
+	add_mld_to_bridge
+}

@@ -1,0 +1,982 @@
+#!/bin/sh
+#
+#execute by /lib/firewall.sysapi.loader when system firewall start/reload
+#
+#TODO: hack fw3 to support create custom chain and target to chain
+#
+#TODO: hack fw3 to using -m u32
+#
+#TODO: change all rules in uci and fw3 reload
+#
+#TODO: make macfilter rules stable
+#
+. /lib/lib.scripthelper.sh
+. /lib/functions.sh
+
+export ctlop="$1"
+export addop="$2"
+export exitcode=0
+
+[ -z "$ctlop" ] && {
+	elog "WARNING: Usage: $0 <index> [add args]"
+	exit 1
+}
+
+errcount(){
+	local errcode="$1"
+	test -z "$errcode" && return 0
+	test "$errcode" -ne 0 && let exitcode=$exitcode+1
+	return 0
+}
+
+proclock(){
+	#local needlan
+	#needlan="$1"
+	#LANIPMASK="$(getlanipmask)"
+	#[ "$needlan" = "needlan" -a -z "$LANIPMASK" ] && {
+	#	dlog "INFO: bypass for lan ip/netmask no exist."
+	#	exit 0
+	#}
+	#
+	#dlog "INFO: LANIPMASK: $LANIPMASK"
+	#
+	#checkproclock 30 replaceproc
+	#check lock, return 0 for no locked, 1 for locked
+	#[ $? -ne 0 ] && {
+	#	elog "ERROR: executing $ALLARGS exited, waiting for proc lock failed after 30 seconds, current locked pid: $(getlockedprocpid)"
+	#	exit 1
+	#}
+	#setproclock
+	return 0
+}
+
+#prepare_doit(){
+#	#delegate_postrouting of mangle for landownloadtraffic
+#	iptnewchain "-N delegate_postrouting -t mangle"
+#	errcount $?
+#	iptables -L POSTROUTING -t mangle --line-numbers 2>/dev/null | grep '1 ' | grep -q 'delegate_postrouting'
+#	if [ $? -eq 0 ]
+#		then
+#		return 0
+#	fi
+#	iptremoverule "-D POSTROUTING -t mangle -j delegate_postrouting"
+#	iptexec "iptables -I POSTROUTING -t mangle -j delegate_postrouting"
+#	errcount $?
+#}
+
+
+webinitrdr_disable(){
+	local force="$1"
+	local initMark="$(uci get xiaoqiang.common.INITTED 2>/dev/null)"
+	if [ "$initMark" != "YES" -o "$force" = "force" ]; then
+		touch /etc/config/xiaoqiang 2>/dev/null
+		errcount $?
+		uci set xiaoqiang.common="core" && uci set xiaoqiang.common.INITTED="YES" && uci commit xiaoqiang
+		errcount $?
+		if [ "$initMark" = "YES" -a "$force" = "force" ]; then
+			dlog "INFO: force remove redirect rules and restart services."
+		else
+			dlog "INFO: remove redirect rules and restart services."
+		fi
+		iptremoverule "-D $HTTPRDR_RULE"
+		iptremoverule "-D $DNSRDR_RULE"
+		iptremoverule "-D $HTTPRDR_LOCAL_RULE"
+		test -x /etc/init.d/dnsmasq && dlog "INFO: restart dnsmasq for webinitrdr." && /etc/init.d/dnsmasq restart &
+
+		! pgrep messagingagent >/dev/null && /etc/init.d/messagingagent.sh restart &
+	else
+		dlog "INFO: disable skipped for already initialed."
+	fi
+	sync 2>/dev/null
+	return 0
+}
+
+webinitrdr_doit(){
+	#if [ "$(nvram get model 2>/dev/null)" = "R1CM" ];then
+	#	dlog "INFO: R1CM platform ,disable webinitrdr."
+	#	return 0
+	#fi
+	NGINXWEBINITPORT=8098
+	DNSWEBINITPORT=53
+
+	HTTPRDR_RULE="prerouting_lan_rule -t nat -p tcp --dport 80 -m comment --comment HTTPWEBINITRDR -j REDIRECT --to-ports $NGINXWEBINITPORT"
+	DNSRDR_RULE="prerouting_lan_rule -t nat -p udp --dport 53 -m comment --comment DNSWEBINITRDR -j REDIRECT --to-ports $DNSWEBINITPORT"
+	HTTPRDR_LOCAL_RULE="INPUT -t nat -p tcp --dport 80 -m comment --comment HTTPWEBINITRDR -j REDIRECT --to-ports $NGINXWEBINITPORT"
+
+	test -z "$addop" && addop='on'
+	if [ "$addop" = 'off' -o "$addop" = 'stop' ]; then
+		proclock
+		webinitrdr_disable force
+		dlog "INFO: webinitrdr manual disabled."
+		return 0
+	fi
+
+	proclock needlan
+	DEVINITMARK="$(uci get xiaoqiang.common.INITTED 2>/dev/null)"
+	if [ "$DEVINITMARK" = 'YES' ]; then
+		dlog "INFO: webinitrdr bypass for device already initialed."
+		webinitrdr_disable
+		return 0
+	fi
+
+	local is_webinit=$(uci -q get misc.firewall.webinit)
+	is_webinit="${is_webinit:-1}"
+	# boot_status no ready
+	if [ $is_webinit == '0' ]; then
+		#NGINXWEBINITPORT=80
+		webinitrdr_disable
+		if [ "$DEVINITMARK" != 'YES' ];	then
+			dlog "INFO: webinitrdr disabled for squash system."
+			return $?
+		else
+			dlog "INFO: device already initialed for squash system."
+			return 0
+		fi
+	fi
+	#
+	#rdr on
+	#
+	if [ "$INTERFACE" != "lan" -a -n "$INTERFACE" -a -n "$DEVICE" -a -n "$ACTION" ]; then
+		dlog "INFO: skip webinitrdr for interface ${INTERFACE}."
+		return 0
+	fi
+	dlog "INFO: try to insert redirect rules and restart services."
+	iptables -L prerouting_lan_rule -t nat 2>/dev/null | grep -qi 'HTTPWEBINITRDR'
+	webrdrok=$?
+	iptables -L prerouting_lan_rule -t nat 2>/dev/null| grep -qi 'DNSWEBINITRDR'
+	dnsrdrok=$?
+	if [ $webrdrok -ne 0 -o $dnsrdrok -ne 0 ]; then
+		if /usr/sbin/check_accessInternet.sh "init" ; then
+			test $webrdrok -ne 0 && iptexec "iptables -A $HTTPRDR_LOCAL_RULE"
+		else
+			test $webrdrok -ne 0 && iptexec "iptables -A $HTTPRDR_RULE"
+		fi
+		test $dnsrdrok -ne 0 && iptexec "iptables -A $DNSRDR_RULE"
+		iptables -L prerouting_lan_rule -t nat 2>/dev/null| grep -qi 'HTTPWEBINITRDR'
+		webrdrok=$?
+		if [ $webrdrok -ne 0 ];	then
+			dlog "WARNING: preload catch all web init redirect on failed, miss HTTPWEBINITRDR rules."
+		fi
+		iptables -L prerouting_lan_rule -t nat 2>/dev/null| grep -qi 'DNSWEBINITRDR'
+		dnsrdrok=$?
+		if [ $dnsrdrok -ne 0 ]; then
+			dlog "WARNING: preload catch all dns init redirect on failed, miss DNSWEBINITRDR rules."
+		fi
+		if [ $webrdrok -eq 0 -a $dnsrdrok -eq 0 ]; then
+			dlog "INFO: web init redirect switch to on."
+			test -x /usr/sbin/preload.monitor && dlog "INFO: restart preload.monitor for webinitrdr." && /usr/sbin/preload.monitor restart &
+			test -x /etc/init.d/dnsmasq && dlog "INFO: restart dnsmasq for webinitrdr." && /etc/init.d/dnsmasq restart &
+		else
+			dlog "ERROR: web init redirect switch to on failed."
+			errcount $?
+		fi
+	else
+		dlog "INFO: redirect rules already exist, nothing to do."
+	fi
+	return $errcount
+}
+
+dnsmiwifi_doit(){
+	proclock needlan
+	local netmode=""
+	[ "$INTERFACE" != "lan" -a -n "$INTERFACE" -a -n "$DEVICE" -a -n "$ACTION" ] && {
+		dlog "INFO: skip dnsmiwifi for interface ${INTERFACE}."
+		return 0
+	}
+
+	iptremoverule -D prerouting_lan_rule -t nat -p udp --dport 53 -m string --icase --algo bm --hex-string "|06|miwifi|03|com|" -j REDIRECT --to-port 53
+	netmode=$(uci -q -S get xiaoqiang.common.NETMODE)
+	if [ "$netmode" != "wifiapmode" ] && [ "$netmode" != "lanapmode" ] && [ "$netmode" != "whc_re" ] && [ "$netmode" != "agent" ]; then
+		dlog "INFO: setup dnsmiwifi rules for router mode."
+		# use hex-string to match domain name
+		# redirect dns request of *.miwifi.com (eg: miwifi.com, www.miwiffi.com, router.miwifi.com) to local port 53 for dnsmasq
+		iptables -A prerouting_lan_rule -t nat -p udp --dport 53 -m string --icase --algo bm --hex-string "|06|miwifi|03|com|" -j REDIRECT --to-port 53
+		errcount $?
+	else
+		dlog "INFO: skip dnsmiwifi for apmode."
+	fi
+
+	return 0
+}
+
+iptaccount_doit(){
+	#
+	proclock needlan
+	#
+	if [ "$INTERFACE" != "lan" -a -n "$INTERFACE" -a -n "$DEVICE" -a -n "$ACTION" ]; then
+		dlog "INFO: skip iptacount for interface ${INTERFACE}."
+		return 0
+	fi
+	iptables -L POSTROUTING -t mangle --line-numbers 2>/dev/null | grep -q 'landownloadtraffic'
+	test $? -eq 0 && iptremoverule "-D POSTROUTING -t mangle -o br-lan -j landownloadtraffic"
+	iptables -L fwmark -t mangle --line-numbers 2>/dev/null | grep -q 'lanuploadtraffic'
+	test $? -eq 0 && iptremoverule "-D fwmark -t mangle -i br-lan -j lanuploadtraffic"
+	iptremoverule "-F landownloadtraffic -t mangle"
+	iptremoverule "-F lanuploadtraffic -t mangle"
+	iptremoverule "-X landownloadtraffic -t mangle"
+	iptremoverule "-X lanuploadtraffic -t mangle"
+	if [ "$addop" = 'stop' -o "$addop" = 'stop' ]; then
+		dlog "INFO: IP LAN TRAFFIC ACCOUNT rules removed."
+		return 0
+	fi
+	dlog "INFO: setup IP LAN TRAFFIC ACCOUNT rules for $LANIPMASK ..."
+	#-A POSTROUTING -o br-lan -m comment --comment "LANIPTRAFFICACCOUNT" -j landownloadtraffic
+	iptnewchain "-N landownloadtraffic -t mangle"
+	errcount $?
+	iptables -L POSTROUTING -t mangle --line-numbers 2>/dev/null | grep '1 ' | grep -q 'landownloadtraffic'
+	if [ $? -ne 0 ]; then
+		iptremoverule "-D POSTROUTING -t mangle -o br-lan -j landownloadtraffic"
+		iptexec "iptables -I POSTROUTING -t mangle -o br-lan -j landownloadtraffic"
+		errcount $?
+	fi
+	#-A fwmark -i br-lan -m comment --comment "LANIPTRAFFICACCOUNT" -j lanuploadtraffic
+	iptnewchain "-N lanuploadtraffic -t mangle"
+	errcount $?
+	iptables -L fwmark -t mangle --line-numbers 2>/dev/null | grep '1 ' | grep -q 'lanuploadtraffic'
+	if [ $? -ne 0 ]; then
+		iptremoverule "-D fwmark -t mangle -i br-lan -j lanuploadtraffic"
+		iptexec "iptables -I fwmark -t mangle -i br-lan -j lanuploadtraffic"
+		errcount $?
+	fi
+	#clean up rules in lanuploadtraffic, landownloadtraffic and re-create all
+	iptremoverule "-F landownloadtraffic -t mangle"
+	iptremoverule "-F lanuploadtraffic -t mangle"
+
+	iptexec "iptables -A landownloadtraffic -t mangle -m comment --comment LANIPTRAFFICACCOUNT -j ACCOUNT --addr $LANIPMASK --tname landownloadtraffic"
+	iptexec "iptables -A lanuploadtraffic -t mangle -m comment --comment LANIPTRAFFICACCOUNT -j ACCOUNT --addr $LANIPMASK --tname lanuploadtraffic"
+	#
+	chk=$(iptables -L landownloadtraffic -t mangle -n -v | grep -c 'LANIPTRAFFICACCOUNT')
+	if [ $chk -lt 1 ]; then
+		dlog "ERROR: landownloadtraffic rules setup failed."
+		errcount 1
+	fi
+	chk=$(iptables -L lanuploadtraffic -t mangle -n -v | grep -c 'LANIPTRAFFICACCOUNT')
+	if [ $chk -lt 1 ]; then
+		dlog "ERROR: lanuploadtraffic rules setup failed."
+		errcount 1
+	fi
+
+	return 0
+}
+
+macfilter_doit(){
+	proclock needlan
+
+	if [ "$INTERFACE" != "lan" -a -n "$INTERFACE" -a -n "$DEVICE" -a -n "$ACTION" ]; then
+		dlog "INFO: skip macfilter for interface ${INTERFACE}."
+		return 0
+	fi
+	dlog "INFO: setup MACFILTER rules ..."
+	/usr/sbin/macfilter init
+
+	errcount $?
+}
+
+ipmacBind_doit(){
+	proclock needlan
+
+	if [ "$INTERFACE" != "lan" -a -n "$INTERFACE" -a -n "$DEVICE" -a -n "$ACTION" ]; then
+		dlog "INFO: skip ipmacbind for interface ${INTERFACE}."
+		return 0
+	fi
+	dlog "INFO: setup IPMACBIND rules ..."
+	/usr/sbin/ipmac_binding init
+
+	errcount $?
+}
+
+
+ipfilter_doit(){
+	#
+	proclock needlan
+	#
+	if [ "$INTERFACE" != "lan" -a -n "$INTERFACE" -a -n "$DEVICE" -a -n "$ACTION" ] ;then
+		dlog "INFO: skip ipfilter for interface ${INTERFACE}."
+		return 0
+	fi
+	/usr/sbin/ipfilter init
+	errcount $?
+}
+
+
+ttl_doit(){
+	 if [ "$(nvram get model 2>/dev/null)" != "R1CM" -a "$(nvram get model 2>/dev/null)" != "R1CQ" ]; then
+		dlog "INFO: platform $(nvram get model 2>/dev/null) skip setting TTL to 64"
+		return 0
+	fi
+	local delnum=`iptables -t mangle --line-numbers -L POSTROUTING 2>/dev/null|awk '/TTL set to /{print$1}'`
+	if [ -n "$delnum" ]; then
+		iptables -t mangle -D POSTROUTING $delnum 2>/dev/null
+		if [ $? -eq 0 ]; then
+			dlog "INFO: unset TTL to 64 ok."
+		else
+			dlog "ERROR: unset TTL to 64 failed."
+		fi
+	fi
+
+	local ttldevice=`getdefaultroutedev`
+	if [ -n "$ttldevice" ]; then
+		iptables -t mangle -I POSTROUTING -o $ttldevice  -j TTL --ttl-set 64 2>/dev/null
+		if [ $? -eq 0 ]; then
+			dlog "INFO: set $ttldevice TTL to 64 ok."
+			return 0
+		else
+			dlog "ERROR: set $ttldevice TTL to 64 failed."
+			return 1
+		fi
+	fi
+	return 1
+}
+
+miqos_doit(){
+    #initial miqos ipt mark
+	[ "1" = "$(uci -q get miqos.settings.force_disabled)" ] && {
+		/usr/sbin/miqosd_init.sh clear
+		/usr/sbin/miqos_ipv6.sh uninit
+		return 0
+	}
+
+    if [ "$addop" = "unset" ] || [ "$addop" = "on" ]; then
+        /usr/sbin/miqosd_init.sh init
+        /usr/sbin/miqos_ipv6.sh init
+    else
+        /usr/sbin/miqosd_init.sh clear
+        /usr/sbin/miqos_ipv6.sh uninit
+    fi
+
+    return 0
+}
+
+xqfp_doit(){
+    if [ -f /proc/xqfp/dbg_switch ]; then
+        /etc/init.d/soft_fast_path fw_load
+    fi
+
+    return 0
+}
+
+quic_doit(){
+    [ -f "/etc/init.d/xcdnlink" ] && /etc/init.d/xcdnlink init_ipt
+
+    return 0
+}
+
+igmpproxy_doit(){
+    [ -f "/etc/init.d/igmpproxy" ] && /etc/init.d/igmpproxy init_ipt
+
+    return 0
+}
+
+smartproxy_doit(){
+    [ -f "/usr/sbin/proxy_thirdparty.sh" ] && /usr/sbin/proxy_thirdparty.sh flush
+
+    return 0
+}
+
+smartvpn_doit(){
+    [ -f "/usr/sbin/smartvpn.sh" ] && /usr/sbin/smartvpn.sh fw
+
+    return 0
+}
+
+parentalctl_doit(){
+    [ -f "/usr/sbin/parentalctl.sh" ] &&  /usr/sbin/parentalctl.sh reload
+
+    return 0
+}
+
+vlan_bridge_doit() {
+    local BRIDGE_NAME="internet"
+    local RULE_NAME="vlan_bridge_rule"
+    local match_name=""
+    local ifnames=""
+
+    # clean all vlan_bridge rules
+    iptables -t nat -F "$RULE_NAME" 2>/dev/null
+    iptables -t nat -D postrouting_rule -j "$RULE_NAME" 2>/dev/null
+    iptables -t nat -X "$RULE_NAME" 2>/dev/null
+
+    # judge if need to add new rules
+    match_name=$(uci -q get network.lan.ifname)
+    ifnames=$(uci -q get network.${BRIDGE_NAME}.ifname)
+    [ -z "$match_name" ] && return 0;
+    [ -z "$ifnames" ] && return 0;
+
+    # add new rules
+    iptables -t nat -N "$RULE_NAME" 2>/dev/null
+    iptables -t nat -I postrouting_rule -j "$RULE_NAME" 2>/dev/null
+    for ifname in $ifnames; do
+        [ "${ifname:0:4}" = "${match_name:0:4}" ] && iptables -t nat -I "$RULE_NAME" -o br-internet -m physdev --physdev-in "$ifname" -j ACCEPT 2>/dev/null
+    done
+
+    return 0
+}
+
+kr_doit() {
+    ipset flush    tquery
+    ipset destroy  tquery
+    ipset create   tquery hash:net
+    iptables -t mangle -A fwmark -p tcp -m set --match-set tquery dst -m comment --comment tquery -j MARK --set-xmark 0x4/0x4
+}
+
+APK_PROXY_INITD="/etc/init.d/http_apk_proxy"
+apk_proxy_doit() {
+    [ -f $APK_PROXY_INITD ] && $APK_PROXY_INITD reload_iptable_rule
+    return 0
+}
+
+turbo_doit() {
+    #ccgame
+    ccgame=`uci -q get turbo.ccgame.name`
+    ccgame_exec="/usr/sbin/ccgame_service.lua"
+    #0x20/0x20　to skip HWNAT or soft-NAT
+    ccgame_mark="0x0120/0x0320"
+    ccgame_seq=150
+    tables="/etc/iproute2/rt_tables"
+    ipv6=`uci -q get turbo.ipv6.name`
+    ipv6_exec="/usr/sbin/ipv6_service.lua"
+    ipv6_mark="0x0220/0x0320"
+    ipv6_seq=151
+
+    #pls note ipv6 prio should less than ccgame
+    [ -n "$ipv6" -a -f $ipv6_exec ] && {
+        grep -q $ipv6 $tables || echo "$ipv6_seq $ipv6" >> $tables
+        ipset -q create $ipv6 hash:net
+
+        iptables -t mangle -D fwmark -m set --match-set $ipv6 dst -m comment --comment $ipv6 -j MARK --set-xmark $ipv6_mark
+        iptables -t mangle -A fwmark -m set --match-set $ipv6 dst -m comment --comment $ipv6 -j MARK --set-xmark $ipv6_mark
+
+        # skip ctf if match
+        lsmod | grep ctf && {
+            iptables -t mangle -D fwmark -m set --match-set $ipv6 dst -j SKIPCTF
+            iptables -t mangle -A fwmark -m set --match-set $ipv6 dst -j SKIPCTF
+        }
+
+    }
+
+    [ -n "$ccgame" -a -f $ccgame_exec ] && {
+        # create rt table name of $service
+        grep -q $ccgame $tables || echo "$ccgame_seq  $ccgame" >> $tables
+
+        #create ipset if not exist
+        ipset -q create $ccgame hash:ip
+
+        iptables -t mangle -D fwmark -m set --match-set $ccgame dst -m comment --comment $ccgame -j MARK --set-xmark $ccgame_mark
+        iptables -t mangle -A fwmark -m set --match-set $ccgame dst -m comment --comment $ccgame -j MARK --set-xmark $ccgame_mark
+        lsmod | grep ctf && {
+            iptables -t mangle -D fwmark -m set --match-set $ccgame dst -j SKIPCTF
+            iptables -t mangle -A fwmark -m set --match-set $ccgame dst -j SKIPCTF
+        }
+
+        #collecting ip list for cc game
+        [ -d /proc/net/xt_recent ] && {
+            ipset -q create ${ccgame}_chk hash:net
+            iptables -t nat -D PREROUTING -m set --match-set ${ccgame}_chk dst -m comment --comment ${ccgame}_chk -m recent --name $ccgame --set --rdest
+            iptables -t nat -I PREROUTING -m set --match-set ${ccgame}_chk dst -m comment --comment ${ccgame}_chk -m recent --name $ccgame --set --rdest
+        }
+
+    }
+
+}
+
+cpewan6_doit() {
+    local cpewan6=$(uci -q get mobile.device.network_v6)
+    [ -z "$cpewan6" ] && return
+    local cpewan6_dis=$(uci -q get network.$cpewan6.disabled)
+    [ "$cpewan6_dis" = "1" ] && return
+
+    local wanitf=$(uci -q get network.$cpewan6.ifname)
+    ip6tables -t nat -D POSTROUTING -o $wanitf -j MASQUERADE >/dev/null 2>&1
+    ip6tables -t nat -A POSTROUTING -o $wanitf -j MASQUERADE >/dev/null 2>&1
+}
+
+ipv6_doit() {
+    local netmode=$(uci -q get xiaoqiang.common.NETMODE)
+    [ "$netmode" = "lanapmode" -o "$netmode" = "wifiapmode" -o "$netmode" = "whc_re" ] && return
+
+    cpewan6_doit
+
+    local fw6_dis=$(uci -q get firewall.@defaults[0].disable_ipv6)
+    [ "$fw6_dis" = "1" ] && return
+
+    local wan=$(uci -q get network.wan.ifname)
+    local proto=$(uci -q get network.wan.proto)
+    [ "$proto" = "pppoe" ] && wan="pppoe-wan"
+    local ip6_mode=$(uci -q get ipv6.settings.mode)
+    local ip6_on=$(uci -q get ipv6.settings.enabled)
+
+    ip6tables -t nat -D POSTROUTING -o $wan -j MASQUERADE >/dev/null 2>&1
+    [ "$ip6_on" = "1" -a "$ip6_mode" = "nat" ] && {
+        ip6tables -t nat -A POSTROUTING -o $wan -j MASQUERADE >/dev/null 2>&1
+    }
+
+    ip6tables -t filter -D zone_wan_forward -i $wan -j ACCEPT >/dev/null 2>&1
+    [ "$ip6_on" = "1" -a "$ip6_mode" != "nat" ] && {
+        local native_fw=$(uci -q get ipv6.settings.firewall)
+        [ -z "$native_fw" -o "$native_fw" = "0" -o "$ip6_mode" != "native" ] && {
+            ip6tables -t filter -A zone_wan_forward -i $wan -j ACCEPT >/dev/null 2>&1
+        }
+    }
+
+    return 0
+}
+
+ipv6_doit_v2() {
+    local netmode=$(uci -q get xiaoqiang.common.NETMODE)
+    [ "$netmode" = "lanapmode" -o "$netmode" = "wifiapmode" -o "$netmode" = "whc_re" ] && return
+
+    local fw6_dis=$(uci -q get firewall.@defaults[0].disable_ipv6)
+    [ "$fw6_dis" = "1" ] && return
+
+    . /lib/functions/network.sh
+    network_flush_cache
+
+    # init or clear miwifi_nat6 chain
+    local nat6_chain="miwifi_nat6"
+    ip6tables -t nat -nvL "$nat6_chain" >/dev/null 2>&1
+    [ "$?" != "0" ] && ip6tables -t nat -N "$nat6_chain"
+    ip6tables -t nat -C POSTROUTING -j "$nat6_chain" >/dev/null 2>&1
+    [ "$?" != "0" ] && ip6tables -t nat -A POSTROUTING -j "$nat6_chain"
+    ip6tables -t nat -F "$nat6_chain"
+    echo "ipv6" > /proc/net/nf_conntrack
+
+    local ipv6_nat=0
+    local ipv6_passthrough=0
+    local fw_enabled=$(uci -q get ipv6.globals.firewall)
+    local sec_list=$(uci show ipv6 | grep "ipv6.wan6[_0-9]*=wan" | awk -F"[.|=]" '{print $2}')
+    for sec in $sec_list; do
+        local wan_iface="wan"
+        local wan6_iface="$sec"
+        local wan6ppp_iface="wan6ppp"
+        local idx=${sec##*_}
+        [ "$idx" != "$sec" ] && {
+            wan_iface="${wan_iface}_$idx"
+            wan6ppp_iface="${wan6ppp_iface}_$idx"
+        }
+
+        local ipv6_mode=$(uci -q get ipv6.$sec.mode)
+        [ "$ipv6_mode" = "passthrough" ] && ipv6_passthrough=1
+        [ "$ipv6_mode" != "off" -a "$ipv6_mode" != "passthrough" ] && {
+            network_get_device wan6_ifname "$wan6_iface"
+            [ -n "$wan6_ifname" ] && {
+                network_get_prefixes6 prefixes "$wan6_iface"
+                for prefix in $prefixes; do
+                    [ "${prefix:0:5}" = "fd00:" ] && {
+                        ipv6_nat=1
+                        ip6tables -t nat -A "$nat6_chain" -s "$prefix" -o "$wan6_ifname" -j MASQUERADE >/dev/null 2>&1
+                    }
+                done
+
+                local wan_ifname=$(uci -q get network.$wan_iface.ifname)
+                local all_possible_ifname="$wan_ifname pppoe-$wan_iface pppoe-$wan6ppp_iface"
+                for tmp_ifname in $all_possible_ifname; do
+                    ip6tables -D zone_wan_forward -i "$tmp_ifname" -j ACCEPT >/dev/null 2>&1
+                    [ -z "$fw_enabled" -o "$fw_enabled" = "0" ] && {
+                        ip6tables -A zone_wan_forward -i "$tmp_ifname" -j ACCEPT >/dev/null 2>&1
+                    }
+                done
+            }
+        }
+    done
+
+    [ -e "/lib/miwifi/miwifi_core_libs.sh" ] && {
+        . /lib/miwifi/miwifi_core_libs.sh
+        if [ "$ipv6_nat" == "1" ]; then
+            network_accel_hook "ipv6_nat" "start"
+        else
+            network_accel_hook "ipv6_nat" "stop"
+        fi
+
+        if [ "$ipv6_passthrough" == "1" ]; then
+            network_accel_hook "ipv6_passthrough" "start"
+        else
+            network_accel_hook "ipv6_passthrough" "stop"
+        fi
+    }
+
+    return 0
+}
+
+
+miot_doit() {
+	iptables -D FORWARD -i br-miot -j DROP 2>/dev/null
+	iptables -F miot_input 2>/dev/null
+
+	iptables -L miot_input 2>&- >&-
+	if [ $? -ne 0 ]; then
+		iptables -N miot_input  2>/dev/null
+		iptables -I INPUT -i br-miot -j miot_input 2>/dev/null
+	fi
+
+	iptables -I FORWARD -i br-miot -j DROP 2>/dev/null
+	iptables -A miot_input -p udp --sport 54321 -j ACCEPT
+	iptables -A miot_input -p udp -m udp --sport 67:68 --dport 67:68 -j ACCEPT
+	iptables -A miot_input -j DROP
+}
+
+guest_undo() {
+	iptables -w -F forwarding_guest_rule 2>>/dev/null
+	iptables -w -F input_guest_rule 2>>/dev/null
+	iptables -w -F output_guest_rule 2>>/dev/null
+	iptables -w -F zone_guest_dest_ACCEPT 2>>/dev/null
+	iptables -w -F zone_guest_dest_REJECT 2>>/dev/null
+	iptables -w -F zone_guest_forward 2>>/dev/null
+	iptables -w -F zone_guest_input 2>>/dev/null
+	iptables -w -F zone_guest_output 2>>/dev/null
+	iptables -w -F zone_guest_src_REJECT 2>>/dev/null
+
+	iptables -w -D INPUT -i br-guest -j zone_guest_input 2>>/dev/null
+	iptables -w -D FORWARD -i br-guest -j zone_guest_forward 2>>/dev/null
+	iptables -w -D OUTPUT -o br-guest -j zone_guest_output 2>>/dev/null
+
+	iptables -w -X forwarding_guest_rule 2>>/dev/null
+	iptables -w -X input_guest_rule 2>>/dev/null
+	iptables -w -X output_guest_rule 2>>/dev/null
+	iptables -w -X zone_guest_dest_ACCEPT 2>>/dev/null
+	iptables -w -X zone_guest_dest_REJECT 2>>/dev/null
+	iptables -w -X zone_guest_forward 2>>/dev/null
+	iptables -w -X zone_guest_input 2>>/dev/null
+	iptables -w -X zone_guest_output 2>>/dev/null
+	iptables -w -X zone_guest_src_REJECT 2>>/dev/null
+
+}
+
+guest_doit() {
+	iptables -w -L zone_guest_forward 2>&- >&-
+	[ $? -eq 0 ] && guest_undo
+
+	iptables -w -N forwarding_guest_rule
+	iptables -w -N input_guest_rule
+	iptables -w -N output_guest_rule
+	iptables -w -N zone_guest_dest_ACCEPT
+	iptables -w -N zone_guest_dest_REJECT
+	iptables -w -N zone_guest_forward
+	iptables -w -N zone_guest_input
+	iptables -w -N zone_guest_output
+	iptables -w -N zone_guest_src_REJECT
+
+	forward_rule_count=$(iptables -S INPUT | wc -l)
+
+	iptables -w -A INPUT -i br-guest -j zone_guest_input
+	iptables -w -A OUTPUT -o br-guest -j zone_guest_output
+	iptables -w -I FORWARD `expr $forward_rule_count - 1` -i br-guest -j zone_guest_forward
+
+	if iptables -L macfilter_wan >>/dev/null; then
+		iptables -w -A forwarding_guest_rule -j macfilter_wan
+	fi
+
+	iptables -w -A zone_guest_dest_ACCEPT -o br-guest -m comment --comment "!fw3" -j ACCEPT
+	iptables -w -A zone_guest_dest_REJECT -o br-guest -m comment --comment "!fw3" -j REJECT
+
+	iptables -w -A zone_guest_forward -m comment --comment "!fw3: Custom guest forwarding rule chain" -j forwarding_guest_rule
+	if iptables -L zone_wan_dest_ACCEPT >>/dev/null; then
+		iptables -w -A zone_guest_forward -m comment --comment "!fw3: Zone guest to wan forwarding policy" -j zone_wan_dest_ACCEPT
+	fi
+	iptables -w -A zone_guest_forward -m conntrack --ctstate DNAT -m comment --comment "!fw3: Accept port forwards" -j ACCEPT
+	iptables -w -A zone_guest_forward -m comment --comment "!fw3" -j zone_guest_dest_REJECT
+
+	iptables -w -A zone_guest_input -m comment --comment "!fw3: Custom guest input rule chain" -j input_guest_rule
+	iptables -w -A zone_guest_input -p tcp -m tcp --dport 8999 -m comment --comment "!fw3: Hello wifi 8999" -j ACCEPT
+	iptables -w -A zone_guest_input -p tcp -m tcp --dport 8300 -m comment --comment "!fw3: Hello wifi 8300" -j ACCEPT
+	iptables -w -A zone_guest_input -p tcp -m tcp --dport 7080 -m comment --comment "!fw3: Hello wifi 7080" -j ACCEPT
+	iptables -w -A zone_guest_input -p tcp -m tcp --dport 53 -m comment --comment "!fw3: Allow Guest DNS Queries" -j ACCEPT
+	iptables -w -A zone_guest_input -p udp -m udp --dport 53 -m comment --comment "!fw3: Allow Guest DNS Queries" -j ACCEPT
+	iptables -w -A zone_guest_input -p udp -m udp --sport 67:68 --dport 67:68 -m comment --comment "!fw3: Allow Guest DHCP request" -j ACCEPT
+	iptables -w -A zone_guest_input -m conntrack --ctstate DNAT -m comment --comment "!fw3: Accept port redirections" -j ACCEPT
+	iptables -w -A zone_guest_input -m comment --comment "!fw3" -j zone_guest_src_REJECT
+
+	iptables -w -A zone_guest_output -m comment --comment "!fw3: Custom guest output rule chain" -j output_guest_rule
+	iptables -w -A zone_guest_output -m comment --comment "!fw3" -j zone_guest_dest_ACCEPT
+
+	iptables -w -A zone_guest_src_REJECT -i br-guest -m comment --comment "!fw3" -j REJECT
+
+}
+
+plugin_doit(){
+	readonly SCRIPTS_DIR="/data/userdisk/appdata/*/"
+
+	if [ -d "/data/userdisk/appdata/" ]; then
+		find $SCRIPTS_DIR -type f -name "firewall.include" -exec sh -c 'sh $1' _ {} \;
+	fi	
+}
+
+tr143_udpecho_server_fw_set() {
+	local enable=$(uci -q get tr143diag.udpecho_server.enable)
+	[ "$enable" != "1" ] && return
+
+	local port=$(uci -q get tr143diag.udpecho_server.port)
+	[ -z "$port" ] && return
+
+	local dev=""
+	local ift=$(uci -q get tr143diag.udpecho_server.interface)
+	[ "${ift:0:3}" = "wan" ] && {
+		[ "$ift" != "" ] && {
+			local ubus_args=`echo {\"interface\":\"$ift\"}`
+			local interface_status=`ubus call "network.interface" "status" $ubus_args`
+			[ -n "$interface_status" ] && {
+				. /usr/share/libubox/jshn.sh
+				json_init
+				json_load "$interface_status" >&2
+				json_get_var device l3_device >&2
+				[ -n "$device" ] && dev="-i $device"
+			}
+		}
+	}
+
+	local ipaddr=$1
+	if [ -n "$ipaddr" ];then
+		iptables -t nat -A TR069_WAN_PREROUTING $dev -p udp --dport $port -j DNAT --to-destination $ipaddr 2>/dev/null
+	else
+		iptables -t nat -A TR069_WAN_PREROUTING $dev -p tcp --dport $port -j ACCEPT 2>/dev/null
+	fi
+
+	iptables -A TR069_WAN_INPUT $dev -p udp --dport $port -j ACCEPT 2>/dev/null
+	ip6tables -A TR069_WAN_INPUT $dev -p udp --dport $port -j ACCEPT 2>/dev/null
+
+}
+
+tr069_doit(){
+	local enable=$(uci -q get easycwmp.@local[0].enable)
+
+	iptables -F TR069_WAN_INPUT 2>/dev/null
+	ip6tables -F TR069_WAN_INPUT 2>/dev/null
+	iptables -t nat -F TR069_WAN_PREROUTING 2>/dev/null
+	[ "$enable" != "1" ] && return
+
+	local tr069_wanitf=$(uci -q get easycwmp.@local[0].interface)
+	[ -z "$tr069_wanitf" ] && return
+	local tr069_port=$(uci -q get easycwmp.@local[0].port)
+	[ -z "$tr069_port" ] && return
+
+	iptables -L TR069_WAN_INPUT 2>&- >&-
+	if [ $? -ne 0 ]; then
+		iptables -N TR069_WAN_INPUT 2>/dev/null
+		iptables -I INPUT -j TR069_WAN_INPUT 2>/dev/null
+	fi
+	iptables -A TR069_WAN_INPUT -i $tr069_wanitf -p tcp --dport $tr069_port -j ACCEPT 2>/dev/null
+
+	iptables -t nat -L TR069_WAN_PREROUTING 2>&- >&-
+	if [ $? -ne 0 ]; then
+		iptables -t nat -N TR069_WAN_PREROUTING 2>/dev/null
+	fi
+
+	# tr069_doit函数可能多次执行，再次执行时，TR069_WAN_PREROUTING链已经存在，此时的
+	# zone_wan_prerouting链可能被其他应用清空过规则，不能在创建TR069_WAN_PREROUTING链
+	# 的时候添加这条规则，在这里单独处理这条规则。
+	iptables -t nat -C zone_wan_prerouting -j TR069_WAN_PREROUTING 2>/dev/null
+	if [ $? -ne 0 ]; then
+		iptables -t nat -I zone_wan_prerouting -j TR069_WAN_PREROUTING 2>/dev/null
+	fi
+
+	. /lib/miwifi/miwifi_functions.sh
+	local dedicated=$(util_network_dedicated_get "ipv4")
+	local netmode=$(uci -q get xiaoqiang.common.NETMODE)
+	local ipaddr
+
+	if [ "$netmode" = "cpe_bridgemode" -a "$dedicated" != "1" ]; then
+		ipaddr=$(uci -q get network.wan_2.ipaddr)
+		[ -n "$ipaddr" ] && {
+			iptables -t nat -A TR069_WAN_PREROUTING -i $tr069_wanitf -p tcp --dport $tr069_port -j DNAT --to-destination $ipaddr 2>/dev/null
+		}
+	else
+		iptables -t nat -A TR069_WAN_PREROUTING -i $tr069_wanitf -p tcp --dport $tr069_port -j ACCEPT 2>/dev/null
+	fi
+
+	ip6tables -L TR069_WAN_INPUT 2>&- >&-
+	if [ $? -ne 0 ]; then
+		ip6tables -N TR069_WAN_INPUT 2>/dev/null
+		ip6tables -I INPUT -j TR069_WAN_INPUT 2>/dev/null
+	fi
+	ip6tables -A TR069_WAN_INPUT -i $tr069_wanitf -p tcp --dport $tr069_port -j ACCEPT 2>/dev/null
+
+	tr143_udpecho_server_fw_set $ipaddr
+
+	[ "$dedicated" = "1" ] && {
+		iptables -A TR069_WAN_INPUT -i $tr069_wanitf -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null
+		iptables -A TR069_WAN_INPUT -i $tr069_wanitf -m conntrack --ctstate INVALID -j DROP 2>/dev/null
+		iptables -A TR069_WAN_INPUT -i $tr069_wanitf -j DROP 2>/dev/null
+	}
+}
+
+port_trigger_doit(){
+	proclock needlan
+
+	dlog "INFO: setup port_trigger ..."
+	/etc/firewall.d/firewall.trigger
+
+	errcount $?
+}
+
+isp_lock_net_doit() {
+	comment="isp Lock Net"
+	lock_status=$(uci -q get isp-dp.deviceinfo.net_locked)
+
+	if [ "$lock_status" == "1" ]; then
+		iptables -t filter -D FORWARD -j REJECT -m comment --comment "$comment"
+		iptables -t filter -D FORWARD -p udp --dport 67:68 -j ACCEPT -m comment --comment "$comment"
+		iptables -t filter -D FORWARD -p udp --dport 53 -j ACCEPT -m comment --comment "$comment"
+		iptables -t filter -D FORWARD -p udp --sport 53 -j ACCEPT -m comment --comment "$comment"
+		iptables -t nat -D PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 9021 -m comment --comment "$comment"
+		iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 9022 -m comment --comment "$comment"
+		ip6tables -t filter -D FORWARD -j REJECT -m comment --comment "$comment"
+		ip6tables -t filter -D FORWARD -p udp --dport 67:68 -j ACCEPT -m comment --comment "$comment"
+		ip6tables -t filter -D FORWARD -p udp --dport 53 -j ACCEPT -m comment --comment "$comment"
+		ip6tables -t filter -D FORWARD -p udp --sport 53 -j ACCEPT -m comment --comment "$comment"
+		ip6tables -t nat -D PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 9021 -m comment --comment "$comment"
+		ip6tables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 9022 -m comment --comment "$comment"
+		iptables -t filter -I FORWARD -j REJECT -m comment --comment "$comment"
+		iptables -t filter -I FORWARD -p udp --dport 67:68 -j ACCEPT -m comment --comment "$comment"
+		iptables -t filter -I FORWARD -p udp --dport 53 -j ACCEPT -m comment --comment "$comment"
+		iptables -t filter -I FORWARD -p udp --sport 53 -j ACCEPT -m comment --comment "$comment"
+		ip6tables -t filter -I FORWARD -j REJECT -m comment --comment "$comment"
+		ip6tables -t filter -I FORWARD -p udp --dport 67:68 -j ACCEPT -m comment --comment "$comment"
+		ip6tables -t filter -I FORWARD -p udp --dport 53 -j ACCEPT -m comment --comment "$comment"
+		ip6tables -t filter -I FORWARD -p udp --sport 53 -j ACCEPT -m comment --comment "$comment"
+		iptables -t nat -I PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 9021 -m comment --comment "$comment"
+		iptables -t nat -I PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 9022 -m comment --comment "$comment"
+		ip6tables -t nat -I PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 9021 -m comment --comment "$comment"
+		ip6tables -t nat -I PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 9022 -m comment --comment "$comment"
+	elif [ "$lock_status" == "0" ]; then
+		iptables -t filter -D FORWARD -j REJECT -m comment --comment "$comment"
+		iptables -t filter -D FORWARD -p udp --dport 67:68 -j ACCEPT -m comment --comment "$comment"
+		iptables -t filter -D FORWARD -p udp --dport 53 -j ACCEPT -m comment --comment "$comment"
+		iptables -t filter -D FORWARD -p udp --sport 53 -j ACCEPT -m comment --comment "$comment"
+		iptables -t nat -D PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 9021 -m comment --comment "$comment"
+		iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 9022 -m comment --comment "$comment"
+		ip6tables -t filter -D FORWARD -j REJECT -m comment --comment "$comment"
+		ip6tables -t filter -D FORWARD -p udp --dport 67:68 -j ACCEPT -m comment --comment "$comment"
+		ip6tables -t filter -D FORWARD -p udp --dport 53 -j ACCEPT -m comment --comment "$comment"
+		ip6tables -t filter -D FORWARD -p udp --sport 53 -j ACCEPT -m comment --comment "$comment"
+		ip6tables -t nat -D PREROUTING -p tcp --dport 80 -j REDIRECT --to-ports 9021 -m comment --comment "$comment"
+		ip6tables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 9022 -m comment --comment "$comment"
+	fi
+}
+
+iptv_doit() {
+	local iptv_br_list="br-iptv br-internet"
+
+	for iptv_br in $iptv_br_list; do
+		ip6tables -D forwarding_rule -i "$iptv_br" -p udp --dport 547 -j ACCEPT
+		brctl showmacs "$iptv_br" 2>&- >&- && {
+			ip6tables -I forwarding_rule -i "$iptv_br" -p udp --dport 547 -j ACCEPT
+		}
+	done
+}
+
+modules_doit(){
+
+	case "$ctlop" in
+	dnsmiwifi)
+		dnsmiwifi_doit ### NAT rules ####
+		;;
+	webinitrdr)
+		webinitrdr_doit #using chain prerouting_lan_rule
+		;;
+	iptaccount)
+		iptaccount_doit
+		;;
+	macfilter)
+		macfilter_doit
+		;;
+	ipmacBind)
+		ipmacBind_doit
+		;;
+	ipfilter)
+		ipfilter_doit
+		;;
+	ttlset)
+		exitcode=0
+		;;
+	miqos)
+		miqos_doit
+		;;
+	xqfp)
+		xqfp_doit
+		;;
+	cdn_quic)
+		quic_doit
+		;;
+	igmpproxy)
+		igmpproxy_doit
+		;;
+	smartproxy)
+		smartproxy_doit
+		;;
+	smartvpn)
+		smartvpn_doit
+		;;
+	parentalctl)
+		parentalctl_doit
+		;;
+	kr_query)
+		kr_doit
+		;;
+	apk_proxy)
+		apk_proxy_doit
+		;;
+	dmz_bypass_ctf)
+		lua /usr/sbin/dmz_bypass_ctf
+		;;
+	ipv6_masq)
+		ipv6_doit
+		;;
+	ipv6_masq_v2)
+		ipv6_doit_v2
+		;;
+	miot)
+		miot_doit
+		;;
+	guest)
+		if [ "$addop" = "clean" ]; then
+			guest_undo
+		else
+			guest_doit
+		fi
+		;;
+	vlan_bridge)
+		vlan_bridge_doit
+		;;
+	plugins)
+		plugin_doit
+		;;
+	tr069)
+		tr069_doit
+		;;
+	port_trigger)
+		port_trigger_doit
+		;;
+	isp_lock_net)
+		isp_lock_net_doit
+		;;
+	iptv)
+		iptv_doit
+		;;
+	*)
+		echo "not support $ctlop"
+		exitcode=0
+		;;
+	esac
+
+	return $exitcode
+}
+
+test -z "$addop" && addop='unset'
+#
+LANIPMASK="$(getlanipmask)"
+export LANIPMASK
+#
+SCRIPTTAG="${SCRIPTTAG}_${ctlop}_${addop}"
+SCRIPTLOCK="${SCRIPTMARK}_${ctlop}"
+PROC_LOCK_DEBUG='TRUE'
+#
+dlog "INFO: executing $@"
+#
+modules_doit 2>&1 | pipelog dlog
+if [ ${exitcode} -eq 0 ]
+	then
+	dlog "INFO: executing $@ exit with code ${exitcode}."
+else
+	dlog "ERROR: executing $@ exit with code ${exitcode}."
+fi
+exit $exitcode
+#

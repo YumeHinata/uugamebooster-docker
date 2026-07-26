@@ -1,0 +1,11 @@
+Package: kmod-nsh
+Version: 5.4.213-1
+Depends: kernel (=5.4.213-1-b03fef75f247f6a85b8c8530633d37c5)
+Source: package/kernel/linux
+License: GPLv2
+Section: kernel
+Status: unknown hold not-installed
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 2231
+Description:  Network Service Header is an implementation of Service Function
+ Chaining (RFC 7665).  Requires kernel 4.14 or newer

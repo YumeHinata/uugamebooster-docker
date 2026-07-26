@@ -1,0 +1,13 @@
+#!/bin/sh
+
+logger -p notice -t "hotplug.d" "02-ntp_sync: run because of init done."
+
+ntp_sync() {
+    sleep 10
+    ubus call wan_check reset
+    return
+}
+
+ntp_sync &
+
+

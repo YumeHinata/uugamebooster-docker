@@ -1,0 +1,29 @@
+<%
+    local ver = require("xiaoqiang.XQVersion").webVersion
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<link rel="stylesheet" href="<%=resource%>/web/css/bc.css?v=<%=ver%>">
+<link rel="stylesheet" href="<%=resource%>/mipctl/css/mipctl.css?v=<%=ver%>">
+</head>
+<body>
+<div id="doc">
+    <div class="mod-mipctl">
+        <img class="pic" src="<%=resource%>/web/img/safe_d_pic.png">
+        <div class="desc">
+            <h1><%:该访问已被家人上网保护拦截%></h1>
+            <p><%:这可能是因为：%>
+                <br>
+                1. <%:当前处于禁止上网时段%>
+                <br>
+                2. <%:该网址被设置的关键字过滤%>
+                <br>
+                3. <%:该页面相关应用的今日使用时长已达上限%>
+            </p>
+        </div>
+    </div>
+    <%include("web/inc/footer")%>
+</div>
+</body>
+</html>

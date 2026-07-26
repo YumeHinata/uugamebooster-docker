@@ -1,0 +1,6 @@
+config ot ot
+    option ver 2
+
+config debug dbg
+    option env "rel"
+    option dbg "1"

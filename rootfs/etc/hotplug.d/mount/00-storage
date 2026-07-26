@@ -1,0 +1,20 @@
+logger -p notice -t "hotplug.d" "mount-00-storage: run because of $DEVICE $ACTION"
+
+. /lib/miwifi/storage/storage.sh
+
+[ "$ACTION" == "add" ] || exit 1
+[ -n "$DEVICE" ] || exit 2
+[ -n "$MOUNTPATH" ] || exit 3
+
+# add storage partition
+storage_add_device_partition $DEVNAME
+
+uuid=$(storage_get_uuid_by_config "$DEVICE")
+[ -n "$uuid" ] || exit 4
+
+# bind storage mount path
+name=$(storage_generate_name_by_uuid "$uuid")
+log "bind partition(${DEVICE},${uuid}) mount path as $MOUNTPATH"
+storage_bind_partition_mount_path "$name" "$uuid" "$MOUNTPATH"
+
+exit 0

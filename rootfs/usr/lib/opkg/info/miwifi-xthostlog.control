@@ -1,0 +1,8 @@
+Package: miwifi-xthostlog
+Version: 1.0-1.0
+Depends: libc, kmod-miwifi-xthostlog
+Source: package/miwifi/miwifi-xthostlog
+Section: opt
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 1610
+Description:  TODO

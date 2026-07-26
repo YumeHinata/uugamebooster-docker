@@ -1,0 +1,151 @@
+#!/bin/sh
+# Copyright (C) 2006-2011 OpenWrt.org
+
+readonly SEC_OTHER_VOL_SIZE=${SEC_OTHER_VOL_SIZE:="194560"}
+readonly SEC_OTHER_VOL_FILE="/data/other_vol/other.vol"
+readonly SEC_OTHER_KEY_TMP_FILE="/tmp/sec_other/sec_other_key"
+readonly SEC_OTHER_KEY_CHANGE_FILE="/tmp/sec_other/sec_other_key_change"
+readonly SEC_OTHER_MAP_DEV="other_enc"
+readonly SEC_OTHER_MAP_PATH="/dev/mapper"
+readonly SEC_OTHER_MOUNT_DEST="/data/other"
+readonly SEC_OTHER_NONCE_NAME="sec_other_nonce"
+readonly SEC_OTHER_DBG_INFO="/tmp/sec_other/dbginfo.txt"
+
+mount_sec_other_log_console() {
+	echo "$*" |tee /dev/console >/dev/null
+	mkdir -p "${SEC_OTHER_DBG_INFO%/*}"
+	echo "[sec_dbg] $@" >> "$SEC_OTHER_DBG_INFO"
+}
+
+mount_sec_other_vol_open() {
+	if [ ! -s "$SEC_OTHER_VOL_FILE" ]; then
+		return 1
+	fi
+
+	cryptsetup --key-file "$SEC_OTHER_KEY_TMP_FILE" \
+		luksOpen "$SEC_OTHER_VOL_FILE" "$SEC_OTHER_MAP_DEV"
+
+	return 0
+}
+
+mount_sec_other_vol_close() {
+	cryptsetup luksClose "$SEC_OTHER_MAP_DEV"
+}
+
+mount_sec_other_vol_init() {
+	# Create vol
+	mkdir -p "${SEC_OTHER_VOL_FILE%/*}"
+	dd if=/dev/zero of="$SEC_OTHER_VOL_FILE" bs=1K count="$SEC_OTHER_VOL_SIZE"
+
+	# Format vol
+	cryptsetup -q \
+		--align-payload=1 --type luks1 \
+		--key-file "$SEC_OTHER_KEY_TMP_FILE" \
+		luksFormat "$SEC_OTHER_VOL_FILE"
+
+	# Open vol
+	if mount_sec_other_vol_open; then
+		mount_sec_other_log_console "Secure other vol was created successfully."
+	fi
+
+	# Create file system
+	mkfs.ext4 -O ^huge_file -F "$SEC_OTHER_MAP_PATH/$SEC_OTHER_MAP_DEV"
+}
+
+mount_sec_other_chk_vol() {
+	local ret=0
+
+	# Open vol as map dev
+	if ! mount_sec_other_vol_open; then
+		return 3
+	fi
+
+	# Check whether maped dev exist
+	if [ ! -b "$SEC_OTHER_MAP_PATH/$SEC_OTHER_MAP_DEV" ]; then
+		mount_sec_other_log_console "Secure other vol can not open!"
+		return 1
+	fi
+
+	# Check and repair file system
+	e2fsck -p "$SEC_OTHER_MAP_PATH/$SEC_OTHER_MAP_DEV" || ret=$?
+
+	# 0: No errors | 1: File system errors corrected
+	if [ "$ret" -gt 1 ]; then
+		mount_sec_other_log_console "Secure other vol fsck return $ret"
+		mount_sec_other_vol_close
+		return 2
+	fi
+}
+
+mount_sec_other_to_dest() {
+	if ! mount_sec_other_chk_vol; then
+		return 1
+	fi
+
+	# Mount to dest
+	mkdir -p "$SEC_OTHER_MOUNT_DEST"
+	if mount -t ext4 -o nodelalloc "$SEC_OTHER_MAP_PATH/$SEC_OTHER_MAP_DEV" "$SEC_OTHER_MOUNT_DEST"; then
+		# Remove lost and found to avoid space full
+		rm -rf "$SEC_OTHER_MOUNT_DEST/lost+found"/*
+		sync
+		mount_sec_other_log_console "mount $SEC_OTHER_MOUNT_DEST succeed."
+		return 0
+	else
+		mount_sec_other_log_console "FATAL: mount $SEC_OTHER_MOUNT_DEST failed."
+		return 1
+	fi
+}
+
+mount_other_sec() {
+	local mount_succeed=0
+	local ftmode=$(cat /proc/xiaoqiang/ft_mode)
+
+	#Check other mount
+	mount | grep -q "/data/other_vol" || {
+		mount_sec_other_log_console "other partition mount failed, exit"
+		return 0
+	}
+
+	# Skip vol init in factory mode
+	if [ ! -s "$SEC_OTHER_VOL_FILE" ] && [ "$ftmode" = "1" ]; then
+		mount_sec_other_log_console "factory mode, exit"
+		return 0
+	fi
+
+	#Check key file
+	if [ ! -s "$SEC_OTHER_KEY_TMP_FILE" ]; then
+		mount_sec_other_log_console "$SEC_OTHER_KEY_TMP_FILE doesn't exist, exit"
+		return 0
+	fi
+
+	# Check whether vol inited
+	if [ ! -s "$SEC_OTHER_VOL_FILE" ] || [ -e "$SEC_OTHER_KEY_CHANGE_FILE" ] ||
+	   [ -e "$RESTORE_DEF_FLAG_FILE" ]; then
+		mount_sec_other_vol_init
+	fi
+
+	# Mount vol to dest
+	for i in $(seq 2); do
+		for j in $(seq 3); do
+			if mount_sec_other_to_dest; then
+				mount_succeed=1
+				break;
+			fi
+		done
+
+		if [ "$mount_succeed" = "0" ]; then
+			mount_sec_other_log_console "FATAL: mount $SEC_OTHER_MOUNT_DEST failed, try reinit other.vol"
+			mount_sec_other_vol_close
+			mount_sec_other_vol_init
+			sp_log_info.sh -i -k sys.othervol.reinit -m "1"
+		else
+			break
+		fi
+	done
+
+	# Delete key
+	#rm -f "$SEC_OTHER_KEY_TMP_FILE"
+	#rm -rf "$SEC_OTHER_KEY_CHANGE_FILE"
+}
+
+boot_hook_add preinit_main mount_other_sec

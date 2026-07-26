@@ -1,0 +1,185 @@
+<% local features=require("xiaoqiang.XQFeatures").FEATURES if features["apps"] and features["apps"]["sfp"]=="1" then %>
+	<div class="mod-set">
+		<div class="hd">
+			<div class="help" id="sfp_help_open">
+				<span class="info" style="right: 65px">
+				</span>
+				<span class="ico"></span>
+				<span class="arrow-wrap" id="sfp_help_arrow">
+					<span class="arrow1"></span>
+					<span class="arrow2"></span>
+				</span>
+			</div>
+			<div class="hd-tips-desc"><%:如何正确设置SFP+网口速率%></div>
+			<h3>
+				<%:SFP+网口设置%>
+			</h3>
+		</div>
+		<div class="bd">
+			<div class="section section-help" id="sfp_help_section">
+				<div class="help-cont">
+					<span class="help-close" id="sfp_help_close"></span>
+					<div class="qa">
+						<h3 style="font-size: 16px;">
+							<%:如何正确设置SFP+网口速率？%>
+						</h3>
+						<h4 style="font-weight: normal;">
+							<%:此路由器提供以下SFP+网口速率模式：%>
+						</h4>
+						<h4 style="font-weight: normal;">
+							<%:1. 自动模式（推荐）%>
+						</h4>
+						<p>
+							<%:自动探测插入SFP+光/电模块的速率，兼容性最好。%>
+						</p>
+						<h4 style="font-weight: normal;">
+							<%:2. 固定速率模式%>
+						</h4>
+						<p style="text-indent: 2;">
+							<%:固定SFP+网口为10G、2.5G或1G速率，如插入的SFP+光/电模块与设置的速率没有完全一致，SFP+网口将无法正常工作。%>
+						</p>
+						<h4>
+							<%:* 推荐使用如下型号的SFP+模块：%>
+						</h4>
+						<p>
+							<%:10G光模块：%><%:博扬%> BY-10GA1、10Gtek AXS85-192-M3
+						</p>
+						<p>
+							<%:10G电模块：%><%:中科光电%> ZK-10G-TX，ADOP SFP-10G-T-AQR
+						</p>
+						<p>
+							<%:1G电模块：%><%:慧谷%> HG-SFP-T
+						</p>
+					</div>
+				</div>
+			</div>
+			<form action="#" name="sfp_ctrl_form" id="sfp_ctrl_form" class="form" autocomplete="off">
+				<div class="form-item-select" id="sfp_mode">
+					<span class="v">
+						<select name="sfp_mode" id="sfp_mode_select" class="beautify">
+							<option value="0">
+								<%:自动探测%>
+							</option>
+							<option value="1000">
+								<%:1G模式%>
+							</option>
+							<option value="2500">
+								<%:2.5G模式%>
+							</option>
+							<option value="10000">
+								<%:10G模式%>
+							</option>
+						</select>
+					</span>
+					<div class="form-contral clearfix" id="sfp_ctrl_btn" style="display: none; margin-top: 20px">
+						<button type="submit" class="btn btn-primary btn-m l">
+							<span>
+								<%:保存%>
+							</span>
+						</button>
+						<!-- <a href="#" class="btn btn-dft btn-m r btncancelset"><span>
+								<%:取消%>
+							</span></a> -->
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+
+	<script>
+		var sfp_mode_tbl = {
+			0: "<%:自动探测%>",
+			1000: "<%:1G模式%>",
+			2500: "<%:2.5G模式%>",
+			10000: "<%:10G模式%>",
+		};
+
+		function getSFPInfo() {
+			$.ajax({
+				url: '<%=luci.dispatcher.build_url("api", "xqnetwork","get_sfp")%>',
+				type: "GET",
+				dataType: "json",
+				success: function (data) {
+					if (data && data.code == 0) {
+						var sfp_mode = data.mode;
+						if (sfp_mode) {
+							$("#sfp_mode_select").val(sfp_mode);
+							$("#sfp_mode .dummy").text(sfp_mode_tbl[sfp_mode]);
+						}
+					}
+				},
+			});
+		}
+
+		$.selectBeautify({ container: "#sfp_mode" });
+
+		$("#sfp_help_open").click(function () {
+			$("#sfp_help_arrow").show();
+			$("#sfp_help_section").show();
+		});
+
+		$("#sfp_help_close").click(function () {
+			$("#sfp_help_arrow").hide();
+			$("#sfp_help_section").hide();
+		});
+
+		$("#sfp_mode").click(function () {
+			$("#sfp_ctrl_btn").show();
+		});
+
+		$(".btncancelset").on("click", function (e) {
+			e.preventDefault();
+			location.reload(true);
+		});
+
+		$("#sfp_ctrl_form").on("submit", function (e) {
+			e.preventDefault();
+			var formName = this.name;
+			var validator = Valid.checkAll(this);
+			if (validator) {
+				var requestData = $(this).serializeArray();
+				$.pub('loading:start');
+				$.ajax({
+					url: '<%=luci.dispatcher.build_url("api", "xqnetwork","set_sfp")%>',
+					type: "POST",
+					data: requestData,
+					dataType: "json",
+					success: function (rsp) {
+						if (rsp.code === 0) {
+							setTimeout(function () {
+								$.pub('loading:stop');
+								$.dialog({
+									id: "success",
+									width: 390,
+									title: "<%:提示信息%>",
+									content: "<%:保存成功%>",
+									ok: function () {
+										window.location.reload();
+									}
+								}).lock();
+							}, rsp.hasOwnProperty("wait") ? rsp.wait * 1000 : 5000);
+						} else {
+							$.pub('loading:stop');
+							// show error message
+							$.dialog({
+								id: "error",
+								width: 390,
+								title: "<%:提示信息%>",
+								content: rsp.msg,
+								ok: function () {
+									window.location.reload();
+								}
+							}).lock();
+						}
+					},
+					error: function () {
+						$.pub('loading:stop');
+						$.alert('<%:网络异常，请检查是否联网%>');
+					}
+				});
+			}
+		});
+
+		getSFPInfo();
+	</script>
+	<%end%>

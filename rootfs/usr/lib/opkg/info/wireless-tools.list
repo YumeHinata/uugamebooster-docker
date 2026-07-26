@@ -1,0 +1,4 @@
+/usr/sbin/iwconfig
+/usr/sbin/iwlist
+/usr/sbin/iwevent
+/usr/sbin/iwpriv

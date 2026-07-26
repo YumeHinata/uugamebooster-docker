@@ -1,0 +1,38 @@
+#!/bin/sh /etc/rc.common
+# Basic init script for mosquitto
+# April 2012, OpenWrt.org
+# Provides support for the luci-app-mosquitto package, if installed
+
+START=90
+USE_PROCD=1
+SRC_CONF=/etc/mosquitto/mosquitto.conf
+TMP_CONF=/var/etc/mosquitto.conf
+
+start_service() {
+    #only work for CAP mode
+    cp $SRC_CONF $TMP_CONF
+    ap_mode=$(uci -q get xiaoqiang.common.NETMODE)
+    [ "$ap_mode" != "whc_cap" -a "$ap_mode" != "lanapmode" ] && return 0
+
+    cap_mode=$(uci -q get xiaoqiang.common.CAP_MODE)
+    [ "$ap_mode" = "lanapmode" -a "$cap_mode" != "ap" ] && return 0
+
+    ip=$(uci -q get network.lan.ipaddr)
+    hostname="xiaoqiang"
+    sed -i "s/ ${hostname}\$/ $ip/" $TMP_CONF
+
+    [ -f "/usr/sbin/mqautogen.lua" ] && lua /usr/sbin/mqautogen.lua
+
+	procd_open_instance
+	procd_set_param command mosquitto
+	procd_append_param command -c $TMP_CONF
+	procd_set_param respawn
+	# Makes /etc/init.d/mosquitto reload work if you edit the final file.
+	procd_set_param file $TMP_CONF
+	procd_close_instance
+}
+
+service_triggers() {
+	# Makes "reload_config" work
+	procd_add_reload_trigger "mosquitto"
+}

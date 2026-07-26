@@ -1,0 +1,90 @@
+<%
+local features = require("xiaoqiang.XQFeatures").FEATURES
+if features["apps"] and features["apps"]["temp_control"] == "1" then
+%>
+<script>
+  var fan_mode_tbl = {
+    0: "<%:均衡模式%>",
+    1: "<%:散热优先%>",
+    2: "<%:降噪优先%>",
+  };
+
+  function wait() {
+    dlgwait = $.loadingDialog({
+      title: "<%:风扇模式设置%>",
+      content: "<%:设置中，请稍等...%>",
+    }).lock();
+  }
+
+  function getTempCtrlInfo() {
+    $.ajax({
+      url: '<%=luci.dispatcher.build_url("api", "misystem","get_temp_control")%>',
+      type: "GET",
+      dataType: "json",
+      success: function (data) {
+        if (data && data.code == 0) {
+          var fanctrl = data.fan;
+          if (fanctrl) {
+            var fan_mode = fanctrl.mode;
+            $("#fan_mode_select").val(fan_mode);
+            $("#fan_mode .dummy").text(fan_mode_tbl[fan_mode]);
+          }
+        }
+      },
+    });
+  }
+
+  $.selectBeautify({ container: "#fan_mode" });
+
+  $("#fan_help_open").click(function () {
+    $("#fan_help_arrow").show();
+    $("#fan_help_section").show();
+  });
+
+  $("#fan_help_close").click(function () {
+    $("#fan_help_arrow").hide();
+    $("#fan_help_section").hide();
+  });
+
+  $("#fan_mode").click(function () {
+    $("#fan_ctrl_btn").show();
+  });
+
+  $(".btncancelset").on("click", function (e) {
+    e.preventDefault();
+    location.reload(true);
+  });
+
+  $("#fan_ctrl_form").on("submit", function (e) {
+    e.preventDefault();
+    var formName = this.name;
+    var validator = Valid.checkAll(this);
+    if (validator) {
+      wait();
+      var requestData = $(this).serializeArray();
+      $.ajax({
+        url: '<%=luci.dispatcher.build_url("api", "misystem","set_temp_control")%>',
+        type: "POST",
+        data: requestData,
+        dataType: "json",
+        success: function (rsp) {
+          setTimeout(function () {
+            if (rsp.code === 0) {
+              location.reload(true);
+            } else {
+              $.alert(rsp.msg);
+            }
+            dlgwait.close();
+          }, 200);
+        },
+        error: function () {
+          dlgwait.close();
+          $.alert("<%:设置失败，请稍后再试%>");
+        },
+      });
+    }
+  });
+
+  getTempCtrlInfo();
+</script>
+<%end%>

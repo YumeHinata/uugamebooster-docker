@@ -1,0 +1,1065 @@
+#!/usr/bin/lua
+
+local px     = require "posix"
+local uci    = require 'luci.model.uci'
+local util   = require 'luci.util'
+local io     = require 'io'
+local socket = require 'socket'
+local json   = require 'json'
+local fs     = require "nixio.fs"
+local ubus   = require "ubus"
+
+local g_ubus
+local g_cursor
+local g_wan_busy_threshold = 100
+local g_wan_busy_zero_num  = 20
+local g_speedtest_interval = 24*60*60
+local g_current_date       = 0
+local g_current_day_trynum = 0
+local g_current_day_num    = 0
+local g_nextmins_speedtest = 0
+local g_lasttime_speedtest = 0
+local g_ubus_wanup_msg     = 1
+local g_max_log_num        = 0
+local g_current_log_num    = 0
+local MAX_TRYNUM_PERDAY    = 1
+local MAX_NUM_PERDAY       = 1
+local MAX_BAND_ERROR       = 0.7
+local g_user_band_up       = 0
+local g_user_band_down     = 0
+local g_begin_time    = "02:00"
+local g_end_time      = "06:00"
+local g_debug_file_id = nil
+local g_debug_file    = false
+local g_debug         = false
+local g_need_test_again  = false
+local TEST_AGAIN_TICKS   = 180
+
+local PREPARE_SPEEDTEST_XML_INTERVEL = 30
+local g_prepare_speedtest_xml_cnter  = 0
+local g_prepare_speedtest_xml_last_try = 0
+local g_prepare_speedtest_xml_trycnt = 0
+
+local g_test_again_ticks = TEST_AGAIN_TICKS
+
+local cfg = {
+	['host']          = "127.0.0.1",
+	['port']          = "1036",
+	['cmd_nettb']     = "/usr/sbin/nettb2 &> /dev/null",
+	['cmd_upload']    = "/usr/bin/upload_speedtest",
+	['cmd_download']  = "/usr/bin/download_speedtest",
+	['cmd_speedtesturls']  = "/usr/bin/prepare_speedtest_xml",
+	['cmd_miqos_set'] = "/etc/init.d/miqos change_band ",
+	['cmd_miqos_get'] = "/etc/init.d/miqos show_band ",
+	['tmp_log']       = "/tmp/speedtest.log",
+	['cfg_file']      = "/etc/config/ab",
+	['tmp_cfg_dir']   = "/tmp/etc/config/",
+	['tmp_cfg_file']  = "/tmp/etc/config/ab",
+        ['tmp_speedtest_xml'] = "/tmp/speedtest_urls.xml"
+}
+
+local SPEEDTEST_VER="__UNDEFINED__"
+--[[
+if #arg >= 1 then
+    if arg[1] == 'oversea' then
+        SPEEDTEST_VER='OVERSEA'
+    end
+end
+--]]
+
+function time_to_mins(stime)
+    local _,_,hour = string.find(stime, '([0-9]+):')
+    local _,_,min  = string.find(stime, ':([0-9]+)')
+
+    return (60*tonumber(hour)+tonumber(min))
+end
+
+function mins_to_time(mins)
+    local hour,min = 0,0
+    min  = mins%60
+    hour = (mins-min)/60
+
+    return string.format("%2d:%2d", hour, min)
+end
+
+function log_to_file(fileid, msg)
+    local file_size = fileid:seek("end")
+
+    if file_size > 1024*1024 then
+	return
+    end
+    fileid:write(os.date("%x %X").." : "..msg.."\n")
+end
+
+--logger
+--[[1 Alert, 3 Error 7 Debug ]]--
+px.openlog("speedtest",LOG_NDELAY,LOG_USER)
+function logger(loglevel,msg)
+    if loglevel == 10 then
+	if g_debug then
+            px.syslog(3,msg)
+	    if g_debug_file and g_debug_file_id then
+		log_to_file(g_debug_file_id, msg)
+	    end
+	end
+    else
+        px.syslog(loglevel,msg)
+    end
+end
+
+function execl2(command)
+    local pp   = io.popen(command)
+    local line = ""
+    local data = {}
+
+    while true do
+        line = pp:read()
+        if line == nil then
+            break
+        end
+        data[#data+1] = line
+    end
+    pp:close()
+    return data
+end
+
+-- 读取cfg到tmp的meory文件夹中
+function cfg2tmp()
+    local r1,r2,r3 = fs.mkdirr(cfg.tmp_cfg_dir)
+    if not r1 then
+        logger(3, 'fatal error: mkdir failed, code:' .. r2 .. ',msg:'..r3)
+        return nil
+    end
+
+    r1,r2,r3 = fs.copy(cfg.cfg_file, cfg.tmp_cfg_file)
+    if not r1 then
+        logger(3,'fatal error: copy cfg file 2 /tmp memory failed. code:' .. r2 .. ',msg:'..r3)
+        return nil
+    end
+    return true
+end
+
+-- 拷贝最新配置到memory中
+function tmp2cfg()
+    if not fs.copy(cfg.tmp_cfg_file, cfg.cfg_file) then
+        logger(3,'fatal error: copy /tmp cfg file 2 /etc/config/ failed. exit.')
+        return nil
+    end
+    return true
+end
+
+function copytab(st)
+    local tab={}
+    for k,v in pairs(st or {}) do
+        if type(v) ~= 'table' then tab[k]=v
+        else tab[k]=copytab(v) end
+    end
+    return tab
+end
+
+function get_conf_std(conf,type,opt,default)
+    local x=uci.cursor()
+    local s,e = pcall(function() return x:get(conf,type,opt) end)
+    return e or default
+end
+
+-- execute command without anyoutput
+function exec_cmd(tblist, ignore_error)
+    local status = 0
+    for _,v in pairs(tblist) do
+        local cmd = v
+
+        if g_debug then
+            logger(3, '++' .. cmd)
+            cmd = cmd .. ' >/dev/null 2>>' .. cfg.tmp_log
+        else
+            cmd = cmd .. " &>/dev/null "
+        end
+
+        if os.execute(cmd) ~= 0 and ignore_error ~= 1 then
+            if g_debug then
+                os.execute('echo "^^^ '.. cmd .. ' ^^^ " >>' .. cfg.tmp_log)
+            end
+            logger(3, '[ERROR]:  ' .. cmd .. ' failed!')
+            dump_qdisc()
+            return false
+        end
+    end
+
+    return true
+end
+
+--split string with chars '$p'
+string.split = function(s, p)
+    local rt= {}
+    string.gsub(s, '[^'..p..']+', function(w) table.insert(rt, w) end )
+    return rt
+end
+
+function system_exit()
+    logger(3,'======== Process Exit. =====')
+
+    if g_debug_file_id then
+	g_debug_file_id:flush()
+	g_debug_file_id:close()
+    end
+    os.exit()
+end
+
+function system_init()
+    if g_debug then
+        os.execute("echo auto speedtest starting..... >>" .. cfg.tmp_log)
+    end
+
+    if g_debug and g_debug_file then
+      g_debug_file_id = io.open(cfg.tmp_log, "a")
+    end
+
+    -- 将配置文件copy到tmp内存中,并初始化cursor
+--[[    if not cfg2tmp() then
+        return false
+    end
+--]]
+
+    g_cursor = uci.cursor()
+    if not g_cursor then
+        logger(3,'set uci cursor failed. exit.')
+        return false
+    end
+
+    if is_user_band_manual() then
+        g_user_band_up   = 1
+        g_user_band_down = 1
+        logger(10,'user set band manual!')
+    else
+        logger(10,'user didnt set band manual!')
+    end
+--[[
+    if not g_cursor:set_confdir(cfg.tmp_cfg_dir) then
+        logger(3,'set tmp config dir failed. exit.')
+        return false
+    end
+--]]
+    g_ubus = ubus.connect()
+    if not g_ubus then
+        logger(3, 'failed to connect to ubusd!')
+        return false
+    end
+
+    logger(10, "************ auto speedtest startup **************")
+    g_current_date = tonumber(os.date("%d"))
+    g_nextmins_speedtest = get_nexttime_speedtest()
+
+    local lasttime = g_cursor:get("ab","settings","last_speedtest_time")
+    g_lasttime_speedtest =  tonumber(lasttime)
+
+    local maxlog   = g_cursor:get("ab","settings","max_log_num")
+    g_max_log_num  =  tonumber(maxlog)
+
+    local curntlog = g_cursor:get("ab","settings","current_log_num")
+    g_current_log_num =  tonumber(curntlog)
+
+    if g_current_log_num > g_max_log_num then
+	g_current_log_num = 1
+    end
+
+    logger(10, "init get lasttime: "..lasttime.." lastdate: "..os.date("%x %X", g_lasttime_speedtest))
+    logger(10, "max log num: "..g_max_log_num.." current log num: "..g_current_log_num)
+
+-- SIGTERM to clear and exit
+    px.signal(px.SIGTERM,
+        function ()
+            logger(3,'signal TERM to stop auto speed test.')
+            system_exit()
+        end)
+
+    px.signal(px.SIGINT,
+        function ()
+            logger(3,'signal INT to stop auto speed test.')
+            system_exit()
+        end)
+
+    return true
+end
+
+function system_init_nodaemon()
+    if g_debug then
+        os.execute("echo auto speedtest starting..... >>" .. cfg.tmp_log)
+    end
+
+    if g_debug and g_debug_file then
+      g_debug_file_id = io.open(cfg.tmp_log, "a")
+    end
+
+    g_cursor = uci.cursor()
+    if not g_cursor then
+        logger(3,'set uci cursor failed. exit.')
+        return false
+    end
+
+    if is_user_band_manual() then
+        g_user_band_up   = 1
+        g_user_band_down = 1
+        logger(10,'user set band manual!')
+    else
+        logger(10,'user didnt set band manual!')
+    end
+
+    return true
+end
+
+
+function get_list_wan_rate()
+    local ret = g_ubus:call("trafficd", "list_wan_rate", {})
+
+    if ret and ret.rate then
+	return ret.rate
+    end
+
+    return nil;
+end
+
+function get_lasttime_speedtest()
+    return g_lasttime_speedtest
+end
+
+function set_lasttime_speedtest()
+    g_lasttime_speedtest = os.time()
+
+    local date = string.format("%s", os.date("%x %X", g_lasttime_speedtest))
+
+    g_cursor:set("ab","settings","last_speedtest_date",date)
+    g_cursor:set("ab","settings","last_speedtest_time",tostring(g_lasttime_speedtest))
+    g_cursor:commit('ab')
+    logger(10, "set lasttime: "..g_lasttime_speedtest.." lastdate: "..os.date("%x %X", g_lasttime_speedtest))
+end
+
+-- choose a ramdom time between g_begin_time and g_end_time,
+-- in case all routers start speedtest at the same moment
+function get_nexttime_speedtest()
+    local start_mins = time_to_mins(g_begin_time)
+    local end_mins   = time_to_mins(g_end_time)
+
+    math.randomseed(os.time())
+    local next_mins = math.random(start_mins, end_mins)
+
+    logger(10, "start mins:  "..g_begin_time.." "..time_to_mins(g_begin_time))
+    logger(10, "end   mins:  "..g_end_time.." "..time_to_mins(g_end_time))
+    logger(10, "next  mins:  "..mins_to_time(next_mins).." "..next_mins)
+
+    return next_mins
+end
+
+--if speed test failed this time, we choose another time between now time and end time
+function get_nexttime_case_fail()
+    local start_mins = time_to_mins(g_begin_time)
+    local end_mins   = time_to_mins(g_end_time)
+
+    local date = os.date("%X")
+    local _,_,hour = string.find(date, '^([0-9]+):')
+    local _,_,min  = string.find(date, '^[0-9]+:([0-9]+):')
+    local now_mins = 60*hour + min
+
+    if (now_mins > start_mins) and (now_mins < end_mins) then
+	start_mins = now_mins
+    end
+
+    math.randomseed(os.time())
+    local next_mins = math.random(start_mins, end_mins)
+
+    logger(10, "start mins:  "..g_begin_time.." "..time_to_mins(g_begin_time))
+    logger(10, "end   mins:  "..g_end_time.." "..time_to_mins(g_end_time))
+    logger(10, "now   mins:  "..mins_to_time(now_mins).." "..now_mins)
+    logger(10, "next  mins:  "..mins_to_time(next_mins).." "..next_mins)
+
+    return next_mins
+end
+
+function uci_commit_save(flag)
+    if flag then
+        g_cursor:commit('ab')
+
+        -- tmp下的配置改变,复写回/etc下
+--[[        if not tmp2cfg() then
+            logger(1, 'copy tmp cfg to /etc/config/ failed.')
+        end
+--]]
+    end
+end
+
+function get_uptime()
+    local upt=io.open('/proc/uptime')
+    local n=upt:read('*n')
+    upt:close()
+    return math.ceil(n)
+end
+
+function newset()
+    local reverse = {}
+    local set = {}
+    return setmetatable(set, {__index = {
+        insert = function(set, value)
+            if not reverse[value] then
+                table.insert(set, value)
+                reverse[value] = table.getn(set)
+            end
+        end,
+        remove = function(set, value)
+            local index = reverse[value]
+            if index then
+                reverse[value] = nil
+                local top = table.remove(set)
+                if top ~= value then
+                    reverse[top] = index
+                    set[index] = top
+                end
+            end
+        end
+    }})
+end
+
+function is_user_band_manual()
+    local manual = g_cursor:get("xiaoqiang","common","MANUAL")
+    if manual then
+	local ucfg = tonumber(manual)
+	if ucfg and ucfg == 1 then
+	    return true
+	end
+    end
+    return false
+end
+
+
+function is_lasttest_long_enough()
+    local last_time = get_lasttime_speedtest()
+    local now_time = os.time()
+    local year2000 = os.time{year=2000, month=1,day=1,hour=0}
+
+    if now_time < year2000 then
+        logger(10, "NTP is not ready now time: "..os.date("%x %X",now_time))
+        return false
+    end
+
+    if last_time == 0 then
+        logger(10, "Long enough now time: "..os.date("%x %X",now_time).." last time: "..os.date("%x %X",last_time))
+	return true
+    end
+
+    if (last_time+g_speedtest_interval) < now_time then
+        logger(10, "Long enough now time: "..os.date("%x %X",now_time).." last time: "..os.date("%x %X",last_time))
+	return true
+    end
+
+    logger(10, "Not long enough now time: "..os.date("%x %X",now_time).." last time: "..os.date("%x %X",last_time))
+    return false
+end
+
+function is_wan_busy()
+    local sum,avg,max,zeronum,min = 0,0,0,0,9999999
+    local listrate = get_list_wan_rate()
+
+    if listrate and #listrate ~= 0 then
+        for k,v in ipairs(listrate) do
+            if v > max then
+                max = v
+            end
+
+            if v < min then
+		min = v
+	    end
+
+            if v==0 then
+	        zeronum = zeronum+1
+            end
+            sum = sum + v
+            logger(10, k..": "..v)
+        end
+
+	avg =  sum/#listrate
+        logger(10, "is_wan_busy:  avg: "..avg.." max: "..max.." min: "..min.." zeronum: "..zeronum)
+
+	if (avg < g_wan_busy_threshold) and (zeronum >= g_wan_busy_zero_num)then
+	    return false
+	else
+	    logger(3, "stat_points_privacy network_speedtest=2|wanbusy|"..os.date("%x %X").."|"..avg.."|"..max.."|"..min.."|"..zeronum)
+	    logger(10, "dotdata:  network_speedtest=2|wanbusy|"..os.date("%x %X").."|"..avg.."|"..max.."|"..min.."|"..zeronum)
+	    return true
+	end
+    end
+
+    return true
+end
+
+function is_just_power_up()
+    local start_time = get_uptime()
+
+    if start_time < 160 then
+	return true
+    end
+    return false
+end
+
+function is_time_to_speedtest()
+    local date = os.date("%X")
+    local _,_,hour = string.find(date, '^([0-9]+):')
+    local _,_,min  = string.find(date, '^[0-9]+:([0-9]+):')
+    local now_mins = 60*tonumber(hour) + tonumber(min)
+
+    if (now_mins >= g_nextmins_speedtest) and (now_mins <= time_to_mins(g_end_time)) then
+	return true
+    end
+
+    logger(10, "Not time for speedtest  now: "..date.." begin: "..g_begin_time.." end: "..g_end_time.." next: "..mins_to_time(g_nextmins_speedtest))
+    return false
+end
+
+function is_internet_connected()
+    local cmd = cfg.cmd_nettb
+	
+	if os.execute(cmd) ~= 0 then
+		return false
+	else
+		return true
+	end
+end
+
+function is_band_result_valid(new_up, new_down, old_up, old_down, flag)
+
+    if flag == 3 then
+        return true
+    end
+
+    if (new_up > 32) and (new_down > 128) then
+
+        logger(10, "band result valid!")
+        logger(10, "old_up: "..old_up.." old_down: "..old_down)
+        logger(10, "new_up: "..new_up.." new_down: "..new_down)
+        return true
+    end
+
+    logger(10, "band result invalid!")
+    logger(10, "old_up: "..old_up.." old_down: "..old_down)
+    logger(10, "new_up: "..new_up.." new_down: "..new_down)
+    logger(3, "stat_points_privacy network_speedtest="..flag.."|banderr|"..os.date("%x %X").."|"..old_up.."|"..old_down.."|"..new_up.."|"..new_down)
+    logger(10, "dotdata: network_speedtest="..flag.."|banderr|"..os.date("%x %X").."|"..old_up.."|"..old_down.."|"..new_up.."|"..new_down)
+    return false
+end
+
+-- if band result is unacceptable, we do speed test again after 1 hour
+function is_band_result_acceptable(new_up, new_down, old_up, old_down, flag)
+
+    if flag == 3 then
+        return true
+    end
+
+    if (new_up > 0.5*old_up) and (new_down > 0.5*old_down) then
+
+        logger(10, "band result acceptable!")
+        logger(10, "old_up: "..old_up.." old_down: "..old_down)
+        logger(10, "new_up: "..new_up.." new_down: "..new_down)
+        return true
+    end
+
+    logger(10, "band result unacceptable!")
+    logger(10, "old_up: "..old_up.." old_down: "..old_down)
+    logger(10, "new_up: "..new_up.." new_down: "..new_down)
+    logger(3, "stat_points_privacy network_speedtest="..flag.."|banderr|"..os.date("%x %X").."|"..old_up.."|"..old_down.."|"..new_up.."|"..new_down)
+    logger(10, "dotdata: network_speedtest="..flag.."|banderr|"..os.date("%x %X").."|"..old_up.."|"..old_down.."|"..new_up.."|"..new_down)
+    return false
+end
+
+function get_miqosband()
+    local upband, downband = 0, 0
+    local cmd = cfg.cmd_miqos_get
+    local res = execl2(cmd)
+
+    logger(10, cmd)
+    if res and next(res)~=nil then
+	for k,v in ipairs(res) do
+	    local _,_,tmp  = string.find(v, 'status=([0-9]+)')
+	    local _,_,up   = string.find(v, 'uplink=([0-9]+%.?[0-9]+)')
+	    local _,_,down = string.find(v, 'downlink=([0-9]+%.?[0-9]+)')
+
+	    if tmp then
+		status = tonumber(tmp)
+	    end
+
+	    if up then
+		upband = tonumber(up)
+	    end
+
+	    if down then
+		downband = tonumber(down)
+	    end
+	end
+
+	if status == 0 then
+	    --logger(10, "Get miqos band up: "..upband.." down: "..downband)
+            return upband, downband
+	end
+    end
+
+    --logger(10, "Get miqos band up: 0 down: 0")
+    return 0, 0
+end
+
+function set_miqosband(up_band, down_band, flag)
+    local cmd = cfg.cmd_miqos_set.." "..up_band.." "..down_band
+    local res = execl2(cmd)
+    local status = 1
+
+    logger(10, cmd)
+    if res and next(res)~=nil then
+	for k,v in ipairs(res) do
+	    local _,_,tmp = string.find(v, 'status=([0-9]+)')
+	    if tmp then
+		status = tonumber(tmp)
+	    end
+	end
+
+	if status == 0 then
+	    logger(10, "set miqos band succeed!")
+
+	    local info = os.date("%x %X: ").."flag: "..flag.." up: "..up_band.." down: "..down_band
+	    if g_current_log_num > g_max_log_num then
+		g_current_log_num = 1
+	    end
+	    g_cursor:set("ab","settings","log"..g_current_log_num, info)
+            g_current_log_num = g_current_log_num + 1
+	    g_cursor:set("ab","settings","current_log_num", g_current_log_num)
+	    g_cursor:commit('ab')
+
+            set_lasttime_speedtest()
+            if not is_user_band_manual() then
+		local tmpup   = string.format("%.2f", up_band/1024)
+		local tmpdown = string.format("%.2f", down_band/1024)
+	        g_cursor:set("xiaoqiang","common","BANDWIDTH2", tmpup)
+	        g_cursor:set("xiaoqiang","common","BANDWIDTH", tmpdown)
+	        g_cursor:commit('xiaoqiang')
+		logger(10, "set xiaoqiang band up: "..tmpup.." down: "..tmpdown)
+            else
+		logger(10, "user band manual,dont set xiaoqiang config")
+            end
+
+            return true
+	end
+    end
+    return false
+end
+
+function do_speed_test_upload()
+    local cmd = cfg.cmd_upload
+    local res = execl2(cmd)
+    local band = 0
+
+    if next(res)~=nil then
+        for k,v in pairs(res) do
+	    local _,_,tmp = string.find(v, 'tx:([0-9]+%.[0-9]+)')
+	    if tmp then
+		band = tonumber(tmp) or 0
+	    end
+            --logger(10, "got upload info: "..v)
+        end
+	--logger(10,"got up band: "..band)
+	return band
+    else
+        return 0
+    end
+end
+
+function do_speed_test_download()
+    local cmd = cfg.cmd_download
+    local res = execl2(cmd)
+    local band = 0
+
+    if next(res)~=nil then
+        for k,v in pairs(res) do
+	    local _,_,tmp = string.find(v, 'rx:([0-9]+%.[0-9]+)')
+	    if tmp then
+		band = tonumber(tmp) or 0
+	    end
+            --logger(10, "got download info: "..v)
+        end
+	--logger(10,"got down band: "..band)
+	return band
+    else
+        return 0
+    end
+end
+
+--flag: 1.speedtest when power on  2.speedtest when time up 3.speedtest on cmd
+--      4.speedtest again in 1 hour if last band result unacceptable
+--return 1 means failed, return 0 means succeed
+function do_speed_test(flag)
+    local upband,downband = 0,0
+
+    logger(10, "do speed test!")
+
+    local miqos_upband,miqos_downband = get_miqosband()
+
+    if flag ~= 3 then
+        if miqos_upband==0 or miqos_downband==0 then
+        --    logger(3, "stat_points_privacy network_speedtest="..flag.."|miqosinvalid|"..os.date("%x %X").."|"..miqos_upband.."|"..miqos_downband.."|0|0")
+            logger(10, "network_speedtest="..flag.."|miqosinvalid|"..os.date("%x %X").."|"..miqos_upband.."|"..miqos_downband.."|0|0")
+        --    return 1
+        end
+    end
+
+    os.execute("/etc/init.d/miqos stop")
+    downband = do_speed_test_download()
+    upband   = do_speed_test_upload()
+    os.execute("/etc/init.d/miqos start")
+
+    logger(3, "test  upband: "..upband.." test   downband: "..downband)
+    logger(3, "miqos upband: "..miqos_upband.." miqos  downband: "..miqos_downband)
+
+    if upband==0 or downband==0 then
+	logger(10, "speedtest or miqos band invalid!")
+	if flag ~= 3 then
+            logger(3, "stat_points_privacy network_speedtest="..flag.."|bandinvalid|"..os.date("%x %X").."|"..miqos_upband.."|"..miqos_downband.."|"..upband.."|"..downband)
+            logger(10, "dotdata: network_speedtest="..flag.."|bandinvalid|"..os.date("%x %X").."|"..miqos_upband.."|"..miqos_downband.."|"..upband.."|"..downband)
+	end
+	return 1
+    else
+        if is_band_result_valid(upband,downband,miqos_upband,miqos_downband,flag) then
+	    if flag == 4 or flag == 3 then
+	        --local res =  set_miqosband(upband, downband, flag)
+	        local res = true
+                if res then
+                    logger(3, "stat_points_privacy network_speedtest="..flag.."|success|"..os.date("%x %X").."|"..miqos_upband.."|"..miqos_downband.."|"..upband.."|"..downband)
+                    logger(10, "dotdata: network_speedtest="..flag.."|success|"..os.date("%x %X").."|"..miqos_upband.."|"..miqos_downband.."|"..upband.."|"..downband)
+		    return 0
+                else
+		    if flag~= 3 then
+                        logger(3, "stat_points_privacy network_speedtest="..flag.."|miqoserr1|"..os.date("%x %X").."|"..miqos_upband.."|"..miqos_downband.."|"..upband.."|"..downband)
+                        logger(10, "dotdata: network_speedtest="..flag.."|miqoserr1|"..os.date("%x %X").."|"..miqos_upband.."|"..miqos_downband.."|"..upband.."|"..downband)
+		    end
+		    return 1
+	        end
+	    else
+	        if is_band_result_acceptable(upband,downband,miqos_upband,miqos_downband,flag) then
+	            --local res =  set_miqosband(upband, downband, flag)
+	            local res = true 
+                    if res then
+                        logger(3, "stat_points_privacy network_speedtest="..flag.."|success|"..os.date("%x %X").."|"..miqos_upband.."|"..miqos_downband.."|"..upband.."|"..downband)
+                        logger(10, "dotdata: network_speedtest="..flag.."|success|"..os.date("%x %X").."|"..miqos_upband.."|"..miqos_downband.."|"..upband.."|"..downband)
+		        return 0
+                    else
+                        logger(3, "stat_points_privacy network_speedtest="..flag.."|miqoserr1|"..os.date("%x %X").."|"..miqos_upband.."|"..miqos_downband.."|"..upband.."|"..downband)
+                        logger(10, "dotdata: network_speedtest="..flag.."|miqoserr1|"..os.date("%x %X").."|"..miqos_upband.."|"..miqos_downband.."|"..upband.."|"..downband)
+		        return 1
+	            end
+	        else
+		    g_need_test_again  = true
+		    g_test_again_ticks = TEST_AGAIN_TICKS
+	            logger(10, "band result unacceptable, test again 1 hour later!")
+	        end
+	    end
+	end
+    end
+    return 1
+end
+
+function speedtest_by_cmd()
+
+    if (g_user_band_down ~= 0) or (g_user_band_up ~= 0) then
+	logger(3, "autospeedtest cmd user band is not zero: "..g_user_band_up.." "..g_user_band_down..", do nothing!")
+	return 1
+    end
+
+    if not is_internet_connected() then
+        logger(3, "autospeedtest cmd Internet is not connected, do nothing!")
+        return 2
+    end
+
+    logger(3, "autospeedtestd do speed testing!")
+    local res = do_speed_test(3)
+    return res
+end
+
+function try_speedtest()
+
+    if (g_user_band_down ~= 0) or (g_user_band_up ~= 0) then
+	logger(10, "user band is not zero: "..g_user_band_up.." "..g_user_band_down..", do nothing!")
+	return
+    end
+
+    if not is_lasttest_long_enough() then
+	return
+    end
+
+    if (g_current_day_num >= MAX_NUM_PERDAY) or (g_current_day_trynum >= MAX_TRYNUM_PERDAY)then
+	logger(10, "Exceed max num perday! cur: "..g_current_day_num.."("..MAX_NUM_PERDAY..") trycur: "..g_current_day_trynum.."("..MAX_TRYNUM_PERDAY..")")
+	return
+    end
+
+    -- during the just startup time, we dont detect if wan is busy
+    if g_ubus_wanup_msg == 1 and is_just_power_up() then
+        if not is_internet_connected() then
+	    logger(10, "Wanup but Internet is not connected, do nothing!")
+	    return
+        end
+	logger(10, "Got wan up msg, do speed test!")
+        g_ubus_wanup_msg = 0
+	do_speed_test(1)
+	g_current_day_num = g_current_day_num +1
+	return
+    end
+
+    if is_time_to_speedtest() then
+        if not is_internet_connected() then
+	    logger(10, "Internet is not connected, do nothing!")
+	    logger(3, "stat_points_privacy network_speedtest=2|uninternet|"..os.date("%x %X"))
+	    logger(10, "dotdata: network_speedtest=2|uninternet|"..os.date("%x %X"))
+            g_current_day_trynum = g_current_day_trynum + 1
+	    return
+        end
+
+        if is_wan_busy() then
+            g_current_day_trynum = g_current_day_trynum + 1
+            logger(10, "Wan is busy, do nothing! ")
+            g_nextmins_speedtest = get_nexttime_speedtest()
+        else
+            logger(10, "Wan is free, do speed test!")
+            do_speed_test(2)
+            g_current_day_num = g_current_day_num +1
+            g_nextmins_speedtest = get_nexttime_speedtest()
+        end
+    end
+end
+
+--if last band result unacceptable, we do speed test again in 1 hour
+function try_speedtest_again()
+
+    if (g_user_band_down ~= 0) or (g_user_band_up ~= 0) then
+	logger(10, "user band is not zero: "..g_user_band_up.." "..g_user_band_down..", do nothing!")
+	return
+    end
+
+    if true then
+        if not is_internet_connected() then
+	    logger(10, "Internet is not connected, do nothing!")
+	    logger(3, "stat_points_privacy network_speedtest=2|uninternet|"..os.date("%x %X"))
+	    logger(10, "dotdata: network_speedtest=2|uninternet|"..os.date("%x %X"))
+	    return
+        end
+
+        if is_wan_busy() then
+            logger(10, "Wan is busy, do nothing! ")
+        else
+            logger(10, "Wan is free, do speed test!")
+            do_speed_test(4)
+        end
+    end
+end
+
+function prepare_speedtest_urls()
+    local cmd = cfg.cmd_speedtesturls
+
+--[[    if g_prepare_speedtest_xml_trycnt > 3 then
+        logger(10, "try num is enough do nothing: "..g_prepare_speedtest_xml_trycnt)
+        return
+    end
+
+    g_prepare_speedtest_xml_cnter = g_prepare_speedtest_xml_cnter + 1
+--]]
+    if SPEEDTEST_VER ~= "OVERSEA" then
+        logger(10, "prepare urls is not oerversea version !")
+        return
+    end
+
+    filexml = io.open(cfg.tmp_speedtest_xml)
+    if filexml then
+        filexml:close()
+        logger(3, "prepare urls already got url xml !")
+        return
+    end
+
+    if not is_internet_connected() then
+        logger(10, "prepare urls  Internet is not connected, do nothing!")
+        return
+    end
+
+--[[    if g_prepare_speedtest_xml_trycnt ~= 0 then
+        if g_prepare_speedtest_xml_cnter - g_prepare_speedtest_xml_last_try < PREPARE_SPEEDTEST_XML_INTERVEL then
+            logger(10, "its not time for getting xml cnter: "..g_prepare_speedtest_xml_cnter.." last: "..g_prepare_speedtest_xml_last_try)
+            return
+        end
+    end
+
+    g_prepare_speedtest_xml_trycnt = g_prepare_speedtest_xml_trycnt + 1
+    g_prepare_speedtest_xml_last_try = g_prepare_speedtest_xml_cnter--]]
+    logger(3, "start getting speedtest url xml !")
+    local res = execl2(cmd)
+    filexml = io.open(cfg.tmp_speedtest_xml)
+    if filexml then
+        filexml:close()
+        logger(3, "get speedtest url xml ok!")
+    else
+        logger(3, "get speedtest url xml failed!")
+    end
+end
+
+-----------------------------------------------------------------------------
+--  loop work for speed test
+-----------------------------------------------------------------------------
+function main_loop()
+
+    local server = assert(socket.bind(cfg.host, cfg.port))
+    server:settimeout(1)
+
+    -- tables f
+    local set=newset()
+    set:insert(server)    -- add 'server' into select events
+
+    local gc_timer=0
+    while true do
+	logger(10, "--------- main loop ---------")
+        local readable, _, error = socket.select(set, nil , 20)
+	gc_timer = gc_timer + 1
+        if gc_timer >= 20 then
+            gc_timer = 0
+            local tmp_cnt = collectgarbage("count")
+            logger(10, "LUA GC count: " .. tmp_cnt)
+            tmp_cnt = collectgarbage("collect")
+            logger(10, "LUA GC collect: " .. tmp_cnt)
+        end
+
+        for _,v in ipairs(readable) do
+
+            if v == server then
+                logger(3, 'new client come in ...')
+                local clt=v:accept()
+                if clt then
+                    clt:settimeout(1)
+                    set:insert(clt)
+                else
+                    logger(3, 'accept client error.')
+                end
+            else
+                local data,error = v:receive()
+
+                if error then
+                    v:close()
+                    logger(3, 'client is disconnected.')
+                    set:remove(v)
+                else
+                    local args=string.split(data,' ')
+                    if not args[1] then
+                        v:send(json.encode({status=3}))
+                    else
+			logger(10, "Recv cmd: "..args[1])
+                        if args[1] == 'status' then
+                            logger(3,'======== COMMAND status============')
+                            local stats = string.format("\ng_begin_time          : %s\n",g_begin_time)
+                            stats = stats..string.format("g_end_time           : %s\n",g_end_time)
+                            stats = stats..string.format("g_lasttime_speedtest : %s\n",os.date("%x %X", g_lasttime_speedtest))
+                            stats = stats..string.format("g_nextmins_speedtest : %s\n",mins_to_time(g_nextmins_speedtest))
+                            stats = stats..string.format("g_current_date       : %d\n",g_current_date)
+                            stats = stats..string.format("g_current_day_trynum : %d\n",g_current_day_trynum)
+                            stats = stats..string.format("g_current_day_num    : %d\n",g_current_day_num)
+                            stats = stats..string.format("g_max_log_num        : %d\n",g_max_log_num)
+                            stats = stats..string.format("g_current_log_num    : %d\n",g_current_log_num)
+                            stats = stats..string.format("g_user_band_up       : %d\n",g_user_band_up)
+                            stats = stats..string.format("g_user_band_down     : %d\n",g_user_band_down)
+
+                            v:send(json.encode({status=2,data=stats}))
+                        elseif args[1] == 'stop' then
+                            logger(3,'======== COMMAND stop  ============')
+                            v:send(json.encode({status=0}) .. "\n")
+                            v:close()
+                            system_exit()    -- exit system
+                        elseif args[1] == 'wan_up' then
+                            logger(3,'======== COMMAND wan_up============')
+			    g_ubus_wanup_msg = 1
+                            v:send(json.encode({status=0}) .. "\n")
+                        elseif args[1] == 'debug_on' then
+                            logger(3,'======== COMMAND debug_on============')
+			    g_debug = true
+                            v:send(json.encode({status=0}) .. "\n")
+                        elseif args[1] == 'debug_off' then
+                            logger(3,'======== COMMAND debug_off============')
+			    g_debug = false
+                            v:send(json.encode({status=0}) .. "\n")
+                        elseif args[1] == 'do_speedtest' then
+                            logger(3,'======== COMMAND do_speedtest============')
+			    local res = speedtest_by_cmd()
+                            v:send(json.encode({status=res}) .. "\n")
+                        elseif args[1] == 'set_userband' then
+                            logger(3,'======== COMMAND set_userband============')
+			    g_user_band_up   = tonumber(args[2]) or 0
+			    g_user_band_down = tonumber(args[3]) or 0
+                            v:send(json.encode({status=0}) .. "\n")
+                        elseif args[1] == 'next_time' then
+                            logger(3,'======== COMMAND nexttime============')
+			    g_nextmins_speedtest = time_to_mins(args[2])
+                            v:send(json.encode({status=0, data=args[2].." "..g_nextmins_speedtest}) .. "\n")
+                        else
+                            v:send(json.encode({status=2,data='Not supported command.'}))
+                        end
+                    end
+
+                    v:send('\n')
+                    v:close()
+                    set:remove(v)
+                end
+            end
+        end
+
+        prepare_speedtest_urls()
+
+        local date = tonumber(os.date("%d"))
+        if g_current_date ~= date then
+            logger(10, "date change from "..g_current_date.." to "..date)
+	    g_current_day_trynum = 0
+	    g_current_day_num    = 0
+	    g_current_date = date
+        end
+
+	if g_need_test_again then
+	    if g_test_again_ticks > 1 then
+		g_test_again_ticks = g_test_again_ticks - 1
+                logger(10, "test again ticks left: "..g_test_again_ticks)
+	    else
+		g_need_test_again = false
+		g_test_again_ticks = TEST_AGAIN_TICKS
+                logger(10, "try speed test again! ")
+		try_speedtest_again()
+	    end
+
+	end
+	try_speedtest()
+
+    end
+end
+
+function main()
+    if system_init() then
+        local s, e = pcall(function() main_loop() end)
+        if not s
+        then
+            logger(3,e)
+	    print("pcall exit!")
+        end
+    else
+        print("system initial failed. exit.")
+        logger(3, 'system initial failed. exit.')
+    end
+end
+
+
+if #arg >= 1 then
+    if arg[1] == 'do_speedtest' then
+        if system_init_nodaemon() then
+            local res = speedtest_by_cmd()
+            local restr = "{\n    status="..res.."\n}\n"
+            print(restr)
+	    return restr
+       	else
+            print("system initial failed. exit.")
+            logger(3, 'autospeedtest system initial failed. exit.')
+    	end
+    elseif arg[1] == 'oversea' then
+	prepare_speedtest_urls()
+    end
+end

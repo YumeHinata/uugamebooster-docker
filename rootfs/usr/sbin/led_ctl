@@ -1,0 +1,336 @@
+#!/bin/sh
+# scripts layer from high to low:
+# 1. /usr/sbin/led_ctl : control router leds' light, called by luci request: < /api/misystem/led >
+# 2. /usr/sbin/xqled   : control leds' light by call <gpio> script
+# 3. /usr/sbin/gpio    : control leds' light by /sys/class/leds file
+
+LOCK_FILE="/var/run/led_ctl.lock"
+exec 209<>"$LOCK_FILE"
+
+if ! flock -w 5 209; then
+    logger -p 2 -t "led_ctl" "Failed to acquire lock after 5 seconds, exiting."
+    exit 1
+fi
+
+usage() {
+    cat <<EOF
+usage: router led control:
+       led_on  : light the router's leds
+       led_off : make all leds to dark
+
+       router led timer control:
+       timer_on <hour of led_on time> <min of led_on time> <hour of led_off time> <min of led_off time>
+       timer_off
+
+EOF
+    exit 255
+}
+
+LED_DBG() {
+    logger -p 2 -t "led_ctl" "$1"
+}
+
+led_on() {
+    LED_DBG "led_on $@"
+
+    # $1 is xled or ethled, if $1 is empty, turn on status led
+    case $1 in
+    xled)
+        # set uci config
+        uci set xiaoqiang.common.XLED=1
+        uci commit xiaoqiang
+
+        # turn on xled
+        xqled led_amb_on
+
+        # if we are CAP, sync to RE
+        timer_is_mesh_cap && {
+            whc_to_re_common_api.sh action '{"cmd":"sync_led","xled":1}' >/dev/null 2>&1 &
+            mesh_cmd sync_lite >/dev/null 2>&1 &
+        }
+        ;;
+    ethled)
+        # set uci config
+        uci set xiaoqiang.common.ETHLED=1
+        uci commit xiaoqiang
+
+        # turn on ethled
+        xqled led_eth_on
+
+        timer_is_mesh_cap && {
+            # generate random sum by openssl
+            sum=$(openssl rand -hex 4)
+            uci set xiaoqiang.common.ETHLED_SUM=$sum
+            uci commit xiaoqiang
+            # sync to RE
+            whc_to_re_common_api.sh action '{"cmd":"sync_led","ethled":1}' >/dev/null 2>&1 &
+            mesh_cmd sync_lite >/dev/null 2>&1 &
+        }
+        ;;
+    *)
+        uci set xiaoqiang.common.BLUE_LED=1
+        uci commit xiaoqiang
+
+        xqled mesh_finish >/dev/null 2>&1
+        xqled sys_ok >/dev/null 2>&1
+        xqled sys_on >/dev/null 2>&1
+        xqled func_on >/dev/null 2>&1
+        [ -f "/etc/init.d/miot" ] && /etc/init.d/miot restart >/dev/null 2>&1
+        [ -f /usr/sbin/wan_check.sh ] && /usr/sbin/wan_check.sh reset >/dev/null 2>&1
+        [ -f /etc/init.d/scan ] && /etc/init.d/scan led_reset >/dev/null 2>&1
+        timer_is_mesh_cap && {
+            # generate random sum by openssl
+            sum=$(openssl rand -hex 4)
+            uci set xiaoqiang.common.BLUE_LED_SUM=$sum
+            uci commit xiaoqiang
+            # sync to RE
+            whc_to_re_common_api.sh action '{"cmd":"sync_led","blue_led":1}' >/dev/null 2>&1 &
+            # compatible with old RE, not delete this command
+            mesh_cmd sync_lite >/dev/null 2>&1 &
+        }
+        [ "$(uci -q get xiaoqiang.common.EASYMESH_ROLE)" = "controller" ] && {
+            ubus -t 3 call mapd event '{"type":3,"op1":1}'
+        }
+        ;;
+    esac
+
+    return
+}
+
+led_off() {
+    LED_DBG "led_off $@"
+
+    # $1 is xled or ethled, if $1 is empty, turn off status led
+    case $1 in
+    xled)
+        # set uci config
+        uci set xiaoqiang.common.XLED=0
+        uci commit xiaoqiang
+
+        # turn off xled
+        xqled led_amb_off
+
+        # if we are CAP, sync to RE
+        timer_is_mesh_cap && {
+            whc_to_re_common_api.sh action '{"cmd":"sync_led","xled":0}' >/dev/null 2>&1 &
+            mesh_cmd sync_lite >/dev/null 2>&1 &
+        }
+        ;;
+    ethled)
+        # set uci config
+        uci set xiaoqiang.common.ETHLED=0
+        uci commit xiaoqiang
+
+        # turn off ethled
+        xqled led_eth_off
+
+        timer_is_mesh_cap && {
+            # generate random sum by openssl
+            sum=$(openssl rand -hex 4)
+            uci set xiaoqiang.common.ETHLED_SUM=$sum
+            uci commit xiaoqiang
+            # sync to RE
+            whc_to_re_common_api.sh action '{"cmd":"sync_led","ethled":0}' >/dev/null 2>&1 &
+            mesh_cmd sync_lite >/dev/null 2>&1 &
+        }
+        ;;
+    *)
+        uci set xiaoqiang.common.BLUE_LED=0
+        uci commit xiaoqiang
+
+        xqled sys_off >/dev/null 2>&1
+        xqled func_off >/dev/null 2>&1
+        xqled ant_off >/dev/null 2>&1
+        xqled mesh_finish >/dev/null 2>&1
+        [ -f "/etc/init.d/miot" ] && /etc/init.d/miot stop >/dev/null 2>&1
+        timer_is_mesh_cap && {
+            # generate random sum by openssl
+            sum=$(openssl rand -hex 4)
+            uci set xiaoqiang.common.BLUE_LED_SUM=$sum
+            uci commit xiaoqiang
+            # sync to RE
+            whc_to_re_common_api.sh action '{"cmd":"sync_led","blue_led":0}' >/dev/null 2>&1 &
+            # compatible with old RE, not delete this command
+            mesh_cmd sync_lite >/dev/null 2>&1 &
+        }
+        [ "$(uci -q get xiaoqiang.common.EASYMESH_ROLE)" = "controller" ] && {
+            ubus -t 3 call mapd event '{"type":3,"op1":0}'
+        }
+        ;;
+    esac
+
+    return
+}
+
+timer_on() {
+    LED_DBG "timer_on $@"
+
+    local h_open="$1"
+    local m_open="$2"
+    local h_close="$3"
+    local m_close="$4"
+    local format="%s %s * * * %s"
+    local script_open
+    local script_close
+
+    # $5 is xled or ethled, if $5 is empty, means status led
+    case $5 in
+    xled)
+        # set uci config
+        uci set xiaoqiang.common.XLED_TIMER=1
+        uci set xiaoqiang.common.XLED_TIMER_OPEN="$h_open:$m_open"
+        uci set xiaoqiang.common.XLED_TIMER_CLOSE="$h_close:$m_close"
+        ;;
+    ethled)
+        # set uci config
+        uci set xiaoqiang.common.ETHLED_TIMER=1
+        uci set xiaoqiang.common.ETHLED_TIMER_OPEN="$h_open:$m_open"
+        uci set xiaoqiang.common.ETHLED_TIMER_CLOSE="$h_close:$m_close"
+        ;;
+    *)
+        uci set xiaoqiang.common.BLUE_LED_TIMER=1
+        uci set xiaoqiang.common.BLUE_LED_TIMER_OPEN="$h_open"":""$m_open"
+        uci set xiaoqiang.common.BLUE_LED_TIMER_CLOSE="$h_close"":""$m_close"
+        ;;
+    esac
+
+    uci commit xiaoqiang
+
+    # clean up old timer
+    crontab -l | grep -v "led_ctl led_on $5>\|led_ctl led_off $5>" >/tmp/crontab.tmp
+
+    # generate new timer script
+    script_open=$(printf "$format" "$m_open" "$h_open" "/usr/sbin/led_ctl led_on $5> /dev/null 2>&1")
+    echo "$script_open" >>/tmp/crontab.tmp
+    script_close=$(printf "$format" "$m_close" "$h_close" "/usr/sbin/led_ctl led_off $5> /dev/null 2>&1")
+    echo "$script_close" >>/tmp/crontab.tmp
+
+    # add new timer
+    crontab /tmp/crontab.tmp
+
+    return
+}
+
+timer_off() {
+    LED_DBG "timer_off $@"
+
+    # $1 is xled or ethled, if $1 is empty, means status led
+    case $1 in
+    xled)
+        # set uci config
+        uci set xiaoqiang.common.XLED_TIMER=0
+        ;;
+    ethled)
+        # set uci config
+        uci set xiaoqiang.common.ETHLED_TIMER=0
+        ;;
+    *)
+        uci set xiaoqiang.common.BLUE_LED_TIMER=0
+        uci set xiaoqiang.common.BLUE_LED_TIMER_OPEN="00:00"
+        uci set xiaoqiang.common.BLUE_LED_TIMER_CLOSE="00:00"
+        ;;
+    esac
+
+    uci commit xiaoqiang
+
+    # clean up timer
+    crontab -l | grep -v "led_ctl led_on $1>\|led_ctl led_off $1>" | crontab -
+
+    return
+}
+
+disable_event() {
+    event_func=$(uci show xqled | grep isevent | awk -F'.' '{print$2}')
+    for func in $event_func; do
+        xqled hangup $func
+    done
+}
+
+enable_event() {
+    event_func=$(uci show xqled | grep isevent | awk -F'.' '{print$2}')
+    for func in $event_func; do
+        xqled resume $func
+    done
+}
+
+event_toggle() {
+    LED_DBG "event_toggle $@"
+
+    case $1 in
+    "0")
+        disable_event
+        uci set xqled.handle_event.value=0
+        ;;
+    "1")
+        enable_event
+        uci set xqled.handle_event.value=1
+        ;;
+    esac
+
+    uci commit xqled
+
+    return
+}
+
+timer_is_mesh_cap() {
+    local netmode
+    local capmode
+
+    netmode=$(uci -q get xiaoqiang.common.NETMODE)
+    [ -z "$netmode" ] && return 1
+
+    [ "${netmode:0:7}" = "whc_cap" ] && return 0
+    if [ "${netmode:0:9}" = "lanapmode" ]; then
+        capmode=$(uci -q get xiaoqiang.common.CAP_MODE)
+        [ -n "$capmode" -a "$capmode" = "ap" ] && return 0
+    fi
+
+    return 1
+}
+
+# get origin config
+ori_led_st=$(uci -q get xiaoqiang.common.BLUE_LED)
+
+#---------------- main ----------------#
+NUM_PARAMS="$#"
+case "$1" in
+"led_on")
+    [ "$NUM_PARAMS" -gt 2 ] && usage
+    led_on "$2"
+    ;;
+
+"led_off")
+    [ "$NUM_PARAMS" -gt 2 ] && usage
+    led_off "$2"
+    ;;
+
+"timer_on")
+    [ "$NUM_PARAMS" -gt 6 ] && usage
+    timer_on "$2" "$3" "$4" "$5" "$6"
+    ;;
+
+"timer_off")
+    [ "$NUM_PARAMS" -gt 2 ] && usage
+    timer_off "$2"
+    ;;
+
+"event_toggle")
+    [ "$NUM_PARAMS" -gt 2 ] && usage
+    event_toggle "$2"
+    ;;
+
+*)
+    usage
+    ;;
+esac
+
+# get new config
+new_led_st=$(uci -q get xiaoqiang.common.BLUE_LED)
+
+if [ "$ori_led_st" != "$new_led_st" ]; then
+    if [ -x "/usr/bin/miio_spec_send.sh" ]; then
+        miio_spec_send.sh -m properties_changed -p "5:1:$new_led_st"
+    fi
+fi
+
+return

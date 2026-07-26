@@ -1,0 +1,228 @@
+<link href="<%=resource%>/web/css/dual-wan.css?v=<%=ver%>" rel="stylesheet">
+<div class="dual-wan-wrapper">
+    <div class="dual-wan-header mod-set">
+        <div class="hd clearfix">
+            <div class="help hd-tips">
+                <span class="ico"></span>
+                <span class="arrow-wrap" id="helpArrow">
+                    <span class="arrow1"></span>
+                    <span class="arrow2"></span>
+                </span>
+            </div>
+            <div class="hd-tips-desc"><%:双WAN功能介绍%></div>
+            <h3><%:双WAN设置%></h3>
+            <div class="switch">
+                <a href="#" id="wan2Switch" class="btn-switch btn-switch-off"></a>
+            </div>
+        </div>
+        <div class="bd">
+            <div class="section section-help" id="helpSection">
+                <div class="help-cont">
+                    <span class="help-close"></span>
+                </div>
+                <div class="help-content-wrapper">
+                    <div class="help-content-header">什么是双WAN？</div>
+                    <div class="help-content-title">双WAN功能是指支持两条外网宽带线路同时工作以带来更佳的网络体验，其主要的功能如下：</div>
+                    <div class="help-content-section">
+                        <p>（1）增加带宽（带宽聚合模式）：可同时使用两条外网宽带线路以增加外网总带宽，实现更大的下载速率</p>
+                        <p>（2）冗余备份（WAN1优先，WAN2备份/WAN2优先，WAN1备份）：如果其中一条外网宽带出现故障，可以数据分流到另一条宽带上，以保障与外部网络连通</p>
+                        <p>（3）外网路径选择（带宽聚合模式）：可选择部分设备的数据优先通过固定的WAN口宽带，比如部分数据走移动网络，部分数据走电信网络</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="dual-wan-body">
+        <div class="mod-set dual-wan">
+            <div class="bd">
+                <div class="wan-hardware">
+                    <div class="wan-hardware-desc">
+                        <p class="help-content-tips">注意：</p>
+                        <div>
+                            <p>1.开启双WAN功能后会与部分功能冲突，若仍想使用冲突功能，请先尝试关闭双WAN后再试</p>
+                            <p>2.若某些终端设备出现金融类app无法正常使用的情况，可尝试在“WAN口策略”功能中将该设备设置为“WAN1优先”或“WAN2优先”后再试</p>
+                            <p>3.请勿将WAN1或WAN2口与其他Mesh组网设备相连</p>
+                            <p>4.双WAN功能仅支持IPv4，IPV6及IPTV功能仅支持在WAN1上部署</p>
+                        </div>
+                    </div>
+                    <div class="selectWanTip">
+                        <p><%:请选择网口作为WAN口，并在%><span class="selectWanLink">“<%:常用设置%>-<%:上网设置%>”</span>中进行WAN口配置</p>
+                    </div>
+                </div>
+                <form action="#" class="form">
+                <div class="form-item-select dualWanSelect" id="divMultiWANMode">
+                    <label class="k"><%:模式%></label>
+                    <span class="v">
+                        <select name="dualWanSelect" class="beautify" id="dualWanSelect">
+                            <option value="0" selected><%:带宽聚合%></option>
+                            <option value="1"><%:WAN1优先，WAN2备份%></option>
+                            <option value="2"><%:WAN2优先，WAN1备份%></option>
+                        </select>
+                    </span>
+                </div>
+                <div class="form-item">
+                    <div class="selectPort selectDualWanLan" style="clear:both">
+
+                    </div>
+                </div>
+                </form>
+
+                <div class="form-contral">
+                    <button type="submit" class="btn btn-primary" id="btnSubmitDualWanPort" style="display:none"><span><%:保存%></span></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="mod-set wan-speed-ratio">
+            <div class="hd">
+                <h5><%:WAN1口/WAN2口转发比例设置%></h5>
+            </div>
+            <div class="bd">
+                <div class="speed-ratio">
+                    <div class="speed-ratio-item">
+                        <span class="speed-name">WAN1口</span>
+                        <span>:</span>
+                        <span class="speed-name">WAN2口</span>
+                    </div>
+                    <div class="speed-ratio-item">
+                        <span class="speed-num" id="wan1Speed">1</span>
+                        <span>:</span>
+                        <span class="speed-num" id="wan2Speed">1</span>
+                    </div>
+                </div>
+                <button type="submit" id="btnWanSpeedRatioSet" class="btn btn-primary btn-m l"><span><%:设置%></span></button>
+            </div>
+        </div>
+        <div class="mod-set policy-routing">
+            <div class="hd">
+                <h5><%:WAN口转发规则设置%></h5>
+            </div>
+            <div class="bd">
+                <h4><%:WAN口转发规则列表：%></h4>
+                <form name="policyFormEdit">
+                    <table class="table table-nat">
+                        <thead>
+                            <tr>
+                                <th><%:设备名称%></th>
+                                <th><%:MAC地址%></th>
+                                <th><%:WAN口策略%></th>
+                                <th width="80" style="padding-left:21px;"><%:操作%></th>
+                            </tr>
+                        </thead>
+                        <tbody id="policyList">
+                            <tr>
+                                <td colspan="3"><%:正在查询中...%></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </form>
+                <div class="form-btn-wrapper">
+                    <div id="btnDevicesAdd" class="btn btn-dft btn-m form-btn"><span><%:从在线列表添加%></span></div>
+                    <div id="btnSelfAdd" class="btn btn-dft btn-m form-btn"><span><%:手工添加%></span></div>
+                </div>
+            </div>
+        </div>
+  </div>
+</div>
+
+<script type="tmpl/html" id="tmplDevicesAdd">
+  <div class="dialog-listadd-form-wrap">
+      <form action="#" class="form" name="devicesAdd" id="devicesAdd">
+          <table class="table">
+              <thead>
+                  <tr>
+                      <th><%:设备名称%></th>
+                      <th><%:设备信息%></th>
+                      <th><%:设备IP%></th>
+                      <th width="80"><%:操作%></th>
+                  </tr>
+              </thead>
+              <tbody id="dialogdeviceslist">
+                  <tr>
+                      <td colspan="4"><%:正在查询中...%></td>
+                  </tr>
+              </tbody>
+          </table>
+          <div class="form-contral">
+              <button tyle="submit" class="btn btn-primary btn-l" id="devicesAddSubmit"><span><%:添加%></span>
+              </button>
+          </div>
+		</form>
+  </div>
+</script>
+<script type="tmpl/html" id="tmplAddSelf">
+<div class="dialog-form-wrap">
+	<form action="#" class="form" name="selfadd" id="selfAdd" autocomplete="off">
+		<div class="form-item form-item-input">
+			<label class="k">
+				<%:名称%>
+			</label>
+			<span class="v">
+				<input type="text" id="oname" name="oname" datatype="ssid" autocomplete="off" minlength="1" maxlength="100" class="ipt-text" reqMsg="<%:名称%>" />
+			</span>
+			<em class="t"></em>
+		</div>
+		<div class="form-item form-item-input">
+			<label class="k">
+				<%:MAC地址%>
+			</label>
+			<span class="v">
+				<input type="text" id="mac" name="mac" datatype="macaddr" autocomplete="off" maxlength="17" class="ipt-text" reqMsg="<%:MAC地址%>" />
+			</span>
+			<em class="t"></em>
+		</div>
+		<div class="form-contral">
+			<button class="btn btn-primary btn-l" type="submit" id="selfAddSubmit"><span><%:确定%></span></button>
+		</div>
+	</form>
+</div>
+</script>
+<script type="tmpl/html" id="tmplWanSpeedRatio">
+<div class="wanSpeedRatio">
+	<form action="#" class="form form-horizontal" name="wanSpeedRatio" id="wanSpeedRatio" autocomplete="off">
+		<div class="form-item form-item-input">
+			<label class="k"><%:WAN1口带宽%></label>
+			<span class="v"><input type="text" name="wan1Speed" reqMsg="<%:WAN1口带宽%>" datatype="n" autocomplete="off" minValue="1" maxValue="10000" maxIntVal="10000" n-pattern="5" class="ipt-text" value="{$wan1Speed}"></span>
+			<em class="t">Mbps</em>
+		</div>
+		<div class="form-item form-item-input">
+			<label class="k"><%:WAN2口带宽%></label>
+			<span class="v"><input type="text" name="wan2Speed" reqMsg="<%:WAN2口带宽%>" datatype="n" autocomplete="off" minValue="1" maxValue="10000" maxIntVal="10000" n-pattern="5" class="ipt-text" value="{$wan2Speed}"></span>
+			<em class="t">Mbps</em>
+		</div>
+		<div class="form-contral">
+			<button type="submit" id="wanSpeedRatioSubmitBtn" class="btn btn-primary btn-l"><span><%:确定%></span></button>
+		</div>
+    </form>
+</div>
+</script>
+<script type="tmpl/html" id="tmplOnlineDevice">
+    <tr>
+        <td>{$oname}</td>
+        <td>{$mac}</td>
+        <td>{$ip}</td>
+        <td>
+            <input class="devicesInputCheck" type="checkbox" name="devicesInputCheck" value="{$val}" />
+        </td>
+    </tr>
+</script>
+<script type="tmpl/html" id="tmplRouterPolicyTable">
+    <tr value={$value} id=policy_{$index}>
+        <td>{$oname}</td>
+        <td>{$mac}</td>
+		<td>
+			<div class="form-item-select">
+				<span class="v">
+					<select name="wan" id="policy_select_{$index}" class="beautify encryption" >
+						<option value="1"><%:WAN1优先%></option>
+						<option value="2"><%:WAN2优先%></option>
+					</select>
+				</span>
+				<em class="t0"></em>
+			</div>
+		</td>
+        <td>
+            <div class="table-btn btn btn-dft btn-s form-btn" name="routerPolicyDeleteBtn"><span><%:删除%></span></div>
+        </td>
+    </tr>
+</script>

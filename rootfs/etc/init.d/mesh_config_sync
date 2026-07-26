@@ -1,0 +1,59 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+USE_PROCD=1
+
+SYNC_DIR=/tmp/mesh_sys_config
+CONF_LIST=firewall_cpp_dist
+
+start_service() {
+	ap_mode=$(uci -q get xiaoqiang.common.NETMODE)
+
+	if [ "$ap_mode" = "whc_cap" ]; then
+		mkdir -p ${SYNC_DIR}
+		for file in ${CONF_LIST}; do
+			local raw_file="/etc/config/${file}"
+			local bak_file="/etc/config/${file}.bak"
+			if [ -L "${raw_file}" ]; then
+				rm "${raw_file}"
+				if [ -f "${bak_file}" ]; then
+					mv "${bak_file}" "${raw_file}"
+				else
+					touch "${raw_file}"
+				fi
+			fi
+			if [ "$(readlink "${SYNC_DIR}/${file}")" != "/etc/config/${file}" ]; then
+				rm "${SYNC_DIR}/${file}"
+				ln -s "/etc/config/${file}" "${SYNC_DIR}/${file}"
+			fi
+		done
+		ubus call xq_info_sync_mqtt sync_config
+		return 0
+	fi
+
+	if [ "$ap_mode" = "whc_re" ] || [ "$ap_mode" = "lanapmode" ]; then
+		for file in ${CONF_LIST}; do
+			local raw_file="/etc/config/${file}"
+			local bak_file="/etc/config/${file}.bak"
+			if [ -f "${raw_file}" ]; then
+				mv "${raw_file}" "${bak_file}"
+			else
+				rm "${raw_file}"
+			fi
+			ln -s "${SYNC_DIR}/${file}" "${raw_file}"
+			ubus call service event "{\"type\":\"config.change\",\"data\":{\"package\":\"${file}\"}}"
+		done
+		return 0
+	fi
+}
+
+service_triggers() {
+    procd_add_reload_trigger xiaoqiang
+
+	ap_mode=$(uci -q get xiaoqiang.common.NETMODE)
+	if [ "$ap_mode" = "whc_cap" ]; then
+		for file in ${CONF_LIST}; do
+			procd_add_reload_trigger "${file}"
+		done
+	fi
+}

@@ -1,0 +1,8 @@
+Package: xq_enc_cfg
+Version: 1.1-1.1
+Depends: libc, cryptsetup-openssl, e2fsprogs, kmod-crypto-xts, kmod-loop, kmod-fs-ext4
+Source: package/miwifi/system/xq_enc_cfg
+Section: data
+Architecture: all
+Installed-Size: 2579
+Description:  Configuration encrypt layer for XiaoQiang

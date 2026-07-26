@@ -1,0 +1,9 @@
+Package: iptables-mod-ip4mark
+Version: 3.13-4
+Depends: libc, iptables, kmod-ipt-ip4mark
+Source: feeds/packages/net/xtables-addons
+Section: net
+Maintainer: Jo-Philipp Wich <jow@openwrt.org>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 1406
+Description:  IP4MARK iptables extension

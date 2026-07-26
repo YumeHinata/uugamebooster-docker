@@ -1,0 +1,293 @@
+<%
+local features = require("xiaoqiang.XQFeatures").FEATURES
+%>
+<div class="natForward" style="display:none">
+	<!--<div class="mod-set mod-nat help-set"> -->
+	<div class="mod-set mod-nat">
+		<div class='hd'>
+			<!--<div class="help helpOpen">
+				<span class="ico"></span>
+				<span class="arrow-wrap">
+					<span class="arrow1"></span>
+					<span class="arrow2"></span>
+				</span>
+			</div> -->
+			<h3><%:端口转发%></h3>
+		</div>
+		<div class="bd">
+			<!--<div class="section section-help">
+				<div class="help-cont">
+					<span class="help-close" id="vsClose"></span>
+					<div class="what">
+						<h3><%:什么是虚拟服务器功能?%></h3>
+					</div>
+					<div class="qa">
+						<p><%:虚拟服务器功能可以在本地网络中建立一个规则，该规则可以将来自外网端口的请求转发给内网的设备，以此让外网可以访问到内网的设备%></p>
+					</div>
+				</div>
+			</div> -->
+			<h3><%:端口转发规则列表：%></h3>
+			<form name="vsFormEdit">
+				<table class="table table-nat">
+					<thead>
+						<tr>
+							<th><%:名称%></th>
+							<th><%:服务类型%></th>
+							<th><%:协议%></th>
+							<th><%:外部端口%></th>
+							<th><%:内部IP地址%></th>
+							<th><%:内部端口%></th>
+							<!--    <th><%:状态%></th> -->
+							<th class="center" width="230"><%:操作%></th>
+						</tr>
+					</thead>
+					<tbody id="virtualServersList">
+					</tbody>
+				</table>
+			</form>
+		</div>
+	</div>
+
+	<div class="mod-set mod-nat help-set">
+		<div class='hd'>
+			<div class="help helpOpen">
+				<span class="ico"></span>
+				<span class="arrow-wrap">
+					<span class="arrow1"></span>
+					<span class="arrow2"></span>
+				</span>
+			</div>
+			<h3><%:端口触发%></h3>
+			<!--
+			<div class='switch'>
+				<a href="#" data-status="0" class="btn-switch btn-switch-on" id="btnnat"></a>
+			</div>
+			-->
+		</div>
+		
+		<div class="mod-set mod-nat">
+			<div class="bd">
+				<div class="section section-help">
+					<div class="help-cont">
+						<span class="help-close"></span>
+						<div class="what">
+							<h3><%:什么是端口触发功能？%></h3>
+						</div>
+						<div class="qa">
+							<p><%:端口触发功能可以在本地网络中建立一个规则，当一个固定内网端口尝试与外网建立连接时，该规则生效，可以将来自外网端口的请求转发给内网的设备，以此让外网可以访问到内网的设备%></p>
+						</div>
+					</div>
+				</div>
+				<h3><%:端口触发规则列表：%></h3>
+				<form name="ptFormEdit">
+					<table class="table  table-nat">
+						<thead>
+							<tr>
+								<th><%:名称%></th>
+								<th><%:触发端口%></th>
+								<th><%:触发协议%></th>
+								<th><%:外部端口%></th>
+								<th><%:外部协议%></th>
+								<!-- <th><%:状态%></th> -->
+								<th class="center" width="230"><%:操作%></th>
+							</tr>
+						</thead>
+						<tbody id="portTriggerList">
+						</tbody>
+					</table>
+				</form>
+			</div>
+		</div>
+	</div>
+
+
+	<!-- ALG -->
+	<div class="mod-dmz mod-set">
+		<div class="hd">
+			<h3>ALG</h3>
+			
+		</div>
+		<div class="bd">
+			<form name="algForm" id="algForm">
+				<div class="form-item">
+					<label> <input type="checkbox" name="pptp" class="pptp" value="1" checked> <span><%:PPTP%></span></label>
+				</div>
+				<div class="form-item">
+					<label> <input type="checkbox" name="l2tp" class="l2tp" value="1" checked> <span><%:L2TP%></span></label>
+				</div>
+				<div class="form-item">
+					<label> <input type="checkbox" name="ipsec" class="ipsec" value="1" checked> <span><%:IPSec%></span></label>
+				</div>
+				<div class="form-item">
+					<label> <input type="checkbox" name="sip" class="sip" value="1" checked> <span><%:SIP%></span></label>
+				</div>
+				<div class="form-item">
+					<label> <input type="checkbox" name="ftp" class="ftp" value="1" checked> <span><%:FTP%></span></label>
+				</div>
+				<div class="form-item">
+					<label> <input type="checkbox" name="tftp" class="tftp" value="1" checked> <span><%:TFTP%></span></label>
+				</div>
+				<div class="form-item">
+					<label> <input type="checkbox" name="rtsp" class="rtsp" value="1" checked> <span><%:RTSP%></span></label>
+				</div>
+				<div class="form-item">
+					<label> <input type="checkbox" name="h323" class="h323" value="1" checked> <span><%:H.323%></span></label>
+				</div>
+				<div class="form-contral">
+					<a class="btn btn-primary btn-l hidden algApply"><span><%:应用%></span></a>
+					<!-- <a class="btn btn-dft" id="cancel"><span><%:取消%></span></a> -->
+				</div>
+			</form>
+		</div>
+	</div>
+
+</div>
+
+<script type="text/template" id="vsDialog">
+	<form id="vsForm" name="vsForm" class="form form-horizontal">
+		<div class="form-item form-item-input">
+			<label for="name" class="k"><%:名称%></label>
+			<span class="v"><input type="text" name="name" reqMsg="<%:名称%>" value="" class="ipt-text" /></span>
+			<em class="t"></em>
+		</div>
+		
+		<div class="form-item form-item-select">
+			<label for="service" class="k"><%:服务类型%></label>
+			<span class="v">
+				<select  name="service" class="beautify service" style="">
+					<option value='manual'>Manual</option>
+					<option value='TELNET'>TELNET</option>
+					<option value='HTTP'>HTTP</option>
+					<option value='HTTPS'>HTTPS</option>
+					<option value='FTP'>FTP</option>
+					<option value='DNS'>DNS</option>
+					<option value='SMTP'>SMTP</option>
+					<option value='POP3'>POP3</option>
+					<option value='H323'>H323</option>
+					<option value='REMOTE DESKTOP'>REMOTE DESKTOP</option>
+					<option value='PPTP'>PPTP</option>
+					<option value='L2TP'>L2TP</option>
+					<option value='Wake-On-Lan'>Wake-On-Lan</option>
+				</select>
+			</span>
+			<em class="t"></em>
+		</div>
+
+		<div class="form-item form-item-select">
+			<label for="protocol" class="k"><%:协议%></label>
+			<span class="v">
+				<select  name="protocol" class="beautify" style="">
+					<option value='TCP'>TCP</option>
+					<option value='UDP'>UDP</option>
+					<option value='ALL'><%:ALL%></option>
+				</select>
+			</span>
+			<em class="t"></em>
+		</div>
+	
+		<div class="form-item form-item-input">
+			<label for="export" class="k"><%:外部端口%></label>
+			<span class="v"><input type="text" name="export" reqMsg="<%:外部端口%>" datatype="portnum" minValue="1" maxValue="65535" value="" class="ipt-text export" /></span>
+			<em class="t"></em>
+		</div>
+	
+		<div class="form-item form-item-input input-ip">
+			<label for="ip" class="k" style="width:15em"><%:内部IP地址：%><span class="iphere"></span></label>
+			<span class="v">
+				<input style="margin-left:220px" type="text" name="ip" reqMsg="<%:IP地址最后一位%>" datatype="hostnumber" minValue="2" maxValue="254" value="" class="ipt-text no-init" />
+			</span>
+			<em class="t"></em>
+		</div>
+	
+		<div class="form-item form-item-input">
+			<label for="inport" class="k"><%:内部端口%></label>
+			<span class="v"><input type="text" name="inport" reqMsg="<%:内部端口%>" datatype="portnum" minValue="1" maxValue="65535" value="" class="ipt-text inport" /></span>
+			<em class="t"></em>
+		</div>
+	
+		<div class="form-contral">
+		</div>
+	</form>
+</script>
+	
+<script type="text/template" id="vsList">
+	{for(var i=0;i<$arr.length;i++)}
+		<tr>
+			<td>{$arr[i].name}</td>
+			<td>{$arr[i].service}</td>
+			<td>{$arr[i].protocol}</td>
+			<td>{$arr[i].export}</td>
+			<td>{$arr[i].ip}</td>
+			<td>{$arr[i].inport}</td>
+		<!--   <td><%:未生效%></td> -->
+			<td class="center">
+				<a class="btn btn-dft delVsRules" href="javascript:;" data-name="{$arr[i].name}" data-service="{$arr[i].service}" data-protocol="{$arr[i].protocol}" data-export="{$arr[i].export}" data-inport="{$arr[i].inport}" data-ip="{$arr[i].ip}"><span><%:删除%></span></a>
+			</td>
+		</tr>
+	{/for}
+</script>
+<!-- port triggering -->
+<script type="text/template" id="ptDialog">
+	<form id="ptForm" name="ptForm" class="form form-horizontal">
+		<div class="form-item form-item-input">
+			<label for="name" class="k"><%:名称%></label>
+			<span class="v"><input type="text" name="name" reqMsg="<%:名称%>" value="" class="ipt-text" /></span>
+			<em class="t"></em>
+		</div>
+
+		<div class="form-item form-item-input">
+			<label for="tgport" class="k"><%:触发端口%></label>
+			<span class="v"><input type="text" name="tgport" reqMsg="<%:触发端口%>" datatype="portnum" minValue="1" maxValue="65535" value="" class="ipt-text" /></span>
+			<em class="t"></em>
+		</div>
+
+		<div class="form-item form-item-select">
+			<label for="tgprotocol" class="k"><%:触发协议%></label>
+			<span class="v">
+				<select  name="tgprotocol" class="beautify" style="">
+					<option value='TCP'>TCP</option>
+					<option value='UDP'>UDP</option>
+					<option value='ALL'><%:ALL%></option>
+				</select>
+			</span>
+			<em class="t"></em>
+		</div>
+	
+		<div class="form-item form-item-input">
+			<label for="export" class="k"><%:外部端口%></label>
+			<span class="v"><input type="text" name="export" reqMsg="<%:外部端口%>" datatype="portnum" minValue="1" maxValue="65535" value="" class="ipt-text export" /></span>
+			<em class="t"></em>
+		</div>
+
+		<div class="form-item form-item-select">
+			<label for="exprotocol" class="k"><%:外部协议%></label>
+			<span class="v">
+				<select  name="exprotocol" class="beautify" style="">
+					<option value='TCP'>TCP</option>
+					<option value='UDP'>UDP</option>
+					<option value='ALL'><%:ALL%></option>
+				</select>
+			</span>
+			<em class="t"></em>
+		</div>
+	
+		<div class="form-contral">
+		</div>
+	</form>
+</script>
+	
+<script type="text/template" id="ptList">
+	{for(var i=0;i<$arr.length;i++)}
+		<tr>
+			<td>{$arr[i].name}</td>
+			<td>{$arr[i].tgport}</td>
+			<td>{$arr[i].tgprotocol}</td>
+			<td>{$arr[i].export}</td>
+			<td>{$arr[i].exprotocol}</td>
+		<!--   <td><%:未生效%></td> -->
+			<td class="center">
+				<a class="btn btn-dft delPtRules" href="javascript:;" data-name="{$arr[i].name}" data-tgport="{$arr[i].tgport}" data-tgprotocol="{$arr[i].tgprotocol}" data-export="{$arr[i].export}" data-exprotocol="{$arr[i].exprotocol}"><span><%:删除%></span></a>
+			</td>
+		</tr>
+	{/for}
+</script>

@@ -1,0 +1,45 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006 OpenWrt.org
+
+START=98
+NAME=wancheck
+USE_PROCD=1
+PROG=/usr/sbin/wan_check_status
+KERNEL_VERSION=$(uname -r)
+KERNEL_MODULE_PATH=/lib/modules/$KERNEL_VERSION/wan_check.ko
+KERNEL_MODULE=$(uci -q get wan_check.global.kernel_module)
+NET_MODE=$(uci -q get xiaoqiang.common.NETMODE)
+
+start_service() {
+	[ -f "$PROG" ] && {
+		procd_open_instance
+		procd_set_param command ${PROG}
+		procd_set_param respawn
+		procd_close_instance
+	}
+
+	if [ -e $KERNEL_MODULE_PATH ] && [ "$KERNEL_MODULE" = "on" ]; then
+		insmod $KERNEL_MODULE_PATH
+	fi
+}
+
+stop_service() {
+	SERVICE_SIG_STOP="KILL"
+	service_stop ${PROG}
+
+	if [ -e $KERNEL_MODULE_PATH ]; then
+		rmmod $KERNEL_MODULE_PATH
+	fi
+}
+
+restart_service() {
+	service_reload ${PROG}
+
+	if [ -e $KERNEL_MODULE_PATH ]; then
+		rmmod $KERNEL_MODULE_PATH
+
+		if [ "$KERNEL_MODULE" = "on" ]; then
+			insmod $KERNEL_MODULE_PATH
+		fi
+	fi
+}

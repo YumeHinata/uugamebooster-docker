@@ -1,0 +1,13 @@
+Package: rp-pppoe-common
+Version: 3.12-4
+Depends: libc, ppp
+Source: feeds/packages/net/rp-pppoe
+License: LGPL-2.0+
+Section: net
+Maintainer: Daniel Dickinson <lede@cshore.thecshore.com>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 401
+Description:  Dubbed RP-PPPoE, this open-source product is ideal for Linux users with
+ a DSL "modem" whose Internet service provider uses PPPoE.
+ 
+ This package contains files common to server and relay.

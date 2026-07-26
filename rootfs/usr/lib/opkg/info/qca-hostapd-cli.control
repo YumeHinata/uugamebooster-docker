@@ -1,0 +1,10 @@
+Package: qca-hostapd-cli
+Version: miwifi_git-1
+Depends: libc, librt, libnl, libopenssl, breakpad-wrapper, kmod-qca-nss-macsec
+Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/qca/net/qca-hostap
+Section: QCA
+Maintainer: Qualcomm Atheros
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 142450
+Description:  This package contains a command line utility to control the
+ IEEE 802.1x/WPA/EAP/RADIUS Authenticator.

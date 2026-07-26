@@ -1,0 +1,38 @@
+# an example for ping ipv4：timeout -t5 ping -4 -c1 -w1 114.114.114.114
+# an example for ping ipv6：timeout -t5 ping -6 -c1 -w1 2400:3200::1
+config protocol 'icmpv4'
+	option enabled '1'
+	option ping_timeout_param_t '5'
+	option ping_param_c '1'
+	option ping_param_w '1'
+	list server_ip '180.76.76.76'
+	list server_ip '119.29.29.29'
+	list server_ip '223.5.5.5'
+	list server_ip '223.6.6.6'
+	option ping_max_success '2'
+
+config protocol 'icmpv6'
+	option enabled '0'
+	option ping_timeout_param_t '5'
+	option ping_param_c '1'
+	option ping_param_w '1'
+	list server_ip '2400:3200::1'
+	list server_ip '2400:da00::6666'
+	list server_ip '240C::6666'
+	option ping_max_success '2'
+
+# an example of nslookup: timeout -t5 nslookup www.baidu.com
+config protocol 'dns'
+	option enabled '1'
+	option nslookup_timeout_param_t '5'
+	list dns_server 'pool.ntp.org'
+	list dns_server 'www.baidu.com'
+	list dns_server 'www.taobao.com'
+
+config timeout 'interval'
+	option uloop_timeout '5'
+	option active_check '60'
+	option force_check '600'
+
+config global 'global'
+	option kernel_module 'on'	# on/off

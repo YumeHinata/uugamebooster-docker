@@ -1,0 +1,8 @@
+Package: connattr-label
+Version: 1.0-1.0
+Depends: libc, kmod-connattr-label
+Source: package/miwifi/connattr-label
+Section: opt
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 2266
+Description:  TODO

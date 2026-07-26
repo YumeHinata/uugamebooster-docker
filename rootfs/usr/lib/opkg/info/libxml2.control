@@ -1,0 +1,11 @@
+Package: libxml2
+Version: 2.9.8-4
+Depends: libc, libpthread, zlib
+Source: feeds/packages/libs/libxml2
+License: MIT
+LicenseFiles: COPYING
+Section: libs
+Maintainer: Michael Heimpold <mhei@heimpold.de>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 460342
+Description:  A library for manipulating XML and HTML resources.

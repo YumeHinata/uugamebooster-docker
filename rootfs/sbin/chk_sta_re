@@ -1,0 +1,32 @@
+
+if [ $# -ne 1 ]; then
+	echo "$0 [aclmac]"
+	exit 1
+fi
+
+aclmac=$(echo $1 | tr '[a-z]' '[A-Z]')
+
+tblist="`tbus list | grep "\." | grep -v "master" 2>/dev/null`"
+if [ -n ${tblist} ]; then
+	for rip in ${tblist}
+	do
+		tbus -v list ${rip} | grep -q whc_quire
+		[ $? -eq 0 ] && {
+			for gstamac in g2stamac g5stamac
+			do
+				cap_devid="`uci -q get messaging.deviceInfo.DEVICE_ID`"
+				remac="`tbus call ${rip} whc_quire '{\"cap_devid\":\"$cap_devid\"}' | awk -F '"' '/'${gstamac}'/{print $4}' 2>/dev/null`"
+				if [ -n ${remac} ]; then
+					REMAC=$(echo ${remac} | tr '[a-z]' '[A-Z]')
+					[ "${aclmac}" == "${REMAC}" ] && {
+						echo "resta"
+						exit 0
+					}
+				fi
+			done
+		}
+	done
+fi
+
+echo "noresta"
+exit 1

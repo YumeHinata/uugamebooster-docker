@@ -1,0 +1,8 @@
+Package: miwifi-dpi
+Version: 1.0-1.0
+Depends: libc, nfnlq-extension, libndpi
+Source: package/miwifi/miwifi-dpi
+Section: opt
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 9115
+Description:  TODO

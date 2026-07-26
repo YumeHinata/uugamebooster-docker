@@ -1,0 +1,9 @@
+Package: trace-cmd
+Version: v2.6.1-1
+Depends: libc
+Source: package/devel/trace-cmd
+License: GPL-2.0
+Section: devel
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 133930
+Description:  Linux trace command line utility

@@ -1,0 +1,10 @@
+Package: boost-chrono
+Version: 1.68.0-4
+Depends: libc, libstdcpp, libpthread, librt, boost-system
+Source: feeds/packages/libs/boost
+License: Boost Software License <http://www.boost.org/users/license.html>
+Section: libs
+Maintainer: Carlos M. Ferreira <carlosmf.pt@gmail.com>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 8347
+Description:  This package contains the Boost chrono library.

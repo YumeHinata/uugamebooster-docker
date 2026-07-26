@@ -1,0 +1,4 @@
+/lib/wifi_interface_helper.sh
+/lib/read_caldata_to_fs.sh
+/lib/update_smp_affinity.sh
+/lib/preinit/81_load_wifi_board_bin

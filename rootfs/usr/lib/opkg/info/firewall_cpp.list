@@ -1,0 +1,5 @@
+/usr/sbin/firewall_cpp
+/usr/lib/libxtlock_intercept.so
+/etc/init.d/firewall_cpp
+/etc/config/firewall_cpp
+/etc/config/firewall_cpp_dist

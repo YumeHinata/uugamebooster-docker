@@ -1,0 +1,2 @@
+/etc/modules.d/51-qca-nss-ppe-lag-mgr
+/lib/modules/5.4.213/qca-nss-ppe-lag.ko

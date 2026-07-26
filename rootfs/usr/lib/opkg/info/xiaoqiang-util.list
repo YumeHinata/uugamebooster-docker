@@ -1,0 +1,12 @@
+/bin/verifycpeimage
+/bin/cutcpeimage
+/usr/sbin/xqbc
+/usr/sbin/format2domain
+/usr/share/xiaoqiang/public.pem
+/usr/bin/aes_crypt
+/etc/init.d/xqbc
+/usr/sbin/multipartcutter
+/bin/mkxqimage
+/bin/mkxqplugin
+/usr/share/xiaoqiang/plugin_public.pem
+/bin/mk_ecos_image

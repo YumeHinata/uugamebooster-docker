@@ -1,0 +1,30 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2015 OpenWrt.org
+
+START=43
+
+nfc_config()
+{
+cat <<EOF
+config nfc nfc
+	option nfc_enable '1'
+EOF
+}
+
+start()
+{
+	local nfc_support=$(uci -q get misc.nfc.nfc_support)
+
+	if [ -n "$nfc_support" ] && [ "$nfc_support" == "1" ]; then
+		if [ ! -f /etc/config/nfc ]; then
+			nfc_config > /tmp/nfc
+			cp /tmp/nfc /etc/config/nfc
+		fi
+		/sbin/nfc init
+		if [ -f /etc/config/wireless ]; then
+			cp -f /etc/config/wireless /var/run/nfc_wireless_backup
+			/usr/sbin/nfc.lua
+		fi
+	fi
+}
+

@@ -1,0 +1,20 @@
+/*
+ *  Copyright (c) 2022 Qualcomm Technologies, Inc.
+ *  All Rights Reserved.
+ *  Confidential and Proprietary - Qualcomm Technologies, Inc.
+ */
+
+{
+  "qos": {
+    "iface": "eth0",
+    "bandwidth_type": "1",
+    "bandwidth": "100",
+    "flow_isolation": "8",
+    "prioirty_queue": "4",
+    "nat": "2",
+    "wash": "2",
+    "fwmark": "0",
+    "overhead_type" : "3",
+    "overhead" : "0"
+  }
+}

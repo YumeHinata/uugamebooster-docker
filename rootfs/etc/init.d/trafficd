@@ -1,0 +1,152 @@
+#!/bin/sh /etc/rc.common
+
+#for test, activate later
+START=77
+
+NAME=trafficd
+USE_PROCD=1
+CMD="/usr/sbin/trafficd"
+PROC_MAP_FILE="/proc/sys/net/ipv4/ipaccount/if_mapping"
+PROC_MATCH_FILE="/proc/sys/net/ipv4/ipaccount/if_matching"
+EXTRA_COMMANDS="init_ipaccount"
+
+init_dev() {
+	local mesh_support=$(uci -q get misc.features.supportMesh)
+	if [ $mesh_support -eq 1 ]; then
+		bh_band=$(mesh_cmd backhaul get band)
+	fi
+	#check ifname mapping 1stly
+	[ -f "$PROC_MAP_FILE" ] || return 0
+
+	#lan dev
+	if_lan=$(uci -q get network.lan.ifname)
+	[ -z "$if_lan" ] && if_lan="eth0"
+	#get parent-ifname only
+	if_lan=$(echo "$if_lan" | grep -oE 'eth[0-9]+' | sort | uniq | xargs)
+
+	local list_ports_all=""
+	list_ports_all=$(uci -q get port_map.settings.ports)
+	[ -n "$list_ports_all" ] && {
+		. /lib/functions.sh
+		local port=""
+		local base_iface=""
+
+		if_lan=""
+		for port in $list_ports_all; do
+			base_iface=$(uci -q get port_map."$port".base_iface)
+			list_contains if_lan "$base_iface" || append if_lan "$base_iface"
+		done
+	}
+
+	#5G dev
+	if_wl_5g=$(uci -q get misc.wireless.ifname_5G)
+	[ -z "$if_wl_5g" ] && if_wl_5g="wl0"
+
+	#2.4G
+	if_wl_2g=$(uci -q get misc.wireless.ifname_2G)
+	[ -z "$if_wl_2g" ] && if_wl_2g="wl1"
+
+	if_wl_5gh=$(uci -q get misc.wireless.ifname_5GH)
+
+	#guest 2g
+	if_wl_guest_2g=$(uci -q get misc.wireless.ifname_guest_2G)
+	[ -z "$if_wl_guest_2g" ] && if_wl_guest_2g="wl14"
+
+	#guest 5g
+	if_wl_guest_5g=$(uci -q get misc.wireless.ifname_guest_5G)
+	[ -z "$if_wl_guest_5g" ] && if_wl_guest_5g="wl15"
+
+	if_wl_wifi5_5g=$(uci -q get misc.wireless.wifi5_bk_5G)
+	if_wl_wifi5_2g=$(uci -q get misc.wireless.wifi5_bk_2G)
+
+	# for vap_mlo
+	mlo_vap_support=$(uci -q get misc.features.mlo_vap_support)
+	[ -n "$mlo_vap_support" -a "$mlo_vap_support" = "1" ] && {
+		if_wl_mlo_2g=$(uci -q get misc.wireless.ifname_mlo_2G)
+		if_wl_mlo_5g=$(uci -q get misc.wireless.ifname_mlo_5G)
+		if_wl_mlo_5g2=$(uci -q get misc.wireless.ifname_mlo_5GH)
+		if_wl_mlo_6g=$(uci -q get misc.wireless.ifname_mlo_6G)
+	}
+
+	if [ $mesh_support -eq 1 ]; then
+		#5G backhaul
+		if_wl_5g_backhaul=$(uci -q get misc.backhauls.backhaul_${bh_band}_ap_iface)
+		[ -z "$if_wl_5g_backhaul" ] && if_wl_5g_backhaul="wl5"
+
+		echo "refresh ifname into ipaacount in [lan-dev 5g-wl 2.4g-wl wl-guest 5g-wl-backhaul]"
+		echo "$if_lan $if_wl_5g $if_wl_2g $if_wl_5gh $if_wl_guest_2g $if_wl_guest_5g $if_wl_5g_backhaul $if_wl_wifi5_5g $if_wl_wifi5_2g $if_wl_mlo_2g $if_wl_mlo_5g $if_wl_mlo_5g2 $if_wl_mlo_6g"
+		echo "$if_lan $if_wl_5g $if_wl_2g $if_wl_5gh $if_wl_guest_2g $if_wl_guest_5g $if_wl_5g_backhaul $if_wl_wifi5_5g $if_wl_wifi5_2g $if_wl_mlo_2g $if_wl_mlo_5g $if_wl_mlo_5g2 $if_wl_mlo_6g" >"$PROC_MAP_FILE"
+	else
+		echo "refresh ifname into ipaacount in [lan-dev 5g-wl 2.4g-wl wl-guest]"
+		echo "$if_lan $if_wl_5g $if_wl_2g $if_wl_5gh $if_wl_guest_2g $if_wl_guest_5g $if_wl_wifi5_5g $if_wl_wifi5_2g $if_wl_mlo_2g $if_wl_mlo_5g $if_wl_mlo_5g2 $if_wl_mlo_6g"
+		echo "$if_lan $if_wl_5g $if_wl_2g $if_wl_5gh $if_wl_guest_2g $if_wl_guest_5g $if_wl_wifi5_5g $if_wl_wifi5_2g $if_wl_mlo_2g $if_wl_mlo_5g $if_wl_mlo_5g2 $if_wl_mlo_6g" >"$PROC_MAP_FILE"
+	fi
+
+
+	[ -f "$PROC_MATCH_FILE" ] || return 0
+	local if_matching
+	if_matching=$(uci -q get misc.ipaccount.if_matching)
+	[ -n "$if_matching" ] && echo "$if_matching" > "$PROC_MATCH_FILE"
+
+	return 0
+}
+
+init_ipaccount() {
+	local ip mask
+
+	ip="$(uci -q get network.lan.ipaddr)"
+	mask="$(uci -q get network.lan.netmask)"
+
+	if lsmod | grep -q "ip_account"; then
+		echo "ip_account module is installed, update ip/netmask"
+		ipaccount -S -n lan -N "$ip"/"$mask"
+	else
+		echo "ip_account module is installing"
+		insmod /lib/modules/"$(uname -r)"/ip_account.ko s_lan_ip="$ip" s_lan_mask="$mask"
+	fi
+}
+
+start_service() {
+	local ap_mode=$(uci -q get xiaoqiang.common.NETMODE)
+	if [ ! -x /usr/sbin/getIspName ] || [ -z "$(getIspName)" ]; then
+		[ "$ap_mode" = "wifiapmode" -o "$ap_mode" = "whc_re" ] && return 0
+
+		[ "$ap_mode" = "lanapmode" ] && {
+			local mesh_version=$(uci -q get xiaoqiang.common.MESH_VERSION)
+			local capmode=$(uci -q get xiaoqiang.common.CAP_MODE)
+			[ "$capmode" != "ap" -o -z "$mesh_version" -o "$mesh_version" = "1" ] && return 0
+		}
+	else
+		[ "$ap_mode" = "whc_re" -o "$ap_mode" = "wifiapmode" ] && return 0
+		[ "$ap_mode" = "lanapmode" -o "$ap_mode" = "agent" ] && apmode=1
+	fi
+	init_ipaccount
+	init_dev
+
+	procd_open_instance
+	procd_set_param command ${CMD}
+	[ "$apmode" = "1" ] && procd_append_param command -m "$ap_mode"
+	procd_set_param respawn
+	procd_close_instance
+
+	[ "$(uci -q get traffic.@ipaccount[0].disabled)" = "1" ] && echo 0 > /proc/sys/net/ipv4/ipaccount/enable_ipaccount
+
+	[ "$(uci -q get wireless.guest_2G.disabled)" = "0" ] || [ "$(uci -q get wireless.guest_5G.disabled)" = "0" ] && {
+		if [ -x /usr/sbin/ipaccount ]; then
+			ipaddr=$(uci get network.guest.ipaddr)
+			netmask=$(uci get network.guest.netmask)
+			/usr/sbin/ipaccount -S -n guest -N "$ipaddr/$netmask"
+			/usr/sbin/ipaccount -r
+		fi
+	}
+
+	echo "trafficd start ok"
+}
+
+stop() {
+	service_stop ${CMD}
+}
+
+reload() {
+	service_reload ${CMD}
+}

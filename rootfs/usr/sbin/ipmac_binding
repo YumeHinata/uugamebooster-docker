@@ -1,0 +1,256 @@
+#! /bin/sh
+. /lib/functions.sh
+. /lib/lib.scripthelper.sh
+dlog "INFO: ipmacBinding input ARGS: $@"
+action="$1"
+shift
+#Global Setting
+LOCKFILE="/var/lock/`basename $0`"
+FILTER_CHAIN="ipmacBind"
+NETFILTER_TABLE="raw"
+IP4T="iptables"
+IP6T="ip6tables"
+ARPT="arptables"
+PREROUTING_CHAIN="PREROUTING"
+ARP_CHAIN="INPUT FORWARD"
+#Funtion Define
+flush_iptables_rule(){
+	iptables -t $NETFILTER_TABLE -F $FILTER_CHAIN 2>/dev/null
+	dlog "ipmacBinding: flush iptables rules"
+}
+flush_arptables_rule(){
+	arptables  -F $FILTER_CHAIN 2>/dev/null
+	dlog "ipmacBinding: flush arptables rules"
+}
+
+flush_rule(){
+	flush_iptables_rule
+	flush_arptables_rule
+}
+
+clearConntrackSession(){
+	local mac="$1"
+	local ip="$2"
+	local list_ip
+	
+	if [ -n "$ip" ]; then
+		echo "$ip" > /proc/net/nf_conntrack 2>/dev/null
+		[ -f /sbin/accelctrl ] && /sbin/accelctrl conntrack clean "$ip"
+	fi
+
+	if [ -n "$mac" ]; then
+		list_ip="$(ubus call trafficd hw | jsonfilter -e "@['$mac']['ip_list'][0]['ip']")"
+	else
+		list_ip=$(grep 'br-' < /proc/net/arp | awk '{print $1}')
+	fi
+
+	for ip in $list_ip; do
+		echo "$ip" > /proc/net/nf_conntrack 2>/dev/null
+		[ -f /sbin/accelctrl ] && /sbin/accelctrl conntrack clean "$ip"
+	done
+}
+
+get_dhcp_statue()
+{
+	local dhcpIgnore=0
+	dhcpIgnore=$(uci get dhcp.lan.ignore)
+	if [ $dhcpIgnore == 1 ];then
+		return 0
+	fi
+	return 1
+}
+
+get_ipmacbind_enable()
+{
+	local enable=0
+	enable=$(uci get firewall.ipmacBind.status)
+	if [ $enable == 'on' ];then
+		return 1
+	fi
+	return 0
+}
+
+ipmacBind_int(){
+	local chain
+
+	$IP4T -t $NETFILTER_TABLE -F $FILTER_CHAIN 2>/dev/null
+	! $IP4T -t $NETFILTER_TABLE -L $FILTER_CHAIN 2>&- >&- && {
+		$IP4T -t $NETFILTER_TABLE -N $FILTER_CHAIN 2>/dev/null
+	}
+
+	for chain in $PREROUTING_CHAIN; do
+		$IP4T -t $NETFILTER_TABLE -C "$chain" -j $FILTER_CHAIN 2>/dev/null || {
+			$IP4T -t $NETFILTER_TABLE -I "$chain" -j $FILTER_CHAIN 2>/dev/null
+		}
+	done
+
+	$IP6T -t $NETFILTER_TABLE -F $FILTER_CHAIN 2>/dev/null
+	! $IP6T -t $NETFILTER_TABLE -L $FILTER_CHAIN 2>&- >&- && {
+		$IP6T -t $NETFILTER_TABLE -N $FILTER_CHAIN 2>/dev/null
+	}
+
+	for chain in $PREROUTING_CHAIN; do
+		$IP6T -t $NETFILTER_TABLE -C "$chain" -j $FILTER_CHAIN 2>/dev/null || {
+			$IP6T -t $NETFILTER_TABLE -I "$chain" -j $FILTER_CHAIN 2>/dev/null
+		}
+	done
+
+	$ARPT  -F $FILTER_CHAIN 2>/dev/null
+	! $ARPT -L $FILTER_CHAIN 2>&- >&- && {
+		$ARPT  -N $FILTER_CHAIN 2>/dev/null
+		for chain in $ARP_CHAIN; do
+			$ARPT  -I "$chain" -j $FILTER_CHAIN 2>/dev/null
+		done
+	}
+}
+
+
+
+add_rule(){
+	local mac=$1
+	local ip=$2
+	local IPT=$IP4T
+
+	if  get_dhcp_statue;then
+		return
+	fi
+	if get_ipmacbind_enable == 0;then
+		return
+	fi
+
+	if [ `expr index "$ip" ":"` -gt 0  ];then
+		IPT=$IP6T
+	fi
+	
+	echo "add_rule $mac $ip"
+
+	$IPT -t $NETFILTER_TABLE -C $FILTER_CHAIN -s $ip -m mac  ! --mac-source $mac -j DROP 2>/dev/null || {
+		$IPT -t $NETFILTER_TABLE -A $FILTER_CHAIN -s $ip -m mac  ! --mac-source $mac -j DROP
+	}
+	$ARPT  -D $FILTER_CHAIN -s $ip --src-mac ! $mac -j DROP 2>/dev/null
+	$ARPT  -A $FILTER_CHAIN -s $ip --src-mac ! $mac -j DROP 2>/dev/null
+
+	return
+}
+
+delete_rule(){
+	local mac=$1
+	local ip=$2
+	local IPT=$IP4T
+
+	if [ `expr index "$ip" ":"` -gt 0 ];then
+		IPT=$IP6T
+	fi
+
+	$IPT -t $NETFILTER_TABLE -D $FILTER_CHAIN -s $ip -m mac  ! --mac-source $mac -j DROP
+	$ARPT  -D $FILTER_CHAIN -s $ip --src-mac ! $mac -j DROP 2>/dev/null
+	return
+}
+
+parse_rule(){
+	local host=$1
+	local mac
+	local ip
+
+	mac=$(uci get dhcp.$host.mac)
+	ip=$(uci get dhcp.$host.ip)
+	add_rule $mac $ip
+}
+
+init(){
+	dlog "ipmacBinding: init rule"
+	apply_rule
+}
+
+apply_rule(){
+	if get_dhcp_statue;then
+		return
+	fi
+	if get_ipmacbind_enable == 0;then
+		return
+	fi
+	config_load dhcp
+	config_foreach parse_rule "host"
+}
+
+usage(){
+	case "$0" in
+		init)
+			#读取配置，初始化ipmac过滤
+			elog "USAGE: $0 ipmacBinding init"
+		;;
+		enable)
+			#配置全局规则，开关
+			elog "USAGE: $0 ipmacBinding <enable> [enable:0|1]"
+		;;
+		set)
+			#设置IPMAC绑定条目
+			elog "USAGE: $0 ipmacBinding <set>  [mac] [ip]"
+		;;
+		del)
+			elog "USAGE: $0 ipmacBinding <del> [mac] [ip]"
+		;;
+		add)
+			elog "USAGE: $0 ipmacBinding <add> [mac] [ip]"
+		;;
+		flush)
+			elog "USAGE: $0 ipmacBinding flush"
+		;;
+		reload)
+			elog "USAGE: $0 ipmacBinding reload"
+		;;
+		clearSession)
+			elog "USAGE: $0 ipmacBinding <clearSession> [mac] [ip]"
+		;;
+	esac
+	return 0
+}
+
+
+lock $LOCKFILE
+
+
+case "$action" in
+	init|INIT)
+		ipmacBind_int
+		flush_rule
+		init
+	;;
+	enable|ENABLE)
+		open=$1
+		if [ "$open" = "1" ]; then
+			flush_rule
+			init
+		elif [ "$open" = "0" ]; then
+			flush_rule
+		fi
+	;;
+	add|ADD)
+		mac=$1
+		ip=$2
+		add_rule $mac $ip
+	;;
+	del|DEL)
+		mac=$1
+		ip=$2
+		delete_rule $mac $ip
+	;;
+	flush|FLUSH)
+		flush_rule
+	;;
+	reload|RELOAD)
+		flush_rule
+		init
+	;;
+	clearSession|CLEARSESSION)
+		mac=$1
+		ip=$2
+		clearConntrackSession $mac $ip
+	;;
+	*)
+		elog "WARNING: Unsupport Function In IPMacBind!"
+		usage
+	;;
+esac
+lock -u $LOCKFILE
+exit 0

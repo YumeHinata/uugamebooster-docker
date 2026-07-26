@@ -1,0 +1,81 @@
+#!/bin/sh
+
+. /usr/share/libubox/jshn.sh
+. /lib/functions/network.sh
+
+json_out() {
+	json_init
+	json_add_string code "$1"
+	json_add_string reason "$2"
+	json_dump
+}
+
+ping_check() {
+	local host_list="$(uci -q get system.netdt.cn_domain)"
+
+	for th in $host_list; do
+		ping -w 1 -c 1 "$th" >/dev/null 2>/dev/null && return 0
+	done
+
+	return 1
+}
+
+dns_check() {
+	local dns_list="$1"
+
+	local host_list="$(uci -q get system.netdt.cn_domain)"
+	for ns in $dns_list; do
+		for th in $host_list; do
+			/usr/sbin/nslookupc "$th" "$ns" 5 && return 0
+		done
+	done
+
+	return 1
+}
+
+is_gateway_reachable() {
+	local gw="$(uci -q get network.lan.gateway)"
+	ping -c 1 -W 1 -q "$gw" >/dev/null 2>/dev/null || {
+		arping -f -q -w 1 -c 1 -I br-lan "$gw" || return 1
+	}
+
+	return 0
+}
+
+is_uplink_down() {
+	local flag="$(phyhelper link | grep -w wan | awk -F' |:' '{print $4}')"
+	[ "$flag" = "down" ] && return 1
+
+	return 0
+}
+
+ap_diagnose() {
+	if ! is_uplink_down; then
+		json_out 1 'uplink port unplug'
+		return 1
+	fi
+
+	if ! is_gateway_reachable; then
+		json_out 2 'gateway unreachable'
+		return 1
+	fi
+
+	local ns
+	network_get_dnsserver ns lan
+	if ! dns_check "$ns"; then
+		json_out 3 'dns resolve failed'
+		return 1
+	fi
+
+	if ! ping_check; then
+		json_out 4 'failed to ping'
+		return 1
+	fi
+
+	return 0
+}
+
+netmode=$(uci -q get xiaoqiang.common.NETMODE)
+if [ "$netmode" = "lanapmode" ] || [ "$netmode" = "wifiapmode" ]; then
+	ap_diagnose
+fi

@@ -1,0 +1,196 @@
+#!/bin/sh
+logger -p notice -t "hotplug.d" "70-vpn: run because of $INTERFACE $ACTION"
+
+. /lib/miwifi/miwifi_core_libs.sh
+
+vpn_debug() {
+	logger -p info -t "hotplug.d-vpn" "$1"
+}
+
+smartvpn_set() {
+	vpn_debug "smartvpn $1 $2"
+	local switch=$(uci -q get smartvpn.vpn.switch)
+	[ "$switch" = "1" -a -f "/usr/sbin/smartvpn.sh" ] && /usr/sbin/smartvpn.sh $1 $2
+}
+
+add_dnsserver_to_vpn() {
+	wan=$1
+	network_get_dnsserver vpn_dnsservers vpn
+	network_get_dnsserver dnsservers $wan
+	# Merge DNS
+	for vpndns in $vpn_dnsservers; do
+		local duplicate=0
+		for dns in $dnsservers; do
+			[ "$vpndns" = "$dns" ] && duplicate=1
+		done
+		[ "$duplicate" = 0 ] && dnsservers="$dnsservers $vpndns"
+	done
+
+	for dnsserver in $dnsservers; do
+		vpn_debug "add $dnsserver to vpn"
+		ip rule add to $dnsserver table vpn
+	done
+}
+
+
+#if boot not finish, don't add vpn route until it finished
+bootcheck=$( cat /proc/xiaoqiang/boot_status )
+[ "$bootcheck" = "3" ] || return
+
+readonly LAN_DEV="br-lan"
+bind_wan="wan"
+[ -x "/usr/sbin/mwan3" ] && bind_wan=$(/usr/sbin/mwan3 curr_wan ipv4)
+
+[ "$ACTION" = "ifdown" ] && [ "$INTERFACE" = "vpn" ] && {
+	wanproto=$(uci -q get network.$bind_wan.proto)
+	vpnproto=$(uci -q get network.vpn.proto)
+
+	# accelleration hook event
+	network_accel_hook "vpn" "stop"
+
+	wan_device=$(uci -q get network.$bind_wan.ifname)
+	wandt_enable=$(uci -q get port_service.wandt.enable)
+
+	[ "$wanproto" = "pppoe" ] && wan_device="pppoe-wan"
+	[ -z "$wan_device" -a "$wandt_enable" = nil ] && wan_device="eth1"
+
+	smartvpn_set off $bind_wan
+
+	vpn_debug "ip rule del table vpn."
+	ip rule del table vpn
+	while [[ $? == 0 ]]; do
+		vpn_debug "ip rule retry del table vpn."
+		ip rule del table vpn
+	done
+
+	vpn_table_wan_rule=$(ip route show table vpn | grep $wan_device)
+	vpn_table_wan_rule=${vpn_table_wan_rule%scope*}
+	[ -n "$vpn_table_wan_rule" ] && ip route del to $vpn_table_wan_rule table vpn
+
+	vpn_table_lan_rule=$(ip route show table vpn | grep $LAN_DEV)
+	vpn_table_lan_rule=${vpn_table_lan_rule%scope*}
+	[ -n "$vpn_table_lan_rule" ] && ip route del to $vpn_table_lan_rule table vpn
+
+	_nexthop=$(ubus call network.interface.$bind_wan status |jason.sh -b | awk '{if($1~/route\",0,\"nexthop/) {nexthop=$2; gsub(/^ *"|\" *$/,"", nexthop); printf("%s",nexthop); return} }' 2>/dev/null)
+	[ -z "$_nexthop" ] && return
+
+	ip route del default dev $wan_device
+	ip route del default dev $wan_device metric 50
+
+	hasdefaultroute=$(route -n | awk -v _nexthop=$_nexthop '{if($1=="0.0.0.0" && $2==_nexthop && $5=="0")  { printf("yes") ; exit;}; }' 2>/dev/null)
+	[ "$hasdefaultroute" != "yes" ] && { 
+		vpn_debug "add default route gateway $_nexthop."
+		route add -net 0.0.0.0 netmask 0.0.0.0 gw $_nexthop metric 0 
+	}
+
+	hasdefaultroute=$(route -n | awk -v _nexthop=$_nexthop '{if($1=="0.0.0.0" && $2==_nexthop && $5=="50")  { printf("yes") ; exit;}; }' 2>/dev/null)
+	[ "$hasdefaultroute" != "yes" ] && {
+		vpn_debug "add default route gateway $_nexthop metric 50."
+		route add -net 0.0.0.0 netmask 0.0.0.0 gw $_nexthop metric 50
+	}
+
+	hasdefaultroute=$(route -n | awk -v _nexthop=$_nexthop '{if($1=="0.0.0.0" && $2==_nexthop && $5=="0")  { printf("yes") ; exit;}; }' 2>/dev/null)
+	[ "$hasdefaultroute" != "yes" ] && { 
+		vpn_debug "add default route gateway dev $wan_device."
+		ip route add default dev $wan_device metric 0
+	}
+
+	hasdefaultroute=$(route -n | awk -v _nexthop=$_nexthop '{if($1=="0.0.0.0" && $2==_nexthop && $5=="50")  { printf("yes") ; exit;}; }' 2>/dev/null)
+	[ "$hasdefaultroute" != "yes" ] && {
+		vpn_debug "add default route gateway dev $wan_device metric 50."
+		ip route add default dev $wan_device metric 50
+	}
+}
+
+[ "$ACTION" = "ifup" ] && [ "$INTERFACE" = "vpn" ] && {
+	wanproto=$(uci -q get network.$bind_wan.proto)
+	vpnproto=$(uci -q get network.vpn.proto)
+	
+	# accelleration hook event
+	network_accel_hook "vpn" "start"
+
+	. /lib/functions/network.sh
+	add_dnsserver_to_vpn $bind_wan
+
+	#send all traffic to vpn
+	wan_device=$(uci -q get network.$bind_wan.ifname)
+	wandt_enable=$(uci -q get port_service.wandt.enable)
+
+	[ "$wanproto" == "pppoe" ] && wan_device="pppoe-wan"
+	[ -z "$wan_device" -a "$wandt_enable" = nil ] && wan_device="eth1"
+
+	trafficall=$(uci -q get network.vpn.trafficall)
+
+	vpn_debug "try start, proto=$vpnproto, trafficall=$trafficall, wan_device=$wan_device."
+
+	[ "$trafficall" == "yes" -a "$vpnproto" != "" ] && {
+		_nexthop=$(ubus call network.interface.$bind_wan status |jason.sh -b | awk '{if($1~/route\",0,\"nexthop/) {nexthop=$2; gsub(/^ *"|\" *$/,"", nexthop); printf("%s",nexthop); return} }' 2>/dev/null)
+		vpn_debug "send all traffic to vpn, dev $DEVICE to vpn, wan_device=$wan_device, _nexthop=$_nexthop"
+
+		[ -z "$_nexthop" ] && {
+			vpn_debug "nexthop not exist, add default."
+			ip route del default dev $wan_device
+			ip route del default dev $wan_device metric 50
+			ip route add default dev ${vpnproto}-vpn
+			ip route flush cache
+		}
+
+		hasdefaultroute=$(route -n | awk -v _nexthop=$_nexthop '{if($1=="0.0.0.0" && $2==_nexthop && $5=="0")  { printf("yes") ; exit;}; }' 2>/dev/null)
+		while [ "$hasdefaultroute" == "yes" ]
+		do
+			vpn_debug "remove $wan_device default route."
+			ip route del default dev $wan_device
+			hasdefaultroute=$(route -n | awk -v _nexthop=$_nexthop '{if($1=="0.0.0.0" && $2==_nexthop && $5=="0")  { printf("yes") ; exit;}; }' 2>/dev/null)
+		done
+
+		hasdefaultroute=$(route -n | awk -v _nexthop=$_nexthop '{if($1=="0.0.0.0" && $2==_nexthop && $5=="50")  { printf("yes") ; exit;}; }' 2>/dev/null)
+		while [ "$hasdefaultroute" == "yes" ]
+		do
+			vpn_debug "remove $wan_device default route metric 50."
+			ip route del default dev $wan_device metric 50
+			hasdefaultroute=$(route -n | awk -v _nexthop=$_nexthop '{if($1=="0.0.0.0" && $2==_nexthop && $5=="50")  { printf("yes") ; exit;}; }' 2>/dev/null)
+		done
+
+		ip route del default dev $wan_device
+		ip route del default dev $wan_device metric 50
+
+		vpn_debug "add default proto for ${vpnproto}-vpn."
+		ip route add default dev ${vpnproto}-vpn
+
+		[ "$wanproto" = "pppoe" ] && {
+			cnt=$(route | grep -c "pppoe-wan")
+			[ $cnt -eq 0 ] && {
+				vpn_debug "add route for pppoe-wan."
+				route add -net $_nexthop netmask 255.255.255.255 pppoe-wan
+			}
+		}
+
+		ip route flush cache
+		return
+	}
+
+	[ "$wanproto" = "pppoe" ] && {
+		cnt=$(route | grep -c "pppoe-wan")
+		[ $cnt -eq 0 ] && {
+#			_nexthop=$(ubus call network.interface.$bind_wan status |jason.sh -b | awk '{if($1~/route\",0,\"nexthop/) {nexthop=$2; gsub(/^ *"|\" *$/,"", nexthop); printf("%s",nexthop); return} }' 2>/dev/null)
+			vpn_debug "add route for pppoe-wan."
+			ip route add default dev pppoe-wan metric 50
+#			route add -host $_nexthop gw $_nexthop dev pppoe-wan
+		}
+	}
+
+	#send all traffic to vpn except local
+	vpn_debug "send traffic to vpn except local, dev $DEVICE to vpn"
+	ip route add to 0/0 dev $DEVICE table vpn
+
+	network_get_subnet subnet $bind_wan
+	ip route add to $(fix_subnet $subnet) dev $wan_device table vpn
+
+	network_get_subnet subnet lan
+	ip route add to $(fix_subnet $subnet) dev $LAN_DEV table vpn
+
+	ip rule add from $(fix_subnet $subnet) table vpn
+	vpn_debug "add $subnet to vpn"
+
+	smartvpn_set on $bind_wan
+}

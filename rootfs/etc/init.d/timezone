@@ -1,0 +1,86 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006 OpenWrt.org 
+
+START=11
+
+. /lib/functions.sh
+
+set_timezone_from_countrycode() {
+	local cc=$(uci -q get mobile.network.network_country)
+	if [ -n "$cc" ];then
+		tz_idx=$(uci -q get country_mapping.$cc.timezoneindex)
+		tz=$(uci -q get timezone."${tz_idx//./_}".tz)
+		[ -z "$tz" ] && tz="UTC"
+	else
+		cc=`getCountryCode`
+		if [ -z "$cc" ]; then
+			tz="UTC"
+		else
+			tz_idx=$(uci -q get country_mapping.$cc.timezoneindex)
+			tz=$(uci -q get timezone."${tz_idx//./_}".tz)
+			[ -z "$tz" ] && tz="UTC"
+		fi
+	fi
+	echo $tz > /tmp/TZ
+	# update uci config. config_set doesn't work >_<
+	# config_set $1 timezone $tz
+	uci set system.@system[0].timezone="$tz"
+	uci set system.@system[0].timezoneindex="$tz_idx"
+	uci commit system
+}
+
+
+timezone_config() {
+	local cfg="$1"
+	local idx
+	local webtimezone
+	local timezone
+	local mesh_role
+	local mesh_support=$(uci -q get misc.features.supportMesh)
+	if [ $mesh_support -eq 1 ]; then
+		mesh_role=$(mesh_cmd role)
+	else
+		mesh_role="router"
+	fi
+
+
+	initted=`uci -q get xiaoqiang.common.INITTED`
+	# "timezoneindex" exists indicates it was manually changed from web admin interface.
+	# Apply the uci timezone config if timezoneindex exist.
+	# Otherwise use timezone from country code.
+	config_get idx "$cfg" timezoneindex
+	config_get webtimezone "$cfg" webtimezone
+
+	if [ "$initted" != "YES" ]; then
+		local mobile_set_timezone=$(uci -q get mobile.network.network_country)
+		# mobile set timezone already, just return
+		[ -n "$mobile_set_timezone" ] && return
+	fi
+
+	# check if index is in version 2 format
+	v2_idx=$(echo ${idx} | grep -e ^2\.[0-9]*$ 2>/dev/null)
+
+	#set timezone by CountryCode if not set by mannual and not inited
+	if [ -z "$idx" -o "$initted" != "YES" ]; then
+		set_timezone_from_countrycode $cfg
+	else
+		if [ "$mesh_role" != "RE" ] && [ -n "$v2_idx" -a -z "$webtimezone" ]; then
+			# for version 2 index, webtimezone indicate it was mannual modified
+			set_timezone_from_countrycode $cfg
+		else
+			config_get timezone "$cfg" timezone 'UTC'
+			echo "$timezone" > /tmp/TZ
+		fi
+	fi
+	# apply timezone to kernel
+	hwclock -u -t
+
+	local uptime=$(cat /proc/uptime | cut -d'.' -f1)
+	[ "$uptime" -gt 100 -a -c "/dev/rtc0" ] && hwclock -w -u
+}
+
+
+start() {
+	config_load system
+	config_foreach timezone_config system
+}

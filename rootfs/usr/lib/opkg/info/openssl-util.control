@@ -1,0 +1,15 @@
+Package: openssl-util
+Version: 1.1.1l-1
+Depends: libc, libopenssl, libopenssl-conf
+Source: package/libs/openssl
+License: OpenSSL
+LicenseFiles: LICENSE
+Section: utils
+Maintainer: Eneas U de Queiroz <cotequeiroz@gmail.com>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 248360
+Description:  The OpenSSL Project is a collaborative effort to develop a robust,
+ commercial-grade, full-featured, and Open Source toolkit implementing the
+ Transport Layer Security (TLS) protocol as well as a full-strength
+ general-purpose cryptography library.
+ This package contains the OpenSSL command-line utility.

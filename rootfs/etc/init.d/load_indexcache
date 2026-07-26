@@ -1,0 +1,13 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2015 OpenWrt.org
+
+START=98
+
+start()
+{
+    init_flag=`uci -q get xiaoqiang.common.INITTED`
+
+    [ "$init_flag" != "YES" ] && {
+        /www/cgi-bin/luci 2>/dev/null
+    }
+}

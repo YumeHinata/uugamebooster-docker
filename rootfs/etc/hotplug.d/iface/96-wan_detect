@@ -1,0 +1,31 @@
+#!/bin/sh
+
+logger -p notice -t "hotplug.d" "96-wan_detect: wan detect run because of $INTERFACE $ACTION"
+
+[ "1" != "$(uci -q get port_service.wandt_attr.enable)" ] && return
+
+if [ "$INTERFACE" = "internet" ]; then
+    interface="br-internet"
+else
+    interface="$(uci -q get network."$INTERFACE".ifname)"
+fi
+
+# wan down
+[ "$ACTION" = "ifdown" ] && {
+    wan_port_ifname=$(port_map iface service wan)
+    wan_dial_ifname=$(uci -q get network.wan.ifname)
+
+    [ "$interface" = "$wan_dial_ifname" ] || [ "$interface" = "$wan_port_ifname" ] && {
+        # check if the wan phy really is down
+        ifconfig "$interface" 2>/dev/null | grep -sw "UP BROADCAST" | grep -qswv "RUNNING" && {
+            logger -p notice -t "hotplug.d" "96-wan_detect: wandt redetect because of wan $INTERFACE $ACTION"
+            /usr/sbin/wan_detect.sh redetect_wan force
+        }
+    }
+}
+
+# lan up
+[ "$ACTION" = "ifup" ] && brctl show br-lan | grep "$interface" && {
+    logger -p notice -t "hotplug.d" "96-wan_detect: wandt redetect because of lan $INTERFACE $ACTION"
+    /usr/sbin/wan_detect.sh redetect_wan normal
+}

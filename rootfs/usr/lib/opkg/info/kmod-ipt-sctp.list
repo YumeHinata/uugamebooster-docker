@@ -1,0 +1,2 @@
+/lib/modules/5.4.213/xt_sctp.ko
+/etc/modules.d/50-ipt-sctp

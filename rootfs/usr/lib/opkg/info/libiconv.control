@@ -1,0 +1,11 @@
+Package: libiconv
+Version: 8
+Depends: libc
+Source: package/libs/libiconv
+License: LGPL-2.1
+LicenseFiles: LICENSE
+Section: libs
+Maintainer: Jo-Philipp Wich <jo@mein.io>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 167
+Description:  Tiny drop-in replacement for the GNU Character set conversion library

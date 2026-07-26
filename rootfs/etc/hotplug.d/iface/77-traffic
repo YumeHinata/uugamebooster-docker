@@ -1,0 +1,37 @@
+#!/bin/sh
+logger -p notice -t "hotplug.d" "77-traffic: run because of $INTERFACE $ACTION"
+[ "$ACTION" = "ifup" ] && [ "$INTERFACE" != "wan" ] && {
+	ubus call trafficd updateWireSta &
+}
+netmode=$(uci -q get xiaoqiang.common.NETMODE)
+
+[ -z "$netmode" ] || [ "whc_cap" = "$netmode" ] || exit 0
+
+[ "$ACTION" = "ifup" ] && [ "$INTERFACE" = "lan" ] && {
+	if [ -x /usr/sbin/ipaccount ]; then
+		ipaddr=$(uci get network.lan.ipaddr)
+		netmask=$(uci get network.lan.netmask)
+		/etc/init.d/trafficd init_ipaccount
+		/usr/sbin/ipaccount -S -n lan -N "$ipaddr/$netmask"
+	fi
+	return 0
+}
+
+[ "$INTERFACE" = "guest" ] && {
+	if [ -x /usr/sbin/ipaccount ]; then
+		ipaddr=$(uci get network.guest.ipaddr)
+		netmask=$(uci get network.guest.netmask)
+		/etc/init.d/trafficd init_ipaccount
+		[ "$ACTION" = "ifup" ] && /usr/sbin/ipaccount -S -n guest -N "$ipaddr/$netmask"
+#		[ "$ACTION" = "ifdown" ] && /usr/sbin/ipaccount -D -n guest
+		/usr/sbin/ipaccount -r
+	fi
+	[ "$ACTION" = "ifup" ] && {
+		[ "1" != "$(uci -q get miqos.settings.force_disabled)" ] && [ "1" = "$(uci -q get miqos.settings.enabled)" ] && {
+			# generate miqos iptables rule for br-guest
+			miqosd_init.sh init guest
+			# generate miqos tc rule for br-guest
+			/usr/sbin/miqosd noifb
+		}
+	}
+}

@@ -1,0 +1,469 @@
+<script type="tmpl/html" id="tmplAddSelf">
+    <div class="dialog-selfadd-form-wrap">
+        <form action='<%=luci.dispatcher.build_url("api", "xqnetwork", "manually_add")%>' class="form" name="selfadd" id="selfAdd">
+            <div class="form-item">
+                <label class="k">
+                    <%:名称%>
+                </label>
+                <span class="v">
+<input type="text" id="macname" name="macname" datatype="macname" class="ipt-text" reqMsg="<%:名称%>" />
+</span>
+                <em class="t"></em>
+            </div>
+            <div class="form-item">
+                <label class="k">
+                    <%:MAC地址%>
+                </label>
+                <span class="v">
+<input type="text" id="macaddr" name="addr" class="ipt-text" datatype="macaddr" reqMsg="<%:MAC地址%>" />
+</span>
+                <em class="t"></em>
+            </div>
+            <div class="form-contral">
+                <button type="submit" class="btn btn-primary btn-l" id="selfAddSubmit"><span><%:确定%></span>
+                </button>
+            </div>
+        </form>
+    </div>
+</script>
+<script type="tmpl/html" id="tmplAddList">
+    <div class="dialog-listadd-form-wrap">
+        <form action='<%=luci.dispatcher.build_url("api", "xqnetwork", "edit_device")%>' class="form" name="listAdd" id="listAdd">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th><%:设备名称%></th>
+                        <th><%:设备信息%></th>
+                        <th><%:连接时长%></th>
+                        <th width="80"><%:操作%></th>
+                    </tr>
+                </thead>
+                <tbody id="dialogdeviceslist">
+                    <tr>
+                        <td colspan="4"><%:正在查询中...%></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="form-contral">
+                <button type="submit" class="btn btn-primary btn-l" id="listAddSubmit"><span><%:添加%></span>
+                </button>
+            </div>
+        </form>
+    </div>
+</script>
+<script type="tmpl/html" id="tmplAddedDevice">
+    <tr data-mac="{$addr}">
+        <td>{$name}</td>
+        <td>{$addr}</td>
+        <td><a href="#" class="btn btn-dft btn-s del"><span><%:删除%></span></a>
+        </td>
+    </tr>
+</script>
+<script type="tmpl/html" id="tmplOnlineDevice">
+    <tr>
+        <td>{$name}</td>
+        <td>{$ip}
+            <br />{$addr}</td>
+        <td>{$time}</td>
+        <td>
+            <input class="onlinemacinput" type="checkbox" name="nowmac" value="{$addr}" />
+        </td>
+    </tr>
+</script>
+<script>
+    (function () {
+        var listaddDialog;
+        var selfaddDialog;
+        var enableLast;
+        var selfMac = '<%=mac%>'.toUpperCase();
+        var lanType = '<%=lanType%>';
+        var switchbtn = $('#macfilterswitch');
+        var hardware = '<%=hardware%>';
+        var netmod = '<%=netmod%>';
+        var isMesh = netmod == '3' || netmod == '4' || netmod == '13' || netmod == '14';
+
+        var getWifiFilterInfo = function (data, callback) {
+            $.getJSON('<%=luci.dispatcher.build_url("api", "xqnetwork", "wifi_macfilter_info")%>', data, function (rsp) {
+                if (rsp.code == 0) {
+                    enableLast = rsp.enable;
+                    callback(rsp);
+                }
+                $('#modMacfilter').show();
+                // else {
+                //     alert(rsp.msg);
+                // }
+            });
+        };
+        var getAddedList = function (res) {
+            var list = res.macfilter;
+            var trarr = [];
+            var tpl = $('#tmplAddedDevice').html();
+            if ($.isArray(list) && list.length > 0) {
+                for (var i = 0, len = list.length; i < len; i++) {
+                    var tr = StringH.tmpl(tpl, {
+                        name: StringH.encode4Html(list[i].name),
+                        addr: list[i].mac
+                    });
+                    trarr.push(tr);
+                }
+                $('#deviceslist').html(trarr.join(''));
+            } else {
+                $('#deviceslist').html('<tr><td colspan="3"><%:还没有设备添加进来%></td></tr>');
+            }
+        };
+        var getOnlineList = function () {
+            var model = $('.filtertype:checked').val();
+            getWifiFilterInfo({model: model}, function (res) {
+                //改动lyt
+                var list = res.flist;
+                var trarr = [];
+                var tpl = $('#tmplOnlineDevice').html();
+                if ($.isArray(list) && list.length > 0) {
+                    for (var i = 0, len = list.length; i < len; i++) {
+
+                        //改动lyt
+                        // if(list[i].added == 0){
+                        if(list[i].isap != 8 && list[i].isap != 1 && list[i].online != 0){
+                            var tr = StringH.tmpl(tpl, {
+                                name: StringH.encode4Html(list[i].name),
+                                ip: list[i].ip[0].ip,
+                                addr: list[i].mac,
+                                time: secondToDate(list[i].statistics.online)
+                            });
+                            trarr.push(tr);
+                        }
+                    }
+                    if( trarr.length > 0 ){
+                        $('#dialogdeviceslist').html(trarr.join(''));
+                    }else{
+                        $('#dialogdeviceslist').html('<tr><td colspan="4"><%:您已经全部添加过了%></td></tr>');
+                    }
+                } else {
+                    $('#dialogdeviceslist').html('<tr><td colspan="4"><%:还没有设备连接进来%></td></tr>');
+                }
+            });
+        };
+        var getFilterType = function (res) {
+            var model = res.model;
+            if (model == 0) {
+                $('#filtertype1').prop('checked', true);
+                $('#typeText').html('<%:黑名单设备列表%>');
+            } else {
+                $('#filtertype2').prop('checked', true);
+                $('#typeText').html('<%:白名单设备列表%>');
+            }
+        };
+        var isEnable = function (res) {
+            $.pub('wifiFilter:switch', {
+                enable: res.enable
+            });
+        };
+        var setWifiMacfilter = function(){
+            var model = $('.filtertype:checked').val(),
+                requestURL = '<%=luci.dispatcher.build_url("api", "xqnetwork", "set_wifi_macfilter")%>',
+                enable = $('#macfilterswitch').attr('data-enable') == '1' ? 0 : 1;
+                //D01 没有白名单 所以没有model参数 默认设置成0 表示黑名单
+                // if(typeof(model) == 'undefined'  && isMesh){
+                //     model = 0
+                // }
+             var  requestData = {
+                    model: model,
+                    enable: enable
+                };
+            if (model == 1 && enable == 1) {
+                if ($('#deviceslist td').length == 1) {
+                    $.dialog({
+                        title: '<%:无线MAC地址过滤%>',
+                        content: '<%:您没有在列表中添加任何设备，保存后所有设备将无法访问网络！请返回修改%>',
+                        ok: function () {
+                            this.close();
+                        }
+                    }).lock();
+                    return;
+                }
+                var hasSelf = false;
+                $('#deviceslist td').each(function(){
+                    var text = this.innerHTML;
+                    if( text == selfMac ){
+                        hasSelf = true;
+                    }
+                });
+                if( !hasSelf && lanType != 0 ){
+                    $.dialog({
+                        title: '<%:无线MAC地址过滤%>',
+                        content: '<%:您没有将当前设备添加至白名单，保存后本机将无法访问网络！%>',
+                        ok: function(){
+                            this.close();
+                        }
+                    }).lock();
+                    return;
+                }
+            }
+            if( model ==0 && enable == 1 ){
+                var hasSelf = false;
+                $('#deviceslist td').each(function(){
+                    var text = this.innerHTML;
+                    if( text == selfMac ){
+                        hasSelf = true;
+                    }
+                });
+                if( hasSelf ){
+                    $.dialog({
+                        title: '<%:无线MAC地址过滤%>',
+                        content: '<%:您将当前设备添加至黑名单，保存后本机将无法访问网络！%>',
+                        ok: function(){
+                            this.close();
+                        }
+                    }).lock();
+                    return;
+                }
+            }
+            $.getJSON(requestURL, requestData, function (res) {
+                if (res.code == 0) {
+                    location.reload(1);
+                }else if(res.code == 401){
+                    //
+                }else{
+                    alert(res.msg);
+                }
+            });
+        };
+        $.sub('wifiFilter:switch', function (e, data) {
+            if (data.enable == 1) {
+                switchbtn.attr('data-enable', 0);
+                switchbtn[0].className = 'btn-switch btn-switch-on';
+                $('.mod-macfilter .section').fadeIn();
+            } else {
+                switchbtn.attr('data-enable', 1);
+                switchbtn[0].className = 'btn-switch btn-switch-off';
+                $('.mod-macfilter .section').fadeOut();
+            }
+            if( data.enable == 0 && data.enable == enableLast ){
+                $('#setWifiMacfilter').hide();
+            }else{
+                $('#setWifiMacfilter').show();
+            }
+        });
+        switchbtn.on('click', function (e) {
+            e.preventDefault();
+            var enable = $(this).attr('data-enable');
+            $.pub('wifiFilter:switch', {
+                enable: enable
+            });
+            getWifiFilterInfo({}, function(res){
+                res.enable = enable;
+                getAddedList( res );
+                getFilterType( res );
+            });
+        });
+        $.sub('wifiFilter:addBySelf', function () {
+            var formName = 'selfAdd';
+            var validator = Valid.checkAll($('#selfAdd')[0]);
+            if (validator) {
+                $('#selfAddSubmit').addClass('btn-primary-disabled').prop('disabled', true).find('span').text('<%:保存中...%>');
+                var mac = $('#macaddr').val(),
+                    name = $('#macname').val(),
+                    model = $('.filtertype:checked').val(),
+                    option = 0;
+                    //mesh 没有白名单
+                    // if(isMesh){
+                    //     model = 0
+                    // }
+                $.ajax({
+                    url: $('#' + formName).attr('action'),
+                    type: 'GET',
+                    data: {
+                        name: $.trim( name ),
+                        mac: $.trim( mac ),
+                        model: model,
+                        option: option
+                    },
+                    dataType: 'json',
+                    success: function (res) {
+                        var msg;
+                        if (res.code == 0) {
+                            selfaddDialog.close();
+                            getWifiFilterInfo({
+                                model: model
+                            }, function (res) {
+                                getAddedList(res);
+                            });
+                        } else if(res.code == 401){
+                            //
+                        }else if(res.code == 1658){
+                            selfaddDialog.close();
+                            $.alert( "添加失败，Mesh路由不能添加到黑名单" );
+                        }else{
+                            $('#selfAddSubmit').removeClass('btn-primary-disabled').prop('disabled', false).find('span').text('<%:添加%>');
+                            msg = res.msg;
+                            alert(msg);
+                        }
+                    }
+                });
+            }
+        });
+        $.sub('wifiFilter:addByList', function () {
+            var formName = 'listAdd';
+
+            var mac = '';
+            var valarr = [];
+            var model = $('.filtertype:checked').val();
+            //mesh 没有白名单
+            // if(isMesh){
+            //    model = 0
+            // }
+            var option = 0;
+
+            var inputs = $('.onlinemacinput:checked');
+            if (inputs.length < 1) {
+                alert("<%:请至少选择一个设备%>");
+            } else {
+                $('#listAddSubmit').addClass('btn-primary-disabled').prop('disabled', true).find('span').text('<%:保存中...%>');
+                inputs.each(function (index, item) {
+                    valarr.push( $.trim( item.value ) );
+                });
+                mac = valarr.join(';');
+                $.ajax({
+                    url: $('#' + formName).attr('action'),
+                    type: 'GET',
+                    data: {
+                        mac: mac,
+                        model: model,
+                        option: option
+                    },
+                    dataType: 'json',
+                    success: function (res) {
+                        var msg;
+                        if (res.code == 0) {
+                            listaddDialog.close();
+                            getWifiFilterInfo({
+                                model: model
+                            }, function (res) {
+                                getAddedList(res);
+                            });
+                        } else if(res.code == 401){
+                            //
+                        }else {
+                            $('#listAddSubmit').removeClass('btn-primary-disabled').prop('disabled', false).find('span').text('<%:添加%>');
+                            msg = res.msg;
+                            alert(msg);
+                        }
+                    }
+                });
+            }
+        });
+        $.sub('wifiFilter:delDevice', function (e, data) {
+            var targetElement = data.targetElement;
+            var tr = $(targetElement).closest('tr');
+            var mac = tr.attr('data-mac');
+            var model = $('.filtertype:checked').val();
+            var option = 1;
+            var requestURL = '<%=luci.dispatcher.build_url("api", "xqnetwork", "edit_device")%>';
+            //mesh 没有白名单
+            // if(isMesh){
+            //    model = 0
+            // }
+            var requestData = {
+                mac: mac,
+                model: model,
+                option: option
+            };
+
+
+            $.getJSON(requestURL, requestData, function (res) {
+                if (res.code == 0) {
+                    getWifiFilterInfo({
+                        model: model
+                    }, function (res) {
+                        getAddedList(res);
+                    });
+                } else if(res.code == 401){
+                    //
+                }else {
+                    alert(res.msg);
+                }
+            });
+        });
+        $.sub('addEvent', function () {
+            $('.filtertype').on('click', function (e) {
+                var val = $(this).val();
+                if (val == 0) {
+                    $('#typeText').html('<%:黑名单设备列表%>');
+                } else {
+                    $('#typeText').html('<%:白名单设备列表%>');
+                }
+                getWifiFilterInfo({
+                    model: val
+                }, function (res) {
+                    // getFilterType( res );
+                    getAddedList(res);
+                });
+            });
+            //从列表添加
+            $('#btnListAdd').on('click', function (e) {
+                e.preventDefault();
+                listaddDialog = $.dialog({
+                    title: '<%:设备列表%><a id="devicesRefresh" class="ico-dev-refresh" href="#"></a>',
+                    content: $('#tmplAddList').html(),
+                    lock: true,
+                    padding: 0,
+                    width: 770
+                });
+                getOnlineList();
+            });
+            //手工添加
+            $('#btnSelfAdd').on('click', function (e) {
+                e.preventDefault();
+                selfaddDialog = $.dialog({
+                    title: '<%:手工添加%>',
+                    content: $('#tmplAddSelf').html(),
+                    lock: true,
+                    padding: 0
+                });
+                setTimeout(function () {
+                    $.formInit();
+                }, 100);
+            });
+            //del
+            $('body').delegate('#deviceslist .del', 'click', function (e) {
+                e.preventDefault();
+                $.pub('wifiFilter:delDevice', {
+                    targetElement: this
+                });
+            });
+            //
+            $('body').delegate('#selfAdd', 'submit', function (e) {
+                e.preventDefault();
+                $.pub('wifiFilter:addBySelf');
+            });
+            //
+            $('body').delegate('#listAdd', 'submit', function (e) {
+                e.preventDefault();
+                $.pub('wifiFilter:addByList');
+            });
+            //save and run
+            $('#setWifiMacfilter').on('click', function (e) {
+                e.preventDefault();
+                setWifiMacfilter();
+            });
+            //refresh
+            $('body').delegate('#devicesRefresh', 'click', function(e){
+                e.preventDefault();
+                $('#dialogdeviceslist').html('<tr><td colspan="4"><%:正在查询中...%></td></tr>');
+                getOnlineList();
+            });
+        });
+        $.sub('wifiFilter:init', function () {
+            getWifiFilterInfo({}, function (res) {
+                getFilterType(res);
+                getAddedList(res);
+                isEnable(res);
+            });
+        });
+
+        $(function () {
+            $.pub('addEvent');
+            $.pub('wifiFilter:init');
+        });
+    }());
+</script>

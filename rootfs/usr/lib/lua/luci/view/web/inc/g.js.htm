@@ -1,0 +1,1624 @@
+<%
+local ver = require("xiaoqiang.XQVersion").webVersion
+local XQSysUtil = require("xiaoqiang.util.XQSysUtil")
+local remote_addr = luci.http.getenv("REMOTE_ADDR") or ""
+local mac = luci.sys.net.ip4mac(remote_addr) or ""
+local romChannel = XQSysUtil.getChannel()
+local romVersion = XQSysUtil.getDisplayRomVersion()
+local miromVersion = XQSysUtil.getRomVersion()
+local betaFlag = XQSysUtil.getBeta()
+local xqCountryCode = require "xiaoqiang.XQCountryCode"
+
+local uci = require("luci.model.uci").cursor()
+local hardwareModel = tostring(uci:get("misc", "hardware", "model"))
+local features = require("xiaoqiang.XQFeatures").FEATURES
+local json = require("luci.json")
+
+local deviceId = tostring(uci:get("messaging", "deviceInfo", "DEVICE_ID"))
+local ispName = XQSysUtil.getISPName()
+local hardware = string.lower( XQSysUtil.getHardware() )
+local color = XQSysUtil.getColor()
+local routerSrc = resource.."/web/img/topograph/".."router_"..hardware.."_".. color..".png"
+
+local XQFunction = require("xiaoqiang.common.XQFunction")
+local netmod = XQFunction.getNetModeType()
+
+local apiServerDomain = luci.util.trim(luci.util.exec("uci get /etc/config/miwifi.server.API"))
+local trackUrl = apiServerDomain.."/res_stat/track.gif"
+local clickUrl = apiServerDomain.."/res_stat/click.gif"
+local ccode = xqCountryCode.getBDataCountryCode()
+
+local netmod = 0
+local netmod = XQFunction.getnetmode()
+local DWBUtil   = require("xiaoqiang.util.DedicatedWirelessBackhaulUtil")
+local dwb_type = 0
+local dwb_status = 0
+if DWBUtil and DWBUtil.is_supported() then
+    dwb_type = DWBUtil.mesh_get_dwb_type()
+    dwb_status = tonumber(DWBUtil.mesh_get_dwb_status() or "0")
+end
+--2 有线中继
+--1 无线中继
+--4 mesh主设备  whc_cap
+--3 mesh从设备  whc_re
+--0 router
+
+local isMesh = (netmod == 3 or netmod == 4) and "true" or "false"
+local maxMeshCount = XQFunction.getMaxMeshNodeCount()
+local isRedmi = XQSysUtil.isRedmi()
+local newEncryptMode = XQSysUtil.getEncryptMode()
+local XQMessageBox = require("xiaoqiang.module.XQMessageBox")
+local messages = json.encode(XQMessageBox.getMessages())
+local isAC = XQFunction.getFeature("0", "system", "ac")
+%>
+<!--[if lt IE 7]>
+<script>
+    try {
+        document.execCommand("BackgroundImageCache", false, true);
+    } catch (e) {
+    }
+</script>
+<![endif]-->
+<div class="mask-menu" id="maskMenu"
+     style="position:fixed;left:0;top:0; width:100%; height:100%; z-index:2; display:none;"></div>
+<div id="dropmenu" class="dropmenu" style="z-index:3; display:none;">
+    <ul>
+        <li><a href="#" id="toRename"><%:修改路由器名称%></a></li>
+        <%if netmod == 0 or netmod ==4 then%>
+            <%if ispName == "CTCC" then%>
+            <li><a href="<%=luci.dispatcher.build_url("web","setting","upgrade")%>"><%:系统升级%>(<%=miromVersion%>)</a></li>
+            <%else%>
+            <li><a href="<%=luci.dispatcher.build_url("web","setting","upgrade")%>"><%:系统升级%></a></li>
+            <%end%>
+        <%else%>
+            <%if ispName == "CTCC" then%>
+            <li><a href="<%=luci.dispatcher.build_url("web","apsetting","upgrade")%>"><%:系统升级%>(<%=miromVersion%>)</a></li>
+            <%else%>
+            <li><a href="<%=luci.dispatcher.build_url("web","apsetting","upgrade")%>"><%:系统升级%></a></li>
+            <%end%>
+        <%end%>
+        <%if ispName == "CMCC" or ispName == "CTCC" then%>
+        <li><a href="#" id="toDownloadClient"><%:下载客户端%></a></li>
+        <%else%>
+        <li><a href="#" id="toDownloadClient"><%:下载米家APP%></a></li>
+        <%end%>
+        <li><a href="#" id="toReboot"><%:重启%></a></li>
+        <%if features["system"]["shutdown"] == '1' then%>
+        <li><a href="#" id="toShutdown"><%:关机%></a></li>
+        <%end%>
+        <li class="last"><a href="<%=luci.dispatcher.build_url("web","logout")%>"><%:注销%></a></li>
+    </ul>
+</div>
+<div id="noticebar" class="noticebar" style="z-index:3; display:none;">
+    <i class="ico-arrow"></i>
+    <div class="content"></div>
+</div>
+<%include("web/inc/i18n.js")%>
+<script src="/js/jquery-1.8.3.js?v=<%=ver%>"></script>
+<script src="/js/qwrap.js?v=<%=ver%>"></script>
+<script src="/js/common.js?v=<%=ver%>"></script>
+<script src="/js/raphael.js?v=<%=ver%>"></script>
+<script src="/js/crypto-js/rollups/sha1.js?v=<%=ver%>"></script>
+<script src="/js/crypto-js/rollups/aes.js?v=<%=ver%>"></script>
+<script src="/js/crypto-js/rollups/sha256.js?v=<%=ver%>"></script>
+<script src="/js/valid.js?v=<%=ver%>"></script>
+<script src="<%=resource%>/web/js/selectbeautify.js?v=<%=ver%>"></script>
+<script src="<%=resource%>/web/js/jquery.dialog.js?v=<%=ver%>"></script>
+<script src="<%=resource%>/web/js/jquery.cookie.js?v=<%=ver%>"></script>
+<script>
+    (function () {
+        var G_FEATURES = $.parseJSON('<%=json.encode(features)%>');
+        window['G_FEATURES'] = G_FEATURES;
+    }())
+</script>
+<%include("web/inc/reboot.js")%>
+<script type="text/tmpl" id="tplrename">
+<div class="mod-rename-dlg">
+    <p class="img"><img src="<%=routerSrc %>" style="width:96px;height:auto"></p>
+    <div class="form-rename">
+        <form action="#" class="form" id="routerNameEdit">
+            <div class="form-item">
+                <label class="k"><%:路由器名称%></label>
+                <span class="v">
+                    <input type="text" name="routername" id="routername" class="ipt-text" autocomplete="off" datatype="bytetext" maxlength="27" reqMsg="<%:路由器名称%>" value="{$name}">
+                </span>
+                <em class="t"></em>
+            </div>
+            <%if features["system"]["set_router_location"] ~= "0" then%>
+            <div class="form-item">
+                <label class="k"><%:位置%></label>
+                <span class="v">
+                    <input type="text" name="locale" id="locale" class="ipt-text" autocomplete="off" datatype="bytetext" maxlength="24" reqMsg="<%:路由器位置%>" value="{$locale}">
+                </span>
+                <em class="t"></em>
+            </div>
+            <%end%>
+            <div class="form-contral">
+                <button type="submit" class="btn btn-primary btn-l"><span><%:保存%></span></button>
+            </div>
+        </form>
+    </div>
+</div>
+
+</script>
+<script type="text/tmpl" id="tplshutdown">
+<div class="mod-reboot-dlg">
+    <p class="img"><img src="<%=resource%>/web/img/ico_shutdown.png"></p>
+    <p class="text"><%:关闭路由器将断开其他设备的数据访问和网络连接，之后便可以安全的断开电源。（再次启动需要手工连接电源）%></p>
+    <button id="shutdownAction" type="button" class="btn btn-primary btn-l"><span><%:关闭路由器%></span></button>
+</div>
+
+</script>
+<script type="text/tmpl" id="tplreboot">
+<div class="mod-shutdown-dlg">
+    <p class="img"><img src="<%=resource%>/web/img/ico_reboot.png"></p>
+    <p class="text"><%:路由器重启需要等待十几秒或更多时间，重启过程中将会断开网络连接，稍后将自动重新连接网络。%></p>
+    <button type="button" id="rebootAction" class="btn btn-primary btn-l"><span><%:重启路由器%></span></button>
+</div>
+
+</script>
+<script type="text/tmpl" id="tpldowncn">
+<div class="mod-downloadclient-dlg">
+    <table>
+        <tr>
+            <td>
+                <i class="ico-down-client ico-down-pc"></i>
+                <a href="http://bigota.miwifi.com/xiaoqiang/client/xqpc_client.exe"><%:PC客户端%></a>
+            </td>
+            <td class="c1"></td>
+            <td class="c2"></td>
+            <td>
+                <i class="ico-down-client ico-down-mac"></i>
+                <a href="http://bigota.miwifi.com/xiaoqiang/client/xqmac_client.dmg"><%:MAC客户端%></a>
+            </td>
+        </tr>
+        <tr class="last">
+            <td>
+                <i class="ico-down-client ico-down-andriod"></i>
+                <a href="http://www1.miwifi.com/pc2app_download.html"><%:手机客户端%></a>
+            </td>
+            <td class="c1"></td>
+            <td class="c2"></td>
+            <td>
+                <i class=" ico-down-code"></i>
+            </td>
+        </tr>
+    </table>
+</div>
+
+</script>
+<script type="text/tmpl" id="tpldownintl">
+    <%if ispName == "CMCC" then%>
+    <img style="width:183px;height:183px" class="onlineimg" src-local="/xiaoqiang/web/img/cmcc.png" src="/xiaoqiang/web/img/cmcc.png">
+    <p><%:手机扫描二维码安装和家亲APP%></p>
+    <%elseif ispName == "CTCC" then%>
+    <img style="width:183px;height:183px" class="onlineimg" src-local="/xiaoqiang/web/img/ctcc.png" src="/xiaoqiang/web/img/ctcc.png">
+    <p><%:手机扫描二维码安装小翼管家APP%></p>
+    <%else%>
+    <img style="width:183px;height:183px" class="onlineimg" src-local="/xiaoqiang/web/img/miHome.png" src="/xiaoqiang/web/img/miHome.png">
+    <p><%:手机扫描二维码安装米家APP%></p>
+    <%end%>
+
+</script>
+<script type="tmpl/html" id="wifiSetSucess">
+    <div class="meshContent">
+        <img class="success_me" src="<%=resource%>/web/img/mesh_success.png"/>
+        <p>设置成功</p>
+
+    </div>
+
+</script>
+<script>
+    var DEBUG = false;
+    var isRedmi = '<%=isRedmi%>'
+    if(isRedmi == 1){
+        document.title = "Redmi路由器";
+    }else if(isRedmi == 0){
+        document.title = "小米路由器";
+    }
+
+    if (!window.console || DEBUG == false) {
+        window.console = {
+            log: function () {
+            }
+        };
+    }
+    var isSetRouterLoaction = '<%=features["system"]["set_router_location"]%>'
+    var newEncryptMode = parseInt('<%=newEncryptMode%>')
+    var Encrypt = {
+        key: 'a2ffa5c9be07488bbb04a3a47d3c5f6a',
+        iv: '64175472480004614961023454661220',
+        nonce: null,
+        init: function () {
+            var nonce = this.nonceCreat();
+            this.nonce = nonce;
+            return this.nonce;
+        },
+        nonceCreat: function () {
+            var type = 0;
+            var deviceId = '<%=mac%>';
+            var time = Math.floor(new Date().getTime() / 1000);
+            var random = Math.floor(Math.random() * 10000);
+            return [type, deviceId, time, random].join('_');
+        },
+        oldPwd: function (pwd) {
+            if(newEncryptMode == 1){
+                return CryptoJS.SHA256(this.nonce + CryptoJS.SHA256(pwd + this.key).toString()).toString();
+            }else{
+                return CryptoJS.SHA1(this.nonce + CryptoJS.SHA1(pwd + this.key).toString()).toString();
+            }
+
+        },
+        newPwd: function (pwd, newpwd) {
+            var key = CryptoJS.SHA1(pwd + this.key).toString();
+            var password = CryptoJS.SHA1(newpwd + this.key).toString();
+
+            key = CryptoJS.enc.Hex.parse(key).toString();
+            key = key.substr(0, 32);
+            key = CryptoJS.enc.Hex.parse(key);
+            var iv = CryptoJS.enc.Hex.parse(this.iv);
+            var aes = CryptoJS.AES.encrypt(
+                password,
+                key,
+                {iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7}
+            ).toString();
+            return aes;
+        },
+        newPwd256: function (pwd, newpwd) {
+            var key = CryptoJS.SHA256(pwd + this.key).toString();
+            var password = CryptoJS.SHA256(newpwd + this.key).toString();
+
+            key = CryptoJS.enc.Hex.parse(key).toString();
+            key = key.substr(0, 32);
+            key = CryptoJS.enc.Hex.parse(key);
+            var iv = CryptoJS.enc.Hex.parse(this.iv);
+            var aes = CryptoJS.AES.encrypt(
+                password,
+                key,
+                {iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7}
+            ).toString();
+            return aes;
+        }
+    };
+
+    var pingRouter = function (on, off, ip) {
+        var online = on || function () {
+            },
+            offline = off || function () {
+            },
+            host = ip || location.host,
+            imgUrl = 'http://' + host + '/xiaoqiang/web/img/logo.png',
+            time = 5000,
+            timecounter = 0,
+            img = null,
+            wait = function () {
+                console.log('pingRouter:wait');
+                offline();
+            },
+            done = function () {
+                console.log('pingRouter:done');
+                window.clearInterval(timer);
+                online();
+            },
+            loadImg = function (onload, onerror) {
+                img = new Image();
+                img.onload = onload;
+                img.onerror = onerror;
+                img.src = imgUrl + '?' + (+new Date());
+            },
+            timer = window.setInterval(function () {
+
+                if ('onLine' in navigator) {
+                    if (navigator.onLine) {
+                        loadImg(
+                            function () {
+                                done();
+                            }, function () {
+                                wait();
+                            }
+                        );
+                    } else {
+                        wait();
+                    }
+                } else {
+                    loadImg(function () {
+                        done();
+                    }, function () {
+                        wait();
+                    });
+                }
+            }, time);
+    };
+
+    var rebootWait = function (opt) {
+        var action = opt.action,
+            ip = opt.lanIp || window.location.host,
+            refresh = opt.refresh || false,
+            tStart = (+new Date()),
+            tUse,
+            dlgRebootWait = $.loadingDialog({
+                title: '<%:重启中...%>',
+                content: '<%:操作生效，等待设备重启...%>'
+            }),
+            online = function () {
+                dlgRebootWait.content('<%:操作生效,重启成功！%>');
+                dlgRebootWait.time(3 * 1000);
+                if (refresh) {
+                    window.setTimeout('window.top.location.href="http://' + ip + '";', 3000);
+                }
+            },
+            offline = function () {
+                tUse = Math.round(((+new Date()) - tStart) / 1000);
+                if (tUse > 150) {
+                    dlgRebootWait.content('<%:自动连接路由器失败，请检查无线或者网线是否连接正确。%>');
+                    return;
+                }
+                dlgRebootWait.content(action + '<%:, 等待自动跳转... 用时{$time}秒%>'.tmpl({time: tUse}));
+            };
+
+        window.setTimeout(function () {
+            pingRouter(online, offline, ip);
+        }, 1000 * 60);
+    };
+
+    (function ($) {
+
+        function formInit(container) {
+            var clsInput = 'form-item form-item-input',
+                clsEmpty = 'form-item form-item-empty',
+                clsDisabled = 'form-item-disabled',
+                clsError = 'form-item-err',
+                clsPassword = 'form-item-pwd';
+
+            container = container || 'body';
+            $(container).find('.form-item input').each(function () {
+                var me = this,
+                    $me = $(me),
+                    parent = $(me.parentNode.parentNode),
+                    label = parent.find('.k'),
+                    offsetX = $me.position().left;
+                if (!(this.type == 'text' || this.type == 'password')) {
+                    return;
+                }
+                // some input do not need init
+                if ($me.hasClass('no-init')) {
+                    return;
+                }
+                if (me.value !== '') {
+                    parent[0].className = clsInput;
+                } else {
+                    parent[0].className = clsEmpty;
+                    if (offsetX > 0) {
+                        label.css({'left': offsetX + 10});
+                    }
+                }
+                if (me.disabled) {
+                    parent.addClass(clsDisabled);
+                }
+                if ($me.attr('data-type') === 'password') {
+                    parent.addClass(clsPassword);
+                    parent.append('<i class="bt-showpwd bt-showpwd-off"></i>');
+                }
+
+                label.on('click', function (e) {
+                    try {
+                        me.focus();
+                    } catch (ex) {
+                    }
+                });
+
+            });
+            var focusHandler = function () {
+                if (!(this.type == 'text' || this.type == 'password')) {
+                    return;
+                }
+                var me = $(this),
+                    parent = $(this.parentNode.parentNode),
+                    label = parent.find('.k'),
+                    t = parent.find('.t'),
+                    classname;
+                if (me.hasClass('no-init')) {
+                    return;
+                }
+                if (parent.hasClass(clsPassword)) {
+                    classname = clsInput + ' ' + clsPassword;
+                } else {
+                    classname = clsInput;
+                }
+                if (parent.hasClass(clsError)) {
+                    t.hide();
+                }
+                label.css({'left': 'auto'});
+                label.hide();
+                parent[0].className = classname;
+            };
+            var blurHandler = function () {
+                var me = this,
+                    $me = $(me),
+                    parent = $(me.parentNode.parentNode),
+                    classname,
+                    label = parent.find('.k'),
+                    offsetX = $me.position().left;
+                if (!(this.type == 'text' || this.type == 'password')) {
+                    return;
+                }
+                if ($(this).hasClass('no-init')) {
+                    return;
+                }
+                label.show();
+                if (me.value == '') {
+                    if (parent.hasClass(clsPassword)) {
+                        classname = clsEmpty + ' ' + clsPassword;
+                    } else {
+                        classname = clsEmpty;
+                    }
+                    if (offsetX > 0) {
+                        label.css({'left': offsetX + 10});
+                    } else {
+                        label.css({'left': 12});
+                    }
+                    parent[0].className = classname;
+                }
+            };
+            var addInputEvent = function () {
+                $(container).find('.form-item input')
+                    .on('focus', focusHandler)
+                    .on('blur', blurHandler);
+            };
+
+            var delInputEvent = function () {
+                $(container).find('.form-item input').off('focus', focusHandler);
+                $(container).find('.form-item input').off('blur', blurHandler);
+            };
+            // del password event
+            $('body').undelegate('.bt-showpwd', 'click');
+            $('body').delegate('.bt-showpwd', 'click', function (e) {
+                console.log('showpwd');
+                var me = this,
+                    meclass = 'bt-showpwd',
+                    formItem = $(this).closest('.form-item'),
+                    input = formItem.find('input'),
+                    inputValue = input.val(),
+                    inputWrap = formItem.find('.v'),
+                    newinput = '',
+                    inputHTML = inputWrap.html();
+
+                if (input.attr('type') == 'password') {
+                    newinput = inputHTML.replace(/type\s*=\s*('|")?password('|")?/ig, 'type="text"');
+                    inputWrap.html(newinput).find('input')[0].value = inputValue;
+                    me.className = meclass + ' bt-showpwd-on';
+                } else {
+                    newinput = inputHTML.replace(/type\s*=\s*('|")?text('|")?/ig, 'type="password"');
+                    inputWrap.html(newinput).find('input')[0].value = inputValue;
+                    me.className = meclass + ' bt-showpwd-off';
+                }
+
+                setTimeout(function () {
+                    delInputEvent();
+                    addInputEvent();
+                }, 0);
+            });
+
+            addInputEvent();
+        }
+
+        $.formInit = formInit;
+
+    })(jQuery);
+
+    /**
+     * byte format
+     */
+    function byteFormat(number, precision, isarray) {
+        var val,
+            label,
+            ret;
+        precision = precision || 100,
+            isarray = isarray || false;
+        if (number > 1024 * 1024 * 1024) {
+            val = Math.floor(number / 1024 / 1024 / 1024 * precision) / precision;
+            label = 'GB';
+        } else if (number > 1024 * 1024 && number < 1024 * 1024 * 1024) {
+            val = Math.floor(number / 1024 / 1024 * precision) / precision;
+            label = 'MB';
+        } else {
+            val = Math.floor(number / 1024 * precision) / precision;
+            label = 'KB';
+        }
+
+        if (isarray) {
+            ret = [val, label];
+        } else {
+            ret = val + label;
+        }
+
+        return ret;
+    }
+
+
+    function secondToHour(time) {
+        var pint = function (num) {
+                return parseInt(num, 10);
+            },
+            hour = pint(time / 3600.0),
+            minute = pint((parseFloat(time / 3600.0) - hour) * 60),
+            second = pint(time) - hour * 3600 - minute * 60,
+            format = hour + '<%:小时%>' + minute + '<%:分%>' + second + '<%:秒%>';
+        return format;
+    }
+
+    function secondToDate(second) {
+        var time = parseFloat(second),
+            pint = function (num) {
+                return parseInt(num, 10);
+            },
+            day;
+        if (time !== null && time !== "") {
+            if (time > 60 && time < 60 * 60) {
+                time = pint(time / 60.0) + '<%:分%>' + pint((parseFloat(time / 60.0) - pint(time / 60.0, 10)) * 60) + '<%:秒%>';
+            } else if (time >= 60 * 60 && time < 60 * 60 * 24) {
+                time = secondToHour(time);
+            } else if (time >= 24 * 60 * 60) {
+                day = pint(time / (3600.0 * 24));
+                time = time - (day * 3600 * 24);
+                time = day + '<%:天%>' + secondToHour(time);
+            } else {
+                time = pint(time) + '<%:秒%>';
+            }
+        }
+        return time;
+    }
+
+    (function ($) {
+        function pint(num) {
+            return parseInt(num, 10);
+        }
+
+        function secondToHour(time) {
+            var hour = pint(time / 3600.0),
+                minute = pint((parseFloat(time / 3600.0) - hour) * 60),
+                second = pint(time) - hour * 3600 - minute * 60,
+                format = hour + '<%:小时%>' + minute + '<%:分%>' + second + '<%:秒%>';
+            return format;
+        }
+
+        function secondToDate(second) {
+            var time = parseFloat(second),
+                day;
+            if (time !== null && time !== "") {
+                if (time > 60 && time < 60 * 60) {
+                    time = pint(time / 60.0) + '<%:分%>' + pint((parseFloat(time / 60.0) - pint(time / 60.0, 10)) * 60) + '<%:秒%>';
+                } else if (time >= 60 * 60 && time < 60 * 60 * 24) {
+                    time = secondToHour(time);
+                } else if (time >= 24 * 60 * 60) {
+                    day = pint(time / (3600.0 * 24));
+                    time = time - (day * 3600 * 24);
+                    time = day + '<%:天%>' + secondToHour(time);
+                } else {
+                    time = pint(time) + '<%:秒%>';
+                }
+            }
+            return time;
+        }
+
+        function secondToDate2(second) {
+            var time = parseFloat(second),
+                num = 0,
+                unit = '<%:天%>';
+            console.log(second, time);
+            if (!isNaN(time)) {
+                if (time > 60 && time < 60 * 60) {
+                    num = Math.floor(time / 60.0);
+                    unit = '<%:分钟%>';
+                } else if (time >= 60 * 60 && time < 60 * 60 * 24) {
+                    num = Math.floor(time / 3600.0);
+                    unit = '<%:小时%>'
+                } else if (time >= 24 * 60 * 60) {
+                    num = Math.floor(time / (3600.0 * 24));
+                    unit = '<%:天%>';
+                } else {
+                    num = Math.floor(time);
+                    unit = '<%:秒%>';
+                }
+            }
+            return {
+                num: num,
+                unit: unit
+            };
+        }
+
+        $.secondToHour = secondToHour;
+        $.secondToDate = secondToDate;
+        $.secondToDate2 = secondToDate2;
+    })(jQuery);
+
+
+    $(document).ajaxSuccess(function (event, xhr, settings) {
+        var rsp = xhr.responseText;
+        rsp = $.parseJSON(rsp);
+        // console.log(event, xhr, settings);
+        var ignore = [
+            'api\/xqsystem\/login',
+            'api\/xqsystem\/upgrade_rom'
+        ];
+        for (var i = 0; i < ignore.length; i++) {
+            var ignoreTest = new RegExp(ignore[i]);
+            // console.log( ignoreTest );
+            if (ignoreTest.test(settings.url)) {
+                return;
+            }
+        }
+        if (rsp.code === 401 || rsp.code === 403) {
+            document.location.href = 'http://' + location.host;
+        }
+    });
+
+    $(document).ajaxError(function (event, xhr, settings) {
+        if (xhr.status === 403) {
+            document.location.href = 'http://' + location.host;
+        }
+    });
+
+    $.sub('wait', function (evt, data) {
+        var selector = data.id;
+        if (!$.waitStatus) {
+            $.waitStatus = {};
+        }
+        $.waitStatus[selector] = $(selector).text();
+        $(selector).addClass('btn-primary-disabled').prop('disabled', true).find('span').text('<%:处理中%>...');
+    });
+
+    $.sub('done', function (evt, data) {
+        var selector = data.id,
+            text = $.waitStatus[selector];
+        $(selector).removeClass('btn-primary-disabled').prop('disabled', false).find('span').text(text);
+    });
+
+    $.sub('loading:start', function () {
+        var isLoading = $('html').hasClass('isloading');
+        if (isLoading) {
+            return;
+        }
+        var tplMask = '<div id="panel-loading-mask" class="panel-mask" style="position:fixed;left:0;top:0;style:none;"></div>',
+            tplLoading = ''
+                + '<div id="panel-loading" class="panel-loading" style="style:none;">'
+                + '<img src="/img/loading2.gif">'
+                + '</div>',
+            $mask = $(tplMask),
+            $loading = $(tplLoading),
+            zIndex = 10000;
+        $mask.css({
+            'z-index': zIndex,
+            width: $(window).width() + 'px',
+            height: $(window).height() + 'px'
+        });
+        $loading.css({'z-index': zIndex + 1});
+        $mask.appendTo(document.body).show();
+        $loading.appendTo(document.body).show();
+        $('html').addClass('isloading');
+    });
+
+    $.sub('loading:stop', function () {
+        $('html').removeClass('isloading');
+        $('#panel-loading, #panel-loading-mask').remove();
+    });
+
+    // dialog block loading
+    (function ($) {
+        $.loadingDialog = function (config) {
+            var mix = ObjectH.mix,
+                _config = config || {
+                    title: '',
+                    content: ''
+                },
+                conf = mix(_config, {
+                    width: 390,
+                    padding: '25px 30px',
+                    title: config.title,
+                    content: '<p style="padding-bottom:30px;">{$content}</p><div class="loading-bar"></div>'.tmpl({content: config.content}),
+                    cancel: false
+                }, true),
+                dialog = $.dialog(conf);
+
+            var oldcontent = dialog.content;
+            dialog.content = function (cont) {
+                var _cont = '<p style="padding-bottom:30px;">{$content}</p><div class="loading-bar"></div>'.tmpl({content: cont});
+                return oldcontent.call(dialog, _cont);
+            };
+            return dialog;
+        }
+    })(jQuery);
+
+    // dialog block loading
+    (function( $ ){
+        $.radarDialog = function( config ){
+            var mix = ObjectH.mix,
+            _config = config || {
+                title: '',
+                content: ''
+            },
+            conf = mix( _config, {
+                width: 500,
+                padding:'25px 30px',
+                title: config.title,
+                content: '<div>{$content}</div>'.tmpl({content: config.content}),
+                cancel: false
+            }, true ),
+            dialog = $.dialog( conf );
+
+            var oldcontent = dialog.content;
+            dialog.content = function( cont ){
+            var _cont = '<p style="padding-bottom:30px;">{$content}</p><div class="loading-bar"></div>'.tmpl({content: cont});
+                return oldcontent.call( dialog, _cont);
+            };
+            return dialog;
+        }
+    })(jQuery);
+
+    // dialog alert
+    (function ($) {
+        $.alert = function (content, ok) {
+            ok = ok || function () {
+            };
+            return $.dialog({
+                width: 390,
+                padding: '25px 30px',
+                title: '<%:提示信息%>',
+                content: content,
+                ok: ok,
+                cancel: false
+            });
+        }
+    })(jQuery);
+
+    // dialog confirm
+    (function ($) {
+        $.confirm = function (content, ok, cancel) {
+            var _cancel = cancel || function () {
+            };
+            return $.dialog({
+                width: 390,
+                padding: '25px 30px',
+                title: '<%:确认信息%>',
+                content: content,
+                ok: ok,
+                cancel: _cancel,
+                lock: true
+            });
+        }
+    })(jQuery);
+
+    // wechat code dialog
+    $(function () {
+        $('#wechatcode').click(function (e) {
+            e.preventDefault();
+            var $this = $(this),
+                href = $this.attr('href');
+            $.dialog({
+                title: '<%:官方微信%>',
+                content: '<img width="200" src="' + href + '">',
+                width: 250,
+                lock: true
+            });
+        });
+    });
+
+
+    // set sys language
+    (function ($) {
+        $.i18nSet = function (el) {
+            var $lan = $(el),
+                apiGetLan = '<%=luci.dispatcher.build_url("api", "xqsystem", "get_languages")%>',
+                apiSetlan = '<%=luci.dispatcher.build_url("api", "xqsystem", "set_language")%>',
+                dtd = $.Deferred();
+
+            $.get(apiGetLan, function (rsp) {
+                var rsp = $.parseJSON(rsp);
+                var selectContent = [];
+                if (rsp.code == 0) {
+                    for (var i = 0; i < rsp.list.length; i++) {
+                        var item = rsp.list[i],
+                            selected = item.lang == rsp.lang ? 'selected' : '',
+                            option = '<option value="' + item.lang + '" ' + selected + '>' + item['name'] + '</option>';
+                        // clear old conf en item
+                        // if ( item.lang != 'en') {
+                        selectContent.push(option);
+                        // }
+                    }
+                    ;
+                    $lan.html(selectContent.join(''));
+                    dtd.resolve();
+                }
+            });
+
+            $lan.on('change', function (e) {
+                var el = this,
+                    val = $(this).val();
+                $.pub('loading:start');
+                $.post(apiSetlan, {language: val}, function (rsp) {
+                    var rsp = $.parseJSON(rsp);
+                    if (rsp.code == 0) {
+                        location.reload(1);
+                    } else {
+                        $.alert(rsp.msg);
+                    }
+                    $.pub('loading:stop');
+                });
+            });
+
+            return dtd.promise();
+        };
+    }(jQuery));
+
+    function fillMessages(rsp) {
+        var classname;
+        var dwb_type = '<%=dwb_type%>';
+        var dwb_status = '<%=dwb_status%>';
+        var hardware = '<%=hardware%>';
+        if (rsp.count > 0 || (dwb_type == 1 && hardware == "rb08" && dwb_status != 1)) {
+            classname = 'ico-notice-new';
+        } else {
+            classname = 'ico-notice';
+        }
+        if ($('#sysnotice')[0]) {
+            $('#sysnotice')[0].className = classname;
+        }
+        var msgMap = {
+            '1': '<p><%:检测到最新版本为{$version}%>，<a href="<%=luci.dispatcher.build_url("web","setting","upgrade")%>"><%:点击此处立即升级%></a>。</p>',
+            '2': '<p><%:你有新短信，%><a href="<%=luci.dispatcher.build_url("web","prosetting","upnp")%>"><%:点击此处查看%></a></p>',
+            '3': '<p><%:5G Wi-Fi启动失败，%><a target="_blank" href="http://www.mi.com/service/contact/"><%:请联系小米客服解决%></a></p>',
+            '4': '<p><%:检测到与上级路由器存在IP冲突，建议切换到%><a href="<%=luci.dispatcher.build_url("web","setting","wan")%>#netmode"><%:有线中继模式%></a><%:或者%><a href="#" id="ipconflict" data-ip="{$ip}"><%:避让IP冲突%></a></p>',
+            '5': '<p><%:短信箱已满，%><a href="<%=luci.dispatcher.build_url("web","prosetting","upnp")%>"><%:请删除无用短信以保障短信功能正常%></a></p>'
+        };
+
+        var msgMapD01 = {
+            '1': '<p><%:检测到最新版本为{$version}%>，<a href="<%=luci.dispatcher.build_url("web","setting","upgrade")%>"><%:点击此处立即升级%></a>。</p>',
+            '2': '<p><%:你有新短信，%><a href="<%=luci.dispatcher.build_url("web","prosetting","upnp")%>"><%:点击此处查看%></a></p>',
+            '3': '<p><%:5G Wi-Fi启动失败，%><a target="_blank" href="http://www.mi.com/service/contact/"><%:请联系小米客服解决%></a></p>',
+            '4': '<p><%:检测到与上级路由器存在IP冲突，请%><a href="<%=luci.dispatcher.build_url("web","setting","lannetset")%>"><%:修改局域网IP地址网段%></a></p>',
+            '5': '<p><%:短信箱已满，%><a href="<%=luci.dispatcher.build_url("web","prosetting","upnp")%>"><%:请删除无用短信以保障短信功能正常%></a></p>'
+        };
+
+        var msgHTML = [];
+        //rsp.messages = [{type: 4, data: {version: "0.3.78"}, timestamp: 1547150097}];
+        var hardware = '<%=hardware%>';
+        var isMesh = '<%=isMesh%>';
+        if (isMesh) {
+            for (var i = rsp.messages.length - 1; i >= 0; i--) {
+                msgHTML.push(msgMapD01[rsp.messages[i].type].tmpl(rsp.messages[i].data));
+            }
+            ;
+        } else {
+            for (var i = rsp.messages.length - 1; i >= 0; i--) {
+                msgHTML.push(msgMap[rsp.messages[i].type].tmpl(rsp.messages[i].data));
+            }
+            ;
+        }
+
+        $('#noticebar .content').html(msgHTML.join(''));
+        if(dwb_type == 1){
+            var content = '<p>检测到Mesh网络均为有线组网，<a href="<%=luci.dispatcher.build_url("web","setting","wifi")%>">您可以开放专有回程频段以获得更好的Wi-Fi体验</a></p>'
+            $('#noticebar .content').append(content)
+        }
+        if (rsp.count > 0 || (dwb_type == 1 && hardware == "rb08" && dwb_status != 1)) {
+            $('#sysnotice').trigger('click');
+        }
+    }
+    function getNotice() {
+        $.getJSON('<%=luci.dispatcher.build_url("api", "misystem", "messages")%>', function (rsp) {
+            if (rsp.code == 0) {
+                fillMessages(rsp);
+            }
+        });
+    }
+
+/************************************************************************
+* name  : throttle
+* func  : Block multiple submissions of requests within the set time frame
+* input : 
+        parm1 : the request function handle which needs to limit multiple submissions
+        parm2 : the delay for limiting multiple submissions, default is 1s
+* Demo  : throttle(req, 1000)
+************************************************************************/
+    function throttle(fn, delay = 1000) {
+        let throttleTimer = null;
+        return function(...args) {
+            if (throttleTimer) {
+                return;
+            }
+            fn.apply(this, args);
+            throttleTimer = setTimeout(() => {
+                throttleTimer = null;
+            }, delay);
+        }
+    }
+
+/************************************************************************
+* name  : arrayCompare
+* func  : Compare according to the key value in the specified order
+* input : parm1 : the array's key name for comparison
+            parm2 : specified order, such as 'ASC' and 'DESC'
+* Demo  : Arrayobj.sort(arrayCompare('id', 'DESC'))
+************************************************************************/
+    function arrayCompare(key, order) {
+        return function(object1, object2) {
+            var val1 = object1[key],
+                val2 = object2[key];
+            if (order == 'DESC') {
+                if (val1 > val2) {
+                    return -1;
+                }
+                else if (val1 == val2) {
+                    return 0;
+                }
+                else {
+                    return 1;
+                }
+            }
+            else {
+                if (val1 < val2) {
+                    return -1;
+                }
+                else if (val1 == val2) {
+                    return 0;
+                }
+                else {
+                    return 1;
+                }
+            }
+        }
+    }
+
+    // global event
+    (function ($) {
+        var dlgReboot,
+            dlgShutdown,
+            dlgRouterName;
+
+
+
+        function reNameHandler(e) {
+            e.preventDefault();
+            $.getJSON('<%=luci.dispatcher.build_url("api", "misystem", "router_name")%>')
+                .done(function (rsp) {
+                    if (rsp.code == 0) {
+                        var html = StringH.tmpl($('#tplrename').html(), {
+                            locale: StringH.encode4HtmlValue(rsp.locale),
+                            name: StringH.encode4HtmlValue(rsp.name)
+                        });
+                        dlgRouterName = $.dialog({
+                            width: 390,
+                            title: '<%:修改路由器名称%>',
+                            content: html,
+                            lock: true
+                        });
+                        setTimeout(function () {
+                            $.formInit('.mod-rename-dlg');
+                            $.selectBeautify({container: '.mod-rename-dlg'});
+                        }, 100);
+                    }
+                });
+        }
+
+        function downloadClientHandler(e) {
+            e.preventDefault();
+            var ccode = '<%=ccode%>', content;
+            // if (ccode == 'CN') {
+            //     content = $('#tpldowncn').html();
+            // } else {
+                content = $('#tpldownintl').html()
+            // }
+            var ispName = '<%=ispName%>'
+            if (ispName == "CMCC") {
+                $.dialog({
+                    width: 390,
+                    title: '<%:下载和家亲APP%>',
+                    content: content,
+                    lock: true
+                });
+            }
+            else if (ispName == "CTCC") {
+                $.dialog({
+                    width: 390,
+                    title: '<%:下载小翼管家APP%>',
+                    content: content,
+                    lock: true
+                });
+            }
+            else {
+                $.dialog({
+                    width: 390,
+                    title: '<%:下载米家APP%>',
+                    content: content,
+                    lock: true
+                });
+            }
+
+            setTimeout(function () {
+                $('.onlineimg').each(function () {
+                    var img = new Image();
+                    var el = this;
+                    var remote = el.src;
+                    var local = $(el).attr('src-local');
+                    img.onerror = function () {
+                        el.src = local;
+                    }
+                    img.src = remote;
+                });
+            }, 100);
+        }
+
+        function rebootHandler(e) {
+            e.preventDefault();
+            dlgReboot = $.dialog({
+                width: 390,
+                title: '<%:重启路由器%>',
+                content: $('#tplreboot').html(),
+                lock: true
+            });
+        }
+
+        function shutdownHandler(e) {
+            e.preventDefault();
+            dlgShutdown = $.dialog({
+                width: 390,
+                title: '<%:路由器关机%>',
+                content: $('#tplshutdown').html(),
+                lock: true
+            });
+        }
+
+        function noticeHandler(e) {
+            e.preventDefault();
+            var that = this,
+                $this = $(this),
+                pos = $('#userbar').position(),
+                right,
+                wt = 1160,
+                wwt = $(window).width(),
+                offset = 0,
+                $arrow = $('#noticebar .ico-arrow');
+            if ('<%=features["system"]["cpe"]%>' == '1') {
+                wt = 1200
+                offset = 71;
+                $('#hd .inner').css({'width': wt});
+                $('#sysnotice').css({'margin-left': 7, 'margin-right': 1, 'height': 28});
+            }
+            if ($this.hasClass('ico-notice-new')) {
+                // right = wt - pos.left - 20;
+                if ('<%=features["system"]["cpe"]%>' == '1') {
+                    $('#noticebar').css({'top': 74});
+                }
+                if ($("#userbar .cpe-rat").text() === "") {
+                    offset = 53;
+                }
+                $arrow.css({'right': '10px'});
+                $('#noticebar').css({'right': offset + (wwt - wt) / 2});
+                $('#noticebar').toggle();
+            }
+            $('#maskMenu').height($(window).height());
+            $('#maskMenu').show();
+        }
+
+        function sysmenuHandler(e) {
+            e.preventDefault();
+            var that = this,
+                $this = $(this);
+            if ($this.hasClass('s-dropdown')) {
+                var ww = $(window).width();
+                // var rt = (ww - 1160) / 2;
+                var lt = $this.offset().left + $this.outerWidth() - $('#dropmenu').width();
+                $('#dropmenu').css({left: lt});
+                $('#dropmenu').show();
+                that.className = 'name s-dropup';
+            } else {
+                $('#dropmenu').hide();
+                that.className = 'name s-dropdown';
+            }
+            $('#maskMenu').height($(window).height());
+            $('#maskMenu').show();
+        }
+
+        function maskHandler(e) {
+            e.preventDefault();
+            $('#noticebar').hide();
+            $('#dropmenu').hide();
+            $('#maskMenu').hide();
+            $('#sysmenu')[0].className = 'name s-dropdown';
+        }
+        $(function () {
+            // notice
+            $('#sysnotice').click(noticeHandler);
+            // user dropmenu
+            $('#sysmenu').click(sysmenuHandler);
+            // space click
+            $('#maskMenu').click(maskHandler);
+            // rename
+            $('body').delegate('#toRename', 'click', reNameHandler);
+            // toDownloadClient
+            $('body').delegate('#toDownloadClient', 'click', downloadClientHandler);
+            // toReboot
+            $('body').delegate('#toReboot', 'click', rebootHandler);
+            // toShutdown
+            $('body').delegate('#toShutdown', 'click', shutdownHandler);
+
+            $('body').delegate('#shutdownAction', 'click', function (e) {
+                e.preventDefault();
+                dlgShutdown.close();
+                shutdown_window();
+            });
+
+            $('body').delegate('#rebootAction', 'click', function (e) {
+                e.preventDefault();
+                dlgReboot.close();
+                reboot_window();
+            });
+
+            $('body').delegate('#routerNameEdit', 'submit', function (e) {
+                e.preventDefault();
+                var validator = Valid.checkAll(this);
+                var routername = $('#routername').val();
+                var locale = $('#locale').val();
+                if (validator) {
+                    $.getJSON('<%=luci.dispatcher.build_url("api","misystem","set_router_name")%>', {
+                        name: routername,
+                        locale: locale
+                    }).done(function (rsp) {
+                        if (rsp.code == 0) {
+                            location.reload(1);
+                        } else {
+                            $.alert(rsp.msg)
+                        }
+                    });
+                }
+            });
+
+            $('body').delegate('#ipconflict', 'click', function (e) {
+                e.preventDefault();
+                var api = '<%=luci.dispatcher.build_url("api", "misystem", "r_ip_conflict")%>',
+                    ip = $(this).attr('data-ip');
+                $.dialog({
+                    title: '<%:避让IP冲突%>',
+                    content: '<%:执行此操作，局域网IP将会变更为%>' + ip + '<br>' + '<%:该过程无线网络会重启，将出现短暂掉线。%>',
+                    lock: true,
+                    ok: function () {
+                        $.post(api, function (rsp) {
+                            rsp = $.parseJSON(rsp);
+                            if (rsp.code !== 0) {
+                                alert(rsp.msg);
+                            }
+                        });
+                    },
+                    cancel: function () {
+                    }
+                });
+            });
+
+            var meshModeDialog;
+            var isClick = false; //判断是否已经点击过添加按钮，防止多次点击，多次调用接口
+            $('body').delegate('#addMesh', 'click', function (e) {
+                e.preventDefault();
+
+                if (isClick) return;
+                // var apiDevicesGet = '<%=luci.dispatcher.build_url("api", "misystem","devicelist")%>';
+                var apiDevicesGet = '<%=luci.dispatcher.build_url("api","misystem","topo_graph")%>';
+                isClick = true;
+                $.getJSON('<%=luci.dispatcher.build_url("api","xqnetwork","wifi_detail_all")%>')
+                    .done(function (rsp) {
+                        if (rsp.code == 0) {
+                            if (rsp.info[1].status == 0) {
+                                // console.log('此时5G网络已关闭');
+                                // debugger;
+                                meshModeDialog = $.dialog({
+                                    title: false,
+                                    content: $('#tmplMeshMode').html(),
+                                    padding: '30px 40px',
+                                    lock: true,
+                                    width: 400
+                                });
+
+                                $('#mesh-Off-5G').siblings('.switch-step').hide();
+                                $('#mesh-Off-5G').show();
+                            }
+                            else {
+                                //console.log('此时5G网络已打开');
+                                $.ajax({
+                                    url: apiDevicesGet,
+                                    type: 'GET',
+                                    datatype: 'json',
+                                    data: {},
+                                    async: true,
+                                    success: function (rsp) {
+                                        rsp = $.parseJSON(rsp);
+                                        isClick = false;
+                                        if (rsp.code === 0) {
+                                            //取到devicelist中list数组
+                                            //  console.log(rsp.list);
+                                            var count = 0;
+                                            var scanEntryNum = 0;
+                                            var maxMeshCount = '<%=maxMeshCount%>';
+                                            //获取已添加Mesh组网设备数量
+                                            if (rsp.graph.renumber) {
+                                                count = rsp.graph.renumber
+                                            }
+                                            // debugger;
+                                            // console.log(count);
+
+                                            meshModeDialog = $.dialog({
+                                                title: false,
+                                                content: $('#tmplMeshMode').html(),
+                                                padding: '30px 30px',
+                                                lock: true,
+                                                width: 600,
+                                            });
+
+                                            for (var i = 0; i < count; i++) {
+                                                if (rsp.graph.leafs[i] && rsp.graph.leafs[i].scanForCap == 1) {
+                                                    scanEntryNum = 1;
+                                                    break;
+                                                }
+                                            }
+
+
+                                            if (count >= maxMeshCount) {
+                                                $(".ac-no-ap").hide();
+                                                $("#mesh_search").addClass('mesh_disabled_btn');
+                                                $('#mesh-overMaxLength').siblings('.switch-step').hide();
+                                                $('#mesh-overMaxLength').show();
+                                            }
+                                            else if (scanEntryNum == 0 && '<%=isAC%>' == '1') {
+                                                $(".ac-no-ap").show();
+                                                $("#mesh_search").addClass('mesh_disabled_btn');
+                                            } else {
+                                                $(".ac-no-ap").hide();
+                                                $("#mesh_search").removeClass('mesh_disabled_btn');
+                                                $('#mesh-select').siblings('.switch-step').hide();
+                                                $('#mesh-select').show();
+                                            }
+
+                                        }
+
+                                    }
+                                })
+                            }
+                        }
+                    })
+
+
+            });
+
+            $('body').delegate('#mesh_re_try', 'click', function (e) {
+                e.preventDefault();
+                $('#mesh-add-loading').siblings('.switch-step').hide();
+                $('#mesh-add-loading').show();
+            });
+
+            //设置5G网络打开，跳转至常用设置页面
+            $('body').delegate('#setting-5G-button', 'click', function (e) {
+                e.preventDefault();
+                window.location.href = '<%=luci.dispatcher.build_url("web","setting","wifi")%>'
+            });
+
+
+            $('body').delegate('#mesh_search_cancle,#mesh_add_success,#mesh-close-button,#setting-5G-button', 'click', function (e) {
+
+                e.preventDefault();
+                if(isStopSearch) {
+                  isStopSearch.abort(); //停止搜索节点请求 接口scan_mesh_node
+                }
+                clearInterval(timeout);
+                $('#mesh-select,#mesh-search-lists,#mesh-overMaxLength,#mesh-search-loading,#mesh_list_length0,#mesh-add-success,#mesh-add-failer,#mesh-local,#mesh-Off-5G,#mesh-add-loading').hide();
+                meshModeDialog.close();
+            });
+
+            //点击关闭按钮关闭定时器
+            $('body').delegate('.panel span.d-close','click',function(e){
+                // debugger;
+                if(isStopSearch) {
+                  isStopSearch.abort();//停止搜索节点请求 接口scan_mesh_node
+                }
+                clearInterval(timeout);
+
+            })
+            $('body').delegate('#show_locate_select', 'click', function (e) {
+                e.preventDefault();
+
+                var iteValue = $('.list_box').find(".selected").attr("data-mac");
+
+                if (iteValue) {
+                    $('#mesh-local').siblings('.switch-step').hide();
+                    if(isSetRouterLoaction != 0 || isSetRouterLoaction == ""){
+                        $('#mesh-local').show();
+                    }else{
+                        addMeshNode()
+                    }
+                } else {
+                    $.alert('请选择要添加的设备');
+                }
+
+            });
+
+            var timeout ;
+            $('body').delegate('#mesh_search_add,#mesh_re_try', 'click', function (e) {
+                e.preventDefault();
+                addMeshNode()
+                
+            });
+
+            function addMeshNode(){
+                var iteValue = $('.list_box').find(".selected").attr("data-mac");
+                //开始添加子节点  api/xqnetwork/add_mesh_node
+                var localValue = isSetRouterLoaction!=0?$("#locateSelect").find("option:selected").val():'';
+                if (iteValue) {
+
+                    // $('#mesh-search-lists').hide();
+                    $('#mesh-add-loading').siblings('.switch-step').hide();
+                    $('#mesh-add-loading').show();
+                    // $('#mesh-local').hide();
+
+
+                    var api = '<%=luci.dispatcher.build_url("api", "xqnetwork", "add_mesh_node")%>';
+                    $.post(api, {mac: iteValue, locate: localValue}, function (rsp) {
+                        rsp = $.parseJSON(rsp);
+                        // rsp = {
+                        //     "code": 0,
+                        //     "status": 4
+                        // };
+                        // 0:添加成功； 1：正在连接mesh节点  2：正在同步Mesh网络配置  3：正在扩展Mesh网络  4：失败
+
+                        if (rsp.code == 0) {
+                            timeout = setInterval(function () {
+                                getMeshStatus(iteValue);
+                            }, 10000)
+                        }
+                    })
+                }
+            }
+            function getMeshStatus(iteValue) {
+                //轮询获取添加子节点状态  api/xqnetwork/get_addnode_status
+                var api = '<%=luci.dispatcher.build_url("api", "xqnetwork", "get_addnode_status")%>';
+                $.get(api, {mac: iteValue}, function (rsp) {
+                    rsp = $.parseJSON(rsp);
+                    // 0:添加成功； 1：正在连接mesh节点  2：正在同步Mesh网络配置  3：正在扩展Mesh网络  4：失败
+                    // rsp = {"status":4,"code":0}
+                    if (rsp.code == 0) {
+                        if (rsp.status == 0) {
+                            $('#mesh-add-success').siblings('.switch-step').hide();
+                            $('#mesh-add-success').show();
+                            clearInterval(timeout)
+                        } else if (rsp.status == 4) {
+                            $('#mesh-add-failer').siblings('.switch-step').hide();
+                            $('#mesh-add-failer').show();
+                            clearInterval(timeout)
+                        } else {
+                            if (rsp.status === 3) {
+                                $('#mesh-add-loading').find('p').html('正在扩展Mesh节点(1-2分钟)...')
+                            } else if (rsp.status === 2) {
+                                $('#mesh-add-loading').find('p').html('正在同步Mesh节点配置...')
+                            }
+                        }
+                    }
+                })
+            }
+
+            var isStopSearch ;
+            $('body').delegate('#mesh_search ,#mesh_re_search,#mesh-research-btn', 'click', function (e) {
+                e.preventDefault();
+                var thisObj = $(this);
+                if (thisObj.hasClass('mesh_disabled_btn'))
+                    return;
+                // $('#mesh-select').hide();
+                //隐藏 选择要添加的设备 的弹窗
+                // $('#mesh-search-lists').hide();
+
+                $('#mesh-search-loading').siblings('.switch-step').hide();
+                $('#mesh-search-loading').show();
+                // $('#mesh_list_length0').hide();
+                $('.d-hd').html('搜索并添加Mesh节点');
+                //获取可添加的Mesh子节点 /api/xqnetwork/scan_mesh_node
+                var api = '<%=luci.dispatcher.build_url("api", "xqnetwork", "scan_mesh_node")%>';
+                // debugger;
+                isStopSearch = $.get(api, function (rsp) {
+                    rsp = $.parseJSON(rsp);
+                    if (rsp.code == 0) {
+                        // debugger;
+
+                        if (rsp.list.length > 0) {
+                            $.selectBeautify({
+                                'maxHeight': '205px'
+                            });
+
+
+                            var select = $('.list_box');
+                            select.html('');//添加之前清空列表，防止重复添加
+                            var list = rsp.list;
+
+
+                            $(list).each(function (index, item) {
+                                var div = $('<div class=' + (list.length === 1 ? '"mesh_item selected"' : '"mesh_item"') + '>');
+                                div.attr('data-ssid', StringH.encode4Html(item.ssid));
+                                div.attr('data-mac', StringH.encode4Html(item.mac));
+                                var rssi = '';
+                                var name = '<div class="name">' + StringH.encode4Html(item.ssid) + '</div>';
+                                var mac = '';
+                                if(item.rssi >= -15){
+                                    rssi = '<div class="rssi img_signal_red"></div>';
+                                    mac = '<div class="mac">' + StringH.encode4Html(item.mac) +  '<span><%:请放置在主路由1米以外%></span>'  + '</div>';
+                                }else if(item.rssi >=-55 && item.rssi < -15){
+                                    rssi = '<div class="rssi img_signal_green"></div>';
+                                    mac = '<div class="mac">' + StringH.encode4Html(item.mac)   + '</div>';
+                                }else if(item.rssi >=-70 && item.rssi <= -55){
+                                    rssi = '<div class="rssi img_signal_yellow"></div>';
+                                    mac = '<div class="mac">' + StringH.encode4Html(item.mac)   + '</div>';
+                                }else if(item.rssi < -70){
+                                    rssi = '<div class="rssi img_badsignal_red"></div>';
+                                    mac = '<div class="mac">' + StringH.encode4Html(item.mac) +  '<span><%:请靠近主路由%></span>' + '</div>';
+                                }
+                                //var mac = '<div class="mac">' + StringH.encode4Html(item.mac) + (item.rssi < -60 ? '<span><%:请靠近主路由%></span>' : '') + '</div>';
+                                div.on('click', function () {
+                                    $('.list_box').find('.mesh_item').removeClass('selected')
+                                    $(this).addClass('selected');
+                                });
+
+                                div.append(rssi).append(name).append(mac)
+                                select.append(div);
+                            });
+                            $('#mesh-search-lists').siblings('.switch-step').hide();
+                            $('#mesh-search-lists').show();
+                        } else {
+                            //  debugger;
+                            $('#mesh_list_length0').siblings('.switch-step').hide();
+                            $('#mesh_list_length0').show();
+                            $('.d-hd').html('没有搜索到可用的mesh节点');
+
+                        }
+
+
+
+
+
+                        $('#mesh-search-loading').hide();
+
+                    } else {
+                        alert(rsp.msg);
+                    }
+                });
+
+            })
+
+
+            // user logined and has global header get notice
+            if (typeof (GLOBALHEADER) !== 'undefined' && GLOBALHEADER === true) {
+                var message = JSON.parse('<%=messages%>')
+                var messageRsp = {
+                    code : 0,
+                    messages: message,
+                    count: message.length
+                }
+                fillMessages(messageRsp);
+            }
+            var betaFlag = '<%=betaFlag%>';
+            var romChannel = '<%=romChannel%>';
+            if(betaFlag == "1" || romChannel == "stable"){
+                TpWatermark('only for test','170','300','-20','#333','25','.07');
+            }
+            function TpWatermark(CON,H,W,R,C,S,O){
+                if (document.getElementById('tp-watermark') != null) {
+    					return
+    			}
+    				var TpLine = parseInt(document.body.clientWidth/W) * 2; // 一行显示几列
+    				var StrLine = '';
+    				for(var i = 0; i < TpLine; i++){
+    					StrLine += '<span style="display: inline-block; line-height:' + H + 'px; width:' + W + 'px; text-align: center; transform:rotate(' + R + 'deg); color:' + C + '; font-size:'+ S + 'px; opacity:' + O + ';">'+ CON +'</span>'
+    				}
+    				var DivLine = document.createElement("div");
+    					DivLine.innerHTML = StrLine;
+    		
+    				var TpColumn = parseInt(document.body.clientHeight/H) * 2; // 一列显示几行
+    				var StrColumn = '';
+    				for(var i = 0; i < TpColumn; i++){
+    					StrColumn += '<div style="white-space: nowrap;">' + DivLine.innerHTML + '</div>';
+    				}
+    				var DivLayer = document.createElement("div");
+    					DivLayer.innerHTML = StrColumn;
+    					DivLayer.id = "tp-watermark"; // 给水印盒子添加类名
+    					DivLayer.style.position = "fixed";
+    					DivLayer.style.top = "0px"; // 整体水印距离顶部距离
+    					DivLayer.style.left = "-100px"; // 改变整体水印的left值
+    					DivLayer.style.zIndex = "99999"; // 水印页面层级
+    					DivLayer.style.pointerEvents = "none";
+    		
+    				document.body.appendChild(DivLayer); // 到页面中
+                }
+                //wifi设置请求成功提示框
+                $.sub( 'wifi:wifiSetSucessDialog', function(evt, data){
+                    $.dialog({
+                            title: false,
+                            content: $('#wifiSetSucess').html(),
+                            padding: '30px 40px',
+                            lock: true,
+                            width: 450,
+                            cancel: false
+                        });
+                    setTimeout(function () {
+                        window.location.reload( true );
+                    },1500)
+                })
+        });
+    })(jQuery);
+
+    if ('<%=features["system"]["isp"]%>' == '1') {
+        //超时退出
+        var lastTime = new Date().getTime();
+        var currentTime = new Date().getTime();
+        var timeOut = 5 * 60 * 1000; //设置超时时间： 5分
+        $(document).ready(function(){
+            /* 鼠标移动事件 */
+            $(document).mousemove(function(){
+                lastTime = new Date().getTime(); 
+            });
+        });
+
+        function updateTime(){
+            currentTime = new Date().getTime(); //更新时间
+            if(currentTime - lastTime > timeOut){ //判断是否超时
+                console.log("超时");
+                document.location.href = 'http://' + location.host;//跳转ip地址
+            }
+        }
+        /* 定时器 间隔10秒(10000)轮询检测是否长时间未操作页面 */
+        window.setInterval(updateTime, 10*1000);
+    }
+
+</script>
+<script src="/js/miwifi-monitor.js"></script>
+<script>
+    // 流量统计
+    (function () {
+        var IS_MOBILE = (
+            navigator.userAgent.match(/Android/i)
+            || navigator.userAgent.match(/webOS/i)
+            || navigator.userAgent.match(/iPhone/i)
+            || navigator.userAgent.match(/iPad/i)
+            || navigator.userAgent.match(/iPod/i)
+            || navigator.userAgent.match(/BlackBerry/i)
+            || navigator.userAgent.match(/Windows Phone/i)
+        );
+        var PAGEURL = document.URL.split('/web/')[1];
+        var PAGE_MONITOR_CONF = {
+            deviceId: '<%=deviceId%>',
+            isMobile: IS_MOBILE ? IS_MOBILE[0] : 'pc',
+            url: PAGEURL ? '/web/' + PAGEURL : '/web/login',
+            romVersion: '<%=romVersion%>',
+            romChannel: '<%=romChannel%>',
+            hardwareVersion: '<%=hardwareModel%>'
+        };
+
+        //默认URL配置，并启用鼠标点击和按键统计
+        setTimeout(function(){
+            MIWIFI_MONITOR.setConf({
+                trackUrl: window.location.protocol + '//' + '<%=trackUrl%>',
+                clickUrl: window.location.protocol + '//' + '<%=clickUrl%>',
+                wpoUrl: ''
+            });
+            MIWIFI_MONITOR.setProject('MIWIFIWEB');
+            MIWIFI_MONITOR.log(PAGE_MONITOR_CONF, 'track');
+
+            $(document).ajaxSend(function (event, jqxhr, settings) {
+                var apiUrl = settings.url.split('/api/')[1],
+                    api = '/api/' + apiUrl.split('?')[0],
+                    apiParams = StringH.queryUrl(apiUrl);
+
+                // console.log(apiUrl, api, apiParams);
+
+                var API_MONITOR_CONF = ObjectH.mix({element: 'apicall', api: api}, [PAGE_MONITOR_CONF, apiParams]);
+                // console.log(API_MONITOR_CONF);
+                MIWIFI_MONITOR.log(API_MONITOR_CONF);
+            });
+        },1000);
+        
+    }());
+</script>
+<%if features["system"]["cpe"] == "1" then%>
+<%include("web/inc/header.js")%>
+<%end%>

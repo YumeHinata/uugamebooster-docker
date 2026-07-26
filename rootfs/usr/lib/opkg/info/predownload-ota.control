@@ -1,0 +1,8 @@
+Package: predownload-ota
+Version: 1.1-1
+Depends: libc, xiaoqiang-util
+Source: package/miwifi/predownload-ota
+Section: net
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 5060
+Description:  predownload-ota

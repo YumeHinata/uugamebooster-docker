@@ -1,0 +1,10 @@
+Package: libthrift
+Version: 0.9.1-1
+Depends: libc, boost-system, libopenssl, libstdcpp, glib2
+Source: package/libs/thrift
+Section: opt
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 174960
+Description:  Thrift is a software framework for scalable cross-language services development. It combines a software stack with a code generation engine to build services that work efficiently and seamlessly between C++, Java, Python, PHP, Ruby, Erlang, Perl, Haskell, C#, Cocoa, Smalltalk, and OCaml.
+ 
+ libthrift: The core Thrift library contains all the core Thrift code. It requires boost shared pointers, pthreads, and librt.

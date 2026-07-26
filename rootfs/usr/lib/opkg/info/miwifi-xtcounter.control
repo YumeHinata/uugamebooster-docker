@@ -1,0 +1,8 @@
+Package: miwifi-xtcounter
+Version: 1.0-1.0
+Depends: libc, kmod-miwifi-xtcounter
+Source: package/miwifi/miwifi-xtcounter
+Section: opt
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 1940
+Description:  TODO

@@ -1,0 +1,166 @@
+#!/bin/sh
+. /lib/functions.sh
+. /lib/functions/network.sh
+
+export LANG=C
+
+wlp_usage() {
+    echo "USAGE: $0 [timeout] [<wandt>/<fixed>]"
+}
+
+wlp_logger() {
+    logger -p notice -t "[wanlinkprobe]" "$*"
+    return
+}
+
+pppoe_probe() {
+    local timeout="$1"
+    local interface="$2"
+
+    if runt "$timeout" /usr/sbin/pppoe-discovery -I "$interface" >/dev/null 2>&1; then
+        echo "PPPOE=YES"
+        return 0
+    else
+        echo "PPPOE=NO"
+        return 1
+    fi
+}
+
+dhcp_probe() {
+    local timeout="$1"
+    local interface="$2"
+    local return_code="1"
+
+    if udhcpc -B -C -n -q -s /bin/true -t 1 -T "$timeout" -i "$interface" >/dev/null 2>&1; then
+        return_code="0"
+    else
+        ubus call network.interface.wan down
+        udhcpc -B -C -n -q -s /bin/true -t 1 -T "$timeout" -i "$interface" >/dev/null 2>&1 && return_code="0"
+        ubus call network.interface.wan up
+    fi
+
+    [ "0" = "$return_code" ] && echo "DHCP=YES" || echo "DHCP=NO"
+    return "$return_code"
+}
+
+static_probe() {
+    local timeout="$1"
+    local interface="$2"
+    local wan_ipaddr wan_gateway
+    local return_code="1"
+
+    wan_ipaddr=$(uci -q get network.wan.ipaddr)
+    wan_gateway=$(uci -q get network.wan.gateway)
+    [ -n "$wan_ipaddr" ] && [ -n "$wan_gateway" ] && {
+        arping -q -c 1 -w "$timeout" -s "$wan_ipaddr" "$wan_gateway" -I "$interface" && return_code="0"
+    }
+
+    [ "0" = "$return_code" ] && echo "STATIC=YES" || echo "STATIC=NO"
+    return "$return_code"
+}
+
+fixed_wan_probe() {
+    local timer="$1"
+    local list_proto="$2"
+    local wan_port wan_ifname proto
+
+    # if wan's phy link?
+    wan_port=$(port_map port service wan)
+    if phyhelper link port "$wan_port" | grep -q 'link:up'; then
+        echo "LINK=YES"
+    else
+        echo "LINK=NO"
+        wlp_logger "wan phy is down, so exit"
+        return
+    fi
+
+    wan_ifname=$(port_map config get "$wan_port" ifname)
+    for proto in $list_proto; do
+        "$proto"_probe "$timer" "$wan_ifname" && {
+            uci batch <<-EOF
+				set network.wan.proto="$proto"
+				commit network
+			EOF
+            wlp_logger "fixed wan proto: ${proto}"
+            return
+        }
+    done
+
+    wlp_logger "fixed wan proto: NULL"
+    return
+}
+
+detect_wan_probe() {
+    local timer="$1"
+    local wan_port wan_proto
+    local fast_detect="0"
+
+    # if any phy is link?
+    if phyhelper link 2>/dev/null| grep -q 'link:up'; then
+        echo "LINK=YES"
+    else
+        echo "LINK=NO"
+        wlp_logger "all phy is down, so exit"
+        return
+    fi
+
+    fast_detect=$(uci -q get misc.features.fast_detect)
+    if [ "$fast_detect" = 1 ]; then
+        wan_port=$(port_map port service wan)
+        wan_proto=$(uci -q get network.wan.proto)
+
+        # no wan port or wan proto, force redetect all proto
+        if [ -z "$wan_port" ] || [ -z "$wan_proto" ]; then
+            /usr/sbin/port_service redetect force_all
+        fi
+    else
+        # force redetect all proto
+        /usr/sbin/port_service redetect force_all
+    fi
+
+    # wait for wan detect result
+    while true; do
+        wan_port=$(port_map port service wan)
+        wan_proto=$(uci -q get network.wan.proto)
+
+        [ -n "$wan_port" ] && [ -n "$wan_proto" ] || [ "0" = "$timer" ] && {
+            [ "$wan_proto" = "dhcp" ] && echo "DHCP=YES" || echo "DHCP=NO"
+            [ "$wan_proto" = "pppoe" ] && echo "PPPOE=YES" || echo "PPPOE=NO"
+            [ "$wan_proto" = "static" ] && echo "STATIC=YES" || echo "STATIC=NO"
+
+            [ -z "$wan_proto" ] && wan_proto="NULL"
+            wlp_logger "detect wan proto: ${wan_proto}"
+            return
+        }
+
+        sleep 1
+        timer=$((timer - 1))
+    done
+    return
+}
+
+# main
+TIMEOUT="7"
+[ -n "$1" ] && echo "$1" | grep -q -E '^[[:digit:]]*$' && TIMEOUT="$1"
+
+PROBE_MODE="$2"
+[ "$PROBE_MODE" = "fixed" ] || [ "$PROBE_MODE" = "wandt" ] || PROBE_MODE=""
+[ -z "$PROBE_MODE" ] && {
+    PROBE_MODE="fixed"
+    [ "1" = "$(uci -q get port_service.wandt_attr.enable)" ] && PROBE_MODE="wandt"
+}
+wlp_logger "probe mode: ${PROBE_MODE}"
+
+case "$PROBE_MODE" in
+    fixed)
+        # priority: static > pppoe > dhcp
+        fixed_wan_probe "$TIMEOUT" "static pppoe dhcp"
+        ;;
+    wandt)
+        detect_wan_probe "$TIMEOUT"
+        ;;
+    *)
+        wlp_usage >&2
+        ;;
+esac
+return

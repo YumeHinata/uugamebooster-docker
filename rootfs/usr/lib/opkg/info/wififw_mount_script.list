@@ -1,0 +1,3 @@
+/etc/init.d/wifi_fw_mount
+/etc/hotplug.d/dump/00-q6dump
+/etc/hotplug.d/dump_q6v5/00-q6dump

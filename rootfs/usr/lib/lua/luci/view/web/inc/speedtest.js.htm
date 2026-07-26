@@ -1,0 +1,588 @@
+<script type="tmpl/text" id="tmplSpeedTesting">
+<div class="mod-speed-testing">
+    <i class="ico-speed-testing"></i>
+    <p><%:正在测速...%></p>
+    <div class="loading"></div>
+</div>
+</script>
+<script type="tmpl/text" id="tmplSpeedTestNorst">
+<div class="mod-speed-testing">
+    <i class="ico-speed-test"></i>
+    <p><%:还没有进行测速%></p>
+    <div class="btns">
+        <a href="#" class="btn btn-primary" id="btnSpeedReTest"><span><%:立即测速%></span></a>
+    </div>
+</div>
+</script>
+<script type="tmpl/text" id="tmplSpeedTestErr">
+<div class="mod-speed-testing">
+    <i class="ico-speed-test-err"></i>
+    <p><%:发生未知错误，测速失败%></p>
+    <div class="btns">
+        <a href="#" class="btn btn-primary" id="btnSpeedReTest"><span><%:重新测速%></span></a>
+    </div>
+</div>
+</script>
+<script type="tmpl/text" id="tmplBandTestErr">
+<div class="mod-speed-testing">
+    <i class="ico-speed-test-err"></i>
+    <p><%:发生未知错误，测速失败%></p>
+    <div class="btns">
+        <a href="#" class="btn btn-primary" id="btnBandReTest"><span><%:重新测速%></span></a>
+    </div>
+</div>
+</script>
+<script type="tmpl/text" id="tmplSpeedResult">
+<div class="mod-speed-result">
+    <ul class="clearfix">
+        <li class="first">
+            <i class="ico-speed"></i>
+            <span class="num">{$speed}</span>
+            <span class="con">
+                {$unit}<br>
+                {$type}
+            </span>
+        </li>
+        <li>
+            <span class="num">{$bandwidth}</span>
+            <span class="con">
+                Mbps<br>
+                <%:外网带宽%>
+            </span>
+        </li>
+    </ul>
+    <div class="btns">
+        <a id="btnSpeedReTest" href="#" class="btn btn-primary"><span><%:重新测速%></span></a>
+        <a href="#" class="btn btn-primary" id="btnSpeedClose"><span><%:完成%></span></a>
+        <div class="manual"><%:测速不准？%><a id="manSet" href="#"  data-upband="{$upband}" data-downband="{$downband}"><%:手工设置%></a></div>
+    </div>
+</div>
+</script>
+<script type="tmpl/text" id="tmplBandResult">
+<div class="mod-speed-result">
+    <ul class="clearfix">
+        <li class="first">
+            <span class="num">{$upband}</span>
+            <span class="con">
+                Mbps<br>
+                <%:上传带宽%>
+            </span>
+        </li>
+        <li>
+            <span class="num">{$downband}</span>
+            <span class="con">
+                Mbps<br>
+                <%:下载带宽%>
+            </span>
+        </li>
+    </ul>
+    <div class="btns">
+        <a href="#" class="btn btn-primary btn-m" id="btnBandClose"><span><%:完成%></span></a>
+        <a id="btnBandReTest" href="#" class="btn btn-primary btn-m"><span><%:重新测速%></span></a>
+        <div class="manual"><%:测速不准？%><a id="manSet" href="#"  data-upband="{$upband}" data-downband="{$downband}"><%:手工设置%></a></div>
+
+    </div>
+</div>
+</script>
+<script type="tmpl/text" id="tmplBandResult2">
+<div class="mod-speed-result">
+    <ul class="clearfix">
+        <li class="first">
+            <span class="num" id="outband-up">{$upband}</span>
+            <span class="con">
+                MB/s<br>
+                <%:最高上传速度%>
+            </span>
+        </li>
+        <li>
+            <span class="num" id="outband-down">{$downband}</span>
+            <span class="con">
+               MB/s<br>
+                <%:最高下载速度%>
+            </span>
+        </li>
+    </ul>
+    <div class="btns">
+         <a href="#" id="btnBandset" class="btn btn-dft btn-m" data-upband="{$upband*8}" data-downband="{$downband*8}"><span><%:限速设置%></span></a>
+    </div>
+</div>
+</script>
+
+<script type="tmpl/html" id="tplbandsetform">
+<div class="speedset" id="customset">
+    <form action="<%=luci.dispatcher.build_url("api","misystem","set_band")%>" class="form form-horizontal form-qos" name="bandwidth" id="bandwidth" method="post">
+        <input type="hidden" name="manual" value="1">
+        <div class="form-item">
+            <label class="k"><%:上传%></label>
+            <span class="v"><input type="text" name="upload" reqMsg="<%:上传带宽%>" datatype="n-6.2" minValue="0.01" maxValue="10000" class="ipt-text" value="{$upband}"></span>
+            <em class="t">Mbps</em>
+        </div>
+        <div class="form-item">
+            <label class="k"><%:下载%></label>
+            <span class="v"><input type="text" name="download" reqMsg="<%:下载带宽%>" datatype="n-6.2" minValue="8" maxValue="10000" class="ipt-text" value="{$downband}"></span>
+            <em class="t">Mbps</em>
+        </div>
+        <div class="form-contral">
+            <button type="submit" id="submitbandwirdh" class="btn btn-primary btn-l"><span><%:确定%></span></button>
+        </div>
+    </form>
+</div>
+</script>
+<script>
+(function( $ ){
+
+    var dlgSpeed = {},isSpeedTest = 0;
+    var getDownloadSpeed = function(){
+        var dtd = $.Deferred();
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api","misystem", "bandwidth_test")%>',
+            type: 'POST',
+            data: { 'new': 1 },
+            dataType: 'json',
+            success: function( rsp ){
+                if ( rsp.code == 0 ) {
+                     dtd.resolve( rsp );
+                } else {
+                     dtd.reject();
+                }
+            },
+            error: function(){
+                dtd.reject();
+            }
+        });
+        return dtd.promise();
+    };
+    var getUploadSpeed = function(){
+        var dtd = $.Deferred();
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api","xqnetdetect", "netupspeed")%>',
+            type: 'POST',
+            data: {},
+            dataType: 'json',
+            success: function( rsp ){
+                if ( rsp.code == 0 ) {
+                     dtd.resolve( rsp );
+                } else {
+                     dtd.reject();
+                }
+            },
+            error: function(){
+                dtd.reject();
+            }
+        });
+        return dtd.promise();
+    };
+    var setQosband = function( upload, download ){
+        var dtd = $.Deferred();
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api", "misystem", "set_band")%>',
+            type: 'POST',
+            data: { upload: upload, download: download },
+            dataType: 'json',
+            success: function( rsp ){
+                if ( rsp.code == 0 ) {
+                     dtd.resolve( rsp );
+                } else {
+                     dtd.reject();
+                }
+            },
+            error: function(){
+                dtd.reject();
+            }
+        });
+        return dtd.promise();
+    };
+    var speedTest = function(){
+        var dtd = $.Deferred();
+        var downspeed, downband, upspeed, upband;
+        var testerror = function(){
+            dlgSpeed.content( $('#tmplSpeedTestErr').html() );
+            dtd.reject();
+        };
+        var downtestdone = function( rsp ){
+            downband = rsp.bandwidth;
+            downspeed = rsp.download;
+            upband = rsp.bandwidth2;
+            upspeed = rsp.upload;
+        };
+        var uptestdone = function( rsp ){
+            upband = rsp.bandwidth;
+            upspeed = rsp.upload;
+        };
+        var setbanddone = function( rsp ){
+            dtd.resolve( downband, upband, downspeed, upspeed );
+        };
+        // start down speed test
+        getDownloadSpeed()
+        .then( function( rsp ){
+            downtestdone.call( null, rsp );
+        }, testerror )
+        // .then( function( rsp ){
+        //     uptestdone.call( null, rsp );
+        //     return setQosband( upband, downband );
+        // }, testerror )
+        .then( function( rsp ){
+            setbanddone.call( null, rsp );
+        }, testerror );
+
+        return dtd.promise();
+    };
+
+    $.sub( 'speed:test', function( evt, data ){
+        var dlg = data.dlg,
+            ishistory = data.ishistory || false,
+            downloadspeed,
+            strdownspeed,
+            unit,
+            bandwidth,
+            speedresult,
+            tpl = $( '#tmplSpeedResult' ).html(),
+            testType = ishistory ? '<%:上次测速%>': '<%:外网速度%>';
+        dlgSpeed.testPadding = true;
+
+        var showErr = function(){
+            dlg.content( $( '#tmplSpeedTestErr' ).html() );
+        };
+        var showRsp = function( rsp ){
+            if ( rsp.code === 0 ) {
+                downloadspeed = parseFloat( rsp.download );
+                if ( downloadspeed > 1024 ) {
+                    unit = 'MB/S';
+                    strdownspeed = downloadspeed / 1024;
+                } else {
+                    unit = 'KB/S';
+                    strdownspeed = downloadspeed;
+                }
+                bandwidth = parseFloat( rsp.bandwidth );
+                if ( rsp.bandwidth > 0 ) {
+                    dlg.content( tpl.tmpl( {
+                        speed: strdownspeed.toFixed(2),
+                        unit: unit,
+                        bandwidth: bandwidth.toFixed(2),
+                        type: testType
+                    } ) );
+                } else {
+                    dlg.content( $( '#tmplSpeedTestNorst' ).html() );
+                }
+                if ( !ishistory ) {
+                    dlgSpeed.needreload = true;
+                }
+            } else {
+                showErr();
+            }
+        };
+        if ( ishistory ) {
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api","misystem", "bandwidth_test")%>',
+                type: 'POST',
+                dataType: 'json',
+                data: {history: 1 }
+            }).done(function( rsp ){
+                showRsp.call( null , rsp );
+                dlgSpeed.testPadding = false;
+            }).fail(function(){
+                showErr();
+                dlgSpeed.testPadding = false;
+            });
+        } else {
+            $.when( speedTest() )
+            .done(function( downband, upband, downspeed, upspeed ){
+                if (manual == 0 ) {
+                    downband == "--";
+                    downspeed = "--";
+                    upspeed = "--";
+                    $('#testBand').text("<%:开始测速%>");
+                }
+                showRsp.call( null , {
+                    code: 0,
+                    download: downspeed,
+                    bandwidth: downband
+                } );
+                dlgSpeed.testPadding = false;
+            })
+            .fail(function(){
+                showErr();
+                dlgSpeed.testPadding = false;
+            });
+        }
+    } );
+
+    // set bandwidth form callback
+    function setBandWidth( e ){
+        e.preventDefault();
+        var tar = e.target,
+            formName = tar.name,
+            requestURL = tar.action,
+            requestData = $(tar).serialize(),
+            validate = Valid.checkAll( $('#bandwidth')[0] );
+
+        if ( validate ) {
+            $.pub('loading:start');
+            $.ajax({
+                url: requestURL,
+                data: requestData,
+                type: 'POST',
+                dataType: 'json'
+            })
+            .done(function( rsp ){
+                if ( rsp.code === 0 ) {
+                    if (dlgSpeed && dlgSpeed.options && dlgSpeed.options.qostestok) {
+                        dlgSpeed.options.qostestok();
+                        dlgSpeed.close();
+                    }else {
+                        location.reload( 1 );
+                    }
+                } else {
+                    $.alert( rsp.msg );
+                }
+                $.pub('loading:stop');
+            });
+        }
+    }
+    $.sub( 'qos:test', function( evt , data){
+        var requestURL = '<%=luci.dispatcher.build_url("api","misystem", "bandwidth_test")%>',
+            requestData = {history:1};
+            if (data.st) {
+                 $.getJSON( requestURL, requestData, function( rsp ){
+                    if ( rsp.code == 0 ) {
+                        if (rsp.manual === 0) {
+                            dlgSpeed = $.dialog({
+                                title: '<%:手工设置外网带宽%>',
+                                content: $('#tplbandsetform').html().tmpl({
+                                    upband: "",
+                                    downband: ""
+                                }),
+                                lock: true,
+                                qostestok: function(){
+                                    data.cb();
+                                }
+                            });
+                            setTimeout(function(){
+                                $.formInit();
+                            }, 100);
+                        }else {
+                            data.cb();
+                        }
+                    }
+                });
+
+            }else {
+                 data.cb();
+            }
+       
+            });
+
+    $.sub( 'band:test', function( evt , data ){
+        var dlg = data.dlg,
+            tpl = $( '#tmplBandResult' ).html(),
+            tpl2 = $( '#tmplBandResult2' ).html();
+        var showRsp = function( downband, upband, downspeed, upspeed ){
+            var result = tpl.tmpl( {
+                downband: downband,
+                upband: upband
+            } );
+            var result2 = tpl2.tmpl( {
+                downband: downband,
+                upband: upband
+            } );
+            dlg.content( result );
+            $('#speedresult').html( result2 );
+        };
+        var showErr = function(){
+            dlg.content( $( '#tmplBandTestErr' ).html() );
+        };
+        dlgSpeed.testPadding = true;
+        $.when( speedTest() )
+            .done(function( downband, upband, downspeed, upspeed ){
+                showRsp.apply( null , [downband, upband, downspeed, upspeed] );
+                dlgSpeed.testPadding = false;
+                dlgSpeed.needreload = true;
+            })
+            .fail(function(){
+                showErr();
+                dlgSpeed.testPadding = false;
+            });
+    } );
+
+    $.sub( 'speed:history', function(){
+        var requestURL = '<%=luci.dispatcher.build_url("api","misystem", "bandwidth_test")%>',
+            requestData = { history: 1 };
+        $.getJSON( requestURL, requestData, function( rsp ){
+            if ( rsp.code == 0 ) {
+                var unit = 'KB/S';
+                var speed = parseFloat( rsp.download );
+                var bandwidth = parseFloat( rsp.bandwidth );
+                var bandwidth2 = parseFloat( rsp.bandwidth2 );
+                var strbw,statusInternet,bandwidthval,bandwidth2val;
+                if (bandwidth === 0) {
+                    strbw = '--';
+                    bandwidthval = "--";
+                    bandwidth2val = "--";
+                     statusInternet = "<%:设置带宽%>";
+                    // $('#retestSpeed').text("<%:开始测速%>");
+                    $('#manualSetting').text("<%:手工设置%>");
+                } else {
+                    isSpeedTest = 1;
+                    strbw = bandwidth.toFixed(2);
+                    bandwidthval = bandwidth.toFixed(2);
+                    statusInternet = "<%:带宽%><b class=bandwidthval>"+bandwidthval+"</b>M";
+                    bandwidth2val = bandwidth2.toFixed(2);
+                }
+                if ( speed > 1024 ) {
+                    unit = 'MB/S';
+                    speed = speed / 1024;
+                }
+                // $( '#maxSpeed' ).html( speed );
+                // $( '#maxSpeedunit' ).html( unit );
+                // $( '#downloadspeed' ).html( speed );
+                // $( '#downloadspeedunit' ).html( unit );
+                $( '.bandwidthval' ).text( strbw );
+                $( '#banddownload' ).text( bandwidthval );
+                $('#statusInternet').html( statusInternet );
+                $( '#bandupload' ).text( bandwidth2val );
+                $( '#btnBandset' ).attr('data-upband', bandwidth2.toFixed(2)).attr('data-downband', bandwidth.toFixed(2));
+            }
+        } );
+    } );
+
+    $(function(){
+        $( '#btnSpeedTest' ).on( 'click', function( e ){
+            e.preventDefault();
+            dlgSpeed = $.dialog({
+                title: '<%:网络速度%>',
+                width: 800,
+                content: $( '#tmplSpeedTesting' ).html(),
+                lock: true,
+                padding: 0,
+                beforeunload: function(){
+                    if ( dlgSpeed.testPadding ) {
+                        alert('<%:正在测速，请等待。%>');
+                        return false;
+                    }
+                    if ( dlgSpeed.needreload ) {
+                        $.pub( 'speed:history' );
+                    }
+                }
+            });
+
+            // $.pub( 'speed:test', {dlg: dlgSpeed} );
+            $.pub( 'band:test', {dlg: dlgSpeed} );
+
+        } );
+
+        $( 'body' ).delegate( '.btnBandTest', 'click', function( e ){
+            e.preventDefault();
+            dlgSpeed = $.dialog({
+                title: '<%:外网带宽检测%>',
+                width: 740,
+                content: $( '#tmplSpeedTesting' ).html(),
+                lock: true,
+                padding: 0,
+                beforeunload: function(){
+                    if ( dlgSpeed.testPadding ) {
+                        alert('<%:正在测速，请等待。%>');
+                        return false;
+                    }
+                    if ( dlgSpeed.needreload ) {
+                        window.top.location.reload( 1 );
+                    }
+                }
+            });
+
+            $.pub( 'band:test', {dlg: dlgSpeed} );
+
+        } );
+
+        $( 'body' ).delegate( '#btnSpeedReTest', 'click', function( e ){
+            e.preventDefault();
+            dlgSpeed.content( $( '#tmplSpeedTesting' ).html() );
+            $.pub( 'speed:test', {dlg: dlgSpeed} );
+        } );
+
+        $( 'body' ).delegate( '#btnSpeedClose', 'click', function( e ){
+            e.preventDefault();
+            dlgSpeed.close();
+        } );
+
+        $( 'body' ).delegate( '#btnBandReTest', 'click', function( e ){
+            e.preventDefault();
+            dlgSpeed.content( $( '#tmplSpeedTesting' ).html() );
+            $.pub( 'band:test', {dlg: dlgSpeed} );
+        } );
+
+        $( 'body' ).delegate( '#btnBandClose', 'click', function( e ){
+            e.preventDefault();
+              if (dlgSpeed && dlgSpeed.options && dlgSpeed.options.qostestok) {
+                dlgSpeed.options.qostestok();
+            }
+            dlgSpeed.close();
+        } );
+
+        $( 'body' ).delegate( '.get-history-speed', 'click', function( e ){
+            e.preventDefault();
+            dlgSpeed = $.dialog({
+                title: '<%:网络速度%>',
+                width: 740,
+                content: '<div class="mod-speed-testing"><%:处理中...%></div>',
+                lock: true,
+                padding: 0,
+                beforeunload: function(){
+                    if ( dlgSpeed.testPadding ) {
+                        alert('<%:正在测速，请等待。%>');
+                        return false;
+                    }
+                    if ( dlgSpeed.needreload ) {
+                        $.pub( 'speed:history' );
+                    }
+                }
+            });
+            $.pub( 'speed:test', {dlg: dlgSpeed, ishistory: true} );
+        } );
+
+        $('body').delegate( '#btnBandset', 'click', function( e ){
+            e.preventDefault();
+            var upband = $(this).attr('data-upband'),
+                downband = $(this).attr('data-downband');
+            dlgSpeed = $.dialog({
+                title: '<%:手工设置外网带宽%>',
+                content: $('#tplbandsetform').html().tmpl({
+                    upband: upband,
+                    downband: downband
+                }),
+                lock: true
+            });
+            setTimeout(function(){
+                $.formInit();
+            }, 100);
+        });
+
+          $('body').delegate( '#manSet', 'click', function( e ){
+            e.preventDefault();
+            var upband = $(this).attr('data-upband'),
+                downband = $(this).attr('data-downband'),
+                upbandTxt,
+                downbandTxt;
+                if (downband == 0) {
+                    upbandTxt = downbandTxt ="";
+
+                }else {
+                    upbandTxt = upband;
+                    downbandTxt = downband;
+                }
+            $.dialog({
+                title: '<%:手工设置外网带宽%>',
+                content: $('#tplbandsetform').html().tmpl({
+                    upband: upbandTxt,
+                    downband: downbandTxt
+                }),
+                lock: true
+            });
+            setTimeout(function(){
+                $.formInit();
+            }, 100);
+        });
+
+        $( 'body' ).delegate( '#bandwidth', 'submit', setBandWidth );
+    });
+})(jQuery);
+</script>

@@ -1,0 +1,5 @@
+/usr/share/pluginmanager/hosts.json
+/etc/config/pluginmanager
+/usr/sbin/pluginmanager
+/etc/init.d/pluginmanager
+/usr/sbin/pluginmanager_firewall

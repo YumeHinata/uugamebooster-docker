@@ -1,0 +1,4 @@
+/usr/sbin/pppoe-check
+/usr/sbin/pppoe.lua
+/usr/lib/pppd/2.4.7/rp-pppoe.so
+/usr/lib/pppd/2.4.7/specdial.so

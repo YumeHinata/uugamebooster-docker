@@ -1,0 +1,12 @@
+#!/bin/sh
+logger -t "hotplug.d" "20-firewall: $ACTION of $INTERFACE ($DEVICE)"
+
+[ "$ACTION" = ifup -o "$ACTION" = ifupdate ] || exit 0
+[ "$ACTION" = ifupdate -a -z "$IFUPDATE_ADDRESSES" -a -z "$IFUPDATE_DATA" ] && exit 0
+
+/etc/init.d/firewall enabled || exit 0
+
+fw3 -q network "$INTERFACE" >/dev/null || exit 0
+
+logger -t "hotplug.d" "20-firewall: Reloading firewall due to $ACTION of $INTERFACE ($DEVICE)"
+/etc/init.d/firewall reload

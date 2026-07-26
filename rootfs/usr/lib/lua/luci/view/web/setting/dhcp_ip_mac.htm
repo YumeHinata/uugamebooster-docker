@@ -1,0 +1,491 @@
+<%
+--[[
+    Info    DHCP的静态IP分配
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+local XQLanWanUtil = require("xiaoqiang.util.XQLanWanUtil")
+local lanip = XQLanWanUtil.getLanIp()
+%>
+
+
+<link href="<%=resource%>/web/css/ipmacband.css?v=<%=ver%>" rel="stylesheet">
+
+
+
+        <div class="mod-dhcp-ipmacband">
+            <div class="hd">
+                <h3><%:DHCP静态IP分配%></h3>
+            </div>
+            <div class="bd">
+                <h4><%:已绑定的设备列表：%></h4>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th width="30"></th>
+                            <th><%:设备名称%></th>
+                            <th><%:IP地址%></th>
+                            <th><%:MAC地址%></th>
+                            <th width="150" class="center"><%:操作%></th>
+                        </tr>
+                    </thead>
+                    <tbody id="bandlist">
+                        <tr>
+                            <td class="center" colspan="5"><%:查询中...%></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="ft">
+                <button type="button" class="btn btn-primary btn-m" id="addlist" style="margin-right: 20px;"><span><%:添加%></span></button>
+                <button type="button" class="btn btn-primary btn-m" id="dellist" style="display:none;"><span><%:解绑选中%></span></button>
+            </div>
+        </div>
+
+
+
+<script type="tmpl/html" id="tplbandlist">
+{if($bandlist.length > 0)}
+{for(var i=0; i<$bandlist.length; i++)}
+<tr>
+    <td class="center"><input type="checkbox" class="bandmac" name="mac" value="{$bandlist[i].mac}"></td>
+    <td>{$bandlist[i].dname}</td>
+    <td>{$bandlist[i].ip}</td>
+    <td>{$bandlist[i].mac}</td>
+    <td class="center"><button type="button" class="btn btn-dft btn-s btn-unband" data-mac="{$bandlist[i].mac}"><span><%:解除绑定%></span></button></td>
+</tr>
+{/for}
+{else}
+<tr>
+    <td colspan="5" class="center"><%:没有设置信息%></td>
+</tr>
+{/if}
+</script>
+<script type="tmpl/html" id="tpldevitem">
+<tr data-idx="{$idx}">
+    <td class="form-item"><input name="dname{$idx}" class="ipt-text dname" reqMsg="<%:设备名称%>" datatype="text" maxLength="50"><em class="t"></em></td>
+    <td class="form-item">
+        {$ipprefix}
+        <input name="ip{$idx}" value="{$thirdStr}" class="ipt-text ip" reqMsg="<%:IP地址%>" datatype="hostnumber" minValue="0" maxValue="254" style="width:30px" {if (!$isEdit)}readonly{/if}>
+        <!--
+            记得这里还没给第一个框加这个提示
+            <em class="t"></em>
+        -->
+        <span>.</span>
+        <input name="ip{$idx+1}" class="ipt-text ip" reqMsg="<%:IP地址%>" datatype="hostnumber" minValue="1" maxValue="254" style="width:30px">
+        <em class="t"></em>
+    </td>
+    <td class="form-item"><input name="mac{$idx}" class="ipt-text mac" reqMsg="<%:MAC地址%>" datatype="macaddr"><em class="t"></em></td>
+    <td class="center"><a href="#" class="btn btn-dft btn-del-item btn-s" href="#"><span><%:移除%></span></a></td>
+</tr>
+</script>
+<script type="tmpl/html" id="tpldevlist">
+<form action="#" name="addbandlist" id="addbandlist" class="form-bandlist form-table">
+    <table class="table">
+        <thead>
+            <tr>
+                <th><%:设备名称%></th>
+                <th><%:IP地址%></th>
+                <th><%:MAC地址%></th>
+                <th class="center"><%:操作%></th>
+            </tr>
+        </thead>
+        <tbody id="banditems">
+        {if($devlist.length > 0)}
+            {for(var i=0; i<$devlist.length; i++)}
+            <tr data-idx="{js print(i)}">
+                <td class="form-item"><input value="{$devlist[i].dname}" name="dname{js print(i)}" class="ipt-text dname" reqMsg="<%:设备名称%>" datatype="text" maxLength="50"><em class="t"></em></td>
+                <td class="form-item">
+                    {$ipprefix}
+                    <input value="{$devlist[i].ip1}" name="ip{js print(i)}" class="ipt-text ip" reqMsg="<%:IP地址%>" datatype="hostnumber" minValue="0" maxValue="254" style="width:30px" maxlength="3" {if (!$isEdit)}readonly{/if}>
+                    <!--
+                        记得这里还没给第一个框加这个提示
+                        <em class="t"></em>
+                    -->
+                    <span>.</span>
+                    <input value="{$devlist[i].ip2}" name="ip{js print(i+1)}" class="ipt-text ip" reqMsg="<%:IP地址%>" datatype="hostnumber" minValue="1" maxValue="254" style="width:30px" maxlength="3">
+                    <em class="t"></em>
+                </td>
+                <td class="form-item"><input value="{$devlist[i].mac}" name="mac{js print(i)}" class="ipt-text mac" reqMsg="<%:MAC地址%>" datatype="macaddr"><em class="t"></em></td>
+                <td class="center"><a href="#" class="btn btn-dft btn-del-item btn-s" href="#"><span><%:移除%></span></a></td>
+            </tr>
+            {/for}
+        {else}
+            <tr data-idx="0">
+                <td class="form-item"><input name="dname0" class="ipt-text dname" reqMsg="<%:设备名称%>" datatype="text" maxLength="50"><em class="t"></em></td>
+                <td class="form-item">
+                    {$ipprefix}
+                    <input value="{$thirdStr}" name="ip0" class="ipt-text ip" reqMsg="<%:IP地址%>" datatype="hostnumber" minValue="0" maxValue="254" style="width:30px" maxlength="3" {if (!$isEdit)}readonly{/if}>
+                    <!--
+                        记得这里还没给第一个框加这个提示
+                        <em class="t"></em>
+                    -->
+                    <span>.</span>
+                    <input name="ip1" class="ipt-text ip" reqMsg="<%:IP地址%>" datatype="hostnumber" minValue="1" maxValue="254" style="width:30px" maxlength="3">
+                    <em class="t"></em>
+                </td>
+                <td class="form-item"><input name="mac0" class="ipt-text mac" reqMsg="<%:MAC地址%>" datatype="macaddr"><em class="t"></em></td>
+                <td class="center"><a href="#" class="btn btn-dft btn-del-item btn-s" href="#"><span><%:移除%></span></a></td>
+            </tr>
+        {/if}
+        </tbody>
+    </table>
+    <div class="btns">
+        <p><a href="#" id="addoneitem" class="btn btn-dft btn-m" href="#"><span><%:增加一项%></span></a></p>
+        <p><button id="submitbandlist" class="btn btn-primary btn-m" type="submit"><span><%:应用%></button></span></p>
+    </div>
+</form>
+</script>
+<%include("web/inc/g.js")%>
+<script>
+var ModelDhcpband = (function(){
+    var lanIP = '<%=lanip%>',
+        isEdit = true,
+        thirdStr,
+        ipprefix = (function(ip){
+            var arr = ip.split('.');
+            thirdStr = arr[2]
+            arr.pop();
+            arr.pop();
+            return arr.join('.') + '.';
+        })(lanIP),
+        currentList = {},
+        // get repeat set
+        getRepeat = function( data ){
+            data = data || [];
+            var repeat = [];
+            var _currentList = $.extend( {}, currentList);
+            for (var i = 0; i < data.length; i++) {
+                var v = data[i];
+                if ( typeof( _currentList[v] ) == 'undefined' ) {
+                    _currentList[v] = 1;
+                } else {
+                    repeat.push(v);
+                }
+            }
+            return repeat;
+        },
+        getList = function( callback ){
+            $.getJSON('<%=luci.dispatcher.build_url("api", "xqnetwork","macbind_info")%>',{},function(rsp){
+                if ( rsp.code != 0 ) {
+                    return;
+                }
+                isEdit = rsp.lanmask == '255.255.0.0'
+                callback( rsp );
+            });
+        },
+        randerBandlist = function( rsp ){
+            var tpl = $( '#tplbandlist' ).html(),
+                container = $( '#bandlist' ),
+                bandlistdata = rsp.list,
+                tpldata = [],
+                mac, ip, dname;
+            currentList = {};
+            if ( bandlistdata.length > 0 ) {
+                for (var i = 0; i < bandlistdata.length; i++) {
+                    mac = bandlistdata[i].mac.toUpperCase();
+                    ip = bandlistdata[i].ip;
+                    dname = StringH.encode4Html( bandlistdata[i].name );
+                    tpldata.push({
+                        dname: dname,
+                        ip: ip,
+                        mac: mac
+                    });
+                    currentList[ip] = 1;
+                }
+            }
+            container.html( tpl.tmpl( {bandlist: tpldata} ) );
+        },
+        randerDevlist = function( rsp ){
+            var tpl = $( '#tpldevlist' ).html(),
+                devlistdata = rsp.devicelist,
+                tpldata = [],
+                randerDom,
+                mac, ip, dname, tag;
+            if ( devlistdata.length > 0 ) {
+                for (var i = 0; i < devlistdata.length; i++) {
+                    mac = devlistdata[i].mac.toUpperCase();
+                    ip = devlistdata[i].ip;
+                    iplast1 = (function( ip ){
+                        var arr = ip.split('.');
+                        return arr[arr.length - 2];
+                    })( ip );
+                    iplast2 = (function( ip ){
+                        var arr = ip.split('.');
+                        return arr[arr.length - 1];
+                    })( ip );
+                    dname = StringH.encode4HtmlValue( devlistdata[i].name );
+                    tag = devlistdata[i].tag;
+                    if ( tag != 2 ) {
+                        tpldata.push({
+                            dname: dname,
+                            ip1: iplast1,
+                            ip2: iplast2,
+                            mac: mac,
+                            isEdit:isEdit,
+                            thirdStr:thirdStr
+                        });
+                    }
+                }
+            }
+            randerDom = tpl.tmpl( {
+                devlist: tpldata,
+                ipprefix: ipprefix,
+                thirdStr:thirdStr,
+                isEdit:isEdit
+            } );
+            $.dialog({
+                title: '<%:绑定设备%>',
+                content: randerDom,
+                lock: true,
+                width: 828,
+                padding: '30px'
+            });
+            $.pub( 'done', {id: '#addlist'} );
+        },
+        serializeForm = function( form ){
+            var ips = $( '.ip', form ),
+                dnames = $( '.dname', form ),
+                macs = $( '.mac', form ),
+                data = [],
+                item,
+                elX,
+                preIdx = 0;
+            ips.each(function( idx, el ){
+                //因为前边又增加了一个输入框，所以可以判断它是否是奇数来确定是否push。并且每次将前一个框的el存下来，待到下一个框时再加上它
+                if(idx % 2 != 0){
+                    ++preIdx;
+                item = {
+                        ip: ipprefix + $.trim( elX.value ) + '.' + $.trim( el.value ),
+                        mac: $.trim( macs.eq( idx-preIdx).val() ),
+                        name: $.trim( dnames.eq( idx-preIdx ).val() )
+                };
+                data.push( item );
+                }else{
+                    elX = el
+                }
+            });
+
+            return ObjectH.stringify( data );
+        }
+        unbind = function( e, mac ){
+            e.preventDefault();
+            var that = this,
+                $this = $(that),
+                requestURL = '<%=luci.dispatcher.build_url("api", "xqnetwork", "mac_unbind")%>',
+                requestData = {
+                    mac: mac
+                };
+            $.pub( 'loading:start' );
+            $.ajax({
+                url: requestURL,
+                type: 'POST',
+                data: requestData,
+                dataType: 'json',
+                success: function( rsp ){
+                    if ( rsp.code !== 0 ) {
+                        $.alert( rsp.msg );
+                    } else {
+                        getList( randerBandlist );
+                        $( '#dellist' ).hide();
+                    }
+                    $.pub( 'loading:stop' );
+                }
+            });
+        },
+        addEvent = function(){
+            // unband
+            $('body').delegate( '.btn-unband' ,'click', function( e ){
+                var that = this,
+                    $this = $( that ),
+                    mac = $this.attr('data-mac'),
+                    ok = function(){
+                        unbind.call( that, e, mac );
+                    };
+                $.confirm( '<%:你确定要解除此项绑定？%>', ok );
+            });
+            // band
+            $( 'body' ).delegate( '#addbandlist', 'submit', function( e ){
+                e.preventDefault();
+                var form = e.target,
+                    formName = form.name,
+                    formels = $( 'input', form ),
+                    requestURL = '<%=luci.dispatcher.build_url("api", "xqnetwork", "mac_bind")%>',
+                    requestData,
+                    rules,
+                    name,
+                    display,
+                    validator,
+                    formdata,
+                    iplist = [],
+                    formdata,
+                    formdataojb,
+                    repeatIP,
+                    validerules = [];
+
+                validator = Valid.checkAll( $('#addbandlist')[0] );
+
+                if ( validator) {
+                    formdata = serializeForm( form );
+                    formdataojb = StringH.evalExp( formdata );
+                    for (var i = 0; i < formdataojb.length; i++) {
+                        iplist.push(formdataojb[i]['ip']);
+                    }
+                    repeatIP = getRepeat( iplist );
+                    if ( repeatIP.length !== 0 ) {
+                        $.alert( '<%:存在IP冲突，请检查输入项%>' + repeatIP.join(' , ') );
+                        return;
+                    }
+                    //静态IP分配应不可以设置IP地址与局域网一致
+                    for (var i = 0; i < iplist.length; i++) {
+                        if(iplist[i] == $('input[name=ip]').val()){
+                            $.alert( '<%:存在IP冲突，请检查输入项%>');
+                            return
+                        }
+                    }                  
+                    //判断是否超出DHCP服务所设定的IP段
+                    //var ipAdrVal = formels[1].value //用户输入的ip地址
+                    //var isOverFlow = ipAdrVal >= parseInt($( 'input[name="start"]' ).attr('oldData'))  && ipAdrVal <= parseInt($( 'input[name="end"]' ).attr('oldData')) 
+                    //console.log('判断是否超出DHCP服务所设定的IP段',isOverFlow)
+                    // if(!isOverFlow){
+                    //     $.alert( '<%:该IP不在可用IP范围内，请重新输入。您可以参考DHCP服务可用IP段来设定。%>');
+                    //     return
+                    // }
+
+                    requestData = {
+                        data: formdata
+                    };
+                    $.pub( 'wait', {id: '#submitbandlist'} );
+                    $.ajax({
+                        url: requestURL,
+                        data: requestData,
+                        type: 'POST',
+                        dataType: 'json',
+                        success: function( rsp ){
+                            if ( rsp.code == 0 ) {
+                                location.reload( 1 );
+                            } else {
+                                $.alert( rsp.msg );
+                            }
+                            $.pub( 'done', {id: '#submitbandlist'} );
+                        }
+                    });
+                }
+
+            });
+
+            // add a item
+            $( 'body' ).delegate( '#addoneitem', 'click', function( e ){
+                e.preventDefault();
+                var tpl = $( '#tpldevitem' ).html(),
+                    form = $( '#banditems' ),
+                    btnSubmit = $( '#submitbandlist' ),
+                    lastidx = (function(){
+                        if ( form.find('tr').length > 0 ) {
+                            return form.find('tr:last').attr( 'data-idx' );
+                        }
+                        return 0;
+                    }()),
+                    lastidx = parseInt( lastidx, 10 ),
+                    item = tpl.tmpl({
+                        idx: lastidx + 1,
+                        ipprefix: ipprefix,
+                        isEdit:isEdit,
+                        thirdStr:thirdStr
+                    });
+                if ( !isNaN( lastidx ) ) {
+                    form.append( item );
+                    if ( form.find( 'tr' ).length > 0 ) {
+                        btnSubmit.show();
+                    } else {
+                        btnSubmit.hide();
+                    }
+                } else {
+                    $.alert('<%:出现异常，请刷新页面%>');
+                }
+            } );
+
+            // del a item
+            $( 'body' ).delegate( '.btn-del-item', 'click', function( e ){
+                e.preventDefault();
+                var tar = e.target,
+                    tr = $( tar ).parents( 'tr' ),
+                    form = $( '#banditems' ),
+                    btnSubmit = $( '#submitbandlist' ),
+                    isEmpty = (function(){
+                        var empty = true;
+                        tr.find('input').each(function(){
+                            if ( this.value !== '') {
+                                empty = false;
+                                return false;
+                            }
+                        });
+                        return empty;
+                    }()),
+                    ok = function(){
+                        tr.remove();
+                        if ( form.find( 'tr' ).length > 0 ) {
+                            btnSubmit.show();
+                        } else {
+                            btnSubmit.hide();
+                        }
+                    };
+                if ( isEmpty ) {
+                    ok();
+                } else {
+                    $.confirm( '<%:确定要删除这项数据吗%>', ok );
+                }
+            } );
+
+            // open add dlg
+            $( '#addlist' ).click(function( e ){
+                e.preventDefault();
+                $.pub( 'wait', {id: '#addlist'} );
+                getList( randerDevlist );
+            });
+
+            // check for del
+            $( 'body' ).delegate( '.bandmac', 'click', function( e ){
+                if ( $('.bandmac:checked').length > 0 ) {
+                    $( '#dellist' ).show();
+                } else {
+                    $( '#dellist' ).hide();
+                }
+            } );
+
+            // del all
+            $( '#dellist' ).on( 'click', function( e ){
+                e.preventDefault();
+                if ( $('.bandmac:checked').length == 0 ) {
+                    $.alert( '<%:你还未选择任何设备%>' );
+                    return;
+                }
+                var that = this,
+                    $this = $(that),
+                    mac = (function(){
+                        var tmp = [];
+                        $('.bandmac:checked').each(function(){
+                            tmp.push( this.value );
+                        });
+                        return tmp.join( ';' );
+                    }()),
+                    ok = function(){
+                        unbind.call( that, e, mac );
+                    };
+
+                $.confirm( '<%:确认要解除选中项目的绑定关系？%>', ok );
+            } );
+        };
+
+    currentList[lanIP] = 1;
+
+    return {
+        init: function(){
+            getList( randerBandlist );
+            addEvent();
+        }
+    }
+}());
+$(function(){
+    ModelDhcpband.init();
+});
+</script>

@@ -1,0 +1,17 @@
+/usr/lib/lua/miqos/rule_by_noifb.lua
+/usr/sbin/miqosc
+/usr/lib/lua/miqos/common.lua
+/usr/sbin/miqosd
+/etc/init.d/miqos
+/usr/sbin/miqos_ipv6.sh
+/usr/sbin/miqosd_init.sh
+/usr/sbin/qos_monitor
+/usr/lib/lua/miqos.lua
+/usr/lib/lua/miqos/rule_by_host.lua
+/etc/traffic.d/device/05-miqos_device.sh
+/usr/lib/lua/miqos/rule_by_prio.lua
+/usr/lib/lua/miqos/command.lua
+/usr/lib/lua/miqos/rule_by_wangzhe.lua
+/etc/config/miqos
+/usr/lib/lua/miqos/rule_by_service.lua
+/etc/traffic.d/linkstatus/03-wired-dev-event.sh

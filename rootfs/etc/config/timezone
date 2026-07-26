@@ -1,0 +1,848 @@
+config timezone 2_1
+	option index '2.1'
+	option z_name '(UTC-12)'
+	list name '国际日期变更线西'
+	option tz 'CST+12'
+
+config timezone 2_2
+	option index '2.2'
+	option z_name '(UTC-11)'
+	list name '中途岛'
+	list name '帕果帕果'
+	option tz 'SST11'
+
+config timezone 2_3
+	option index '2.3'
+	option z_name '(UTC-11)'
+	list name '纽埃'
+	option tz '<-11>11'
+
+config timezone 2_4
+	option index '2.4'
+	option z_name '(UTC-10)'
+	list name '阿达克'
+	option tz 'HST10HDT,M3.2.0,M11.1.0'
+
+config timezone 2_5
+	option index '2.5'
+	option z_name '(UTC-10)'
+	list name '夏威夷－阿留申标准时间'
+	option tz 'HST10'
+
+config timezone 2_6
+	option index '2.6'
+	option z_name '(UTC-10)'
+	list name '火奴鲁鲁'
+	option tz 'HST10'
+
+config timezone 2_7
+	option index '2.7'
+	option z_name '(UTC-10)'
+	list name '拉罗汤加'
+	list name '塔希提岛'
+	option tz '<-10>10'
+
+config timezone 2_8
+	option index '2.8'
+	option z_name '(UTC-9:30)'
+	list name '马克萨斯群岛'
+	option tz '<-0930>9:30'
+
+config timezone 2_9
+	option index '2.9'
+	option z_name '(UTC-9)'
+	list name '安克雷奇'
+	list name '朱诺'
+	list name '梅特拉卡特拉'
+	list name '诺姆'
+	list name '西特卡'
+	list name '雅库塔特'
+	option tz 'AKST9AKDT,M3.2.0,M11.1.0'
+
+config timezone 2_10
+	option index '2.10'
+	option z_name '(UTC-9)'
+	list name '阿拉斯加'
+	option tz 'AKST9AKDT,M3.2.0,M11.1.0'
+
+config timezone 2_11
+	option index '2.11'
+	option z_name '(UTC-9)'
+	list name '甘比尔'
+	option tz '<-09>9'
+
+config timezone 2_12
+	option index '2.12'
+	option z_name '(UTC-8)'
+	list name '道森'
+	list name '洛杉矶'
+	list name '蒂华纳'
+	list name '温哥华'
+	list name '怀特霍斯'
+	option tz 'PST8PDT,M3.2.0,M11.1.0'
+
+config timezone 2_13
+	option index '2.13'
+	option z_name '(UTC-8)'
+	list name '太平洋时间(美国和加拿大)'
+	option tz 'PST8PDT,M3.2.0,M11.1.0'
+
+config timezone 2_14
+	option index '2.14'
+	option z_name '(UTC-8)'
+	list name '皮特克恩'
+	option tz '<-08>8'
+
+config timezone 2_15
+	option index '2.15'
+	option z_name '(UTC-7)'
+	list name '博伊西'
+	list name '剑桥湾'
+	list name '丹佛'
+	list name '埃德蒙顿'
+	list name '奥吉纳加'
+	option tz 'MST7MDT,M3.2.0,M11.1.0'
+
+config timezone 2_16
+	option index '2.16'
+	option z_name '(UTC-7)'
+	list name '山地时间(美国和加拿大)'
+	option tz 'MST7MDT,M3.2.0,M11.1.0'
+
+config timezone 2_17
+	option index '2.17'
+	option z_name '(UTC-6)'
+	list name '奇瓦瓦'
+	list name '马萨特兰'
+	option tz 'CST6'
+
+config timezone 2_18
+	option index '2.18'
+	option z_name '(UTC-7)'
+	list name '克丽顿'
+	list name '道森克里克'
+	list name '纳尔逊堡'
+	list name '赫莫西略'
+	list name '凤凰城'
+	option tz 'MST7'
+
+config timezone 2_19
+	option index '2.19'
+	option z_name '(UTC-6)'
+	list name '巴伊亚班德拉斯'
+	list name '梅里达'
+	list name '墨西哥城'
+	list name '蒙特雷'
+	option tz 'CST6'
+
+config timezone 2_20
+	option index '2.20'
+	option z_name '(UTC-6)'
+	list name '伯利兹'
+	list name '哥斯达黎加'
+	list name '萨尔瓦多'
+	list name '危地马拉'
+	list name '马那瓜'
+	option tz 'CST6'
+
+config timezone 2_21
+	option index '2.21'
+	option z_name '(UTC-6)'
+	list name '芝加哥'
+	list name '马塔莫罗斯'
+	list name '新塞勒姆'
+	list name '雷尼河'
+	list name '温尼伯'
+	option tz 'CST6CDT,M3.2.0,M11.1.0'
+
+config timezone 2_22
+	option index '2.22'
+	option z_name '(UTC-6)'
+	list name '中部时间(美国和加拿大)'
+	option tz 'CST6CDT,M3.2.0,M11.1.0'
+
+config timezone 2_23
+	option index '2.23'
+	option z_name '(UTC-6)'
+	list name '复活节岛'
+	option tz '<-06>6<-05>,M9.1.6/22,M4.1.6/22'
+
+config timezone 2_24
+	option index '2.24'
+	option z_name '(UTC-6)'
+	list name '加拉帕戈斯'
+	option tz '<-06>6'
+
+config timezone 2_25
+	option index '2.25'
+	option z_name '(UTC-5)'
+	list name '阿蒂科坎'
+	list name '坎昆'
+	list name '开曼'
+	list name '牙买加'
+	list name '巴拿马'
+	option tz 'EST5'
+
+config timezone 2_26
+	option index '2.26'
+	option z_name '(UTC-5)'
+	list name '波哥大'
+	list name '埃里伦佩'
+	list name '瓜亚基尔'
+	list name '利马'
+	list name '里奥布兰科'
+	option tz '<-05>5'
+
+config timezone 2_27
+	option index '2.27'
+	option z_name '(UTC-5)'
+	list name '底特律'
+	list name '拿骚'
+	list name '纽约'
+	list name '太子港'
+	list name '多伦多'
+	option tz 'EST5EDT,M3.2.0,M11.1.0'
+
+config timezone 2_28
+	option index '2.28'
+	option z_name '(UTC-5)'
+	list name '东部时间(美国和加拿大)'
+	option tz 'EST5EDT,M3.2.0,M11.1.0'
+
+config timezone 2_29
+	option index '2.29'
+	option z_name '(UTC-5)'
+	list name '哈瓦那'
+	option tz 'CST5CDT,M3.2.0/0,M11.1.0/1'
+
+config timezone 2_30
+	option index '2.30'
+	option z_name '(UTC-4)'
+	list name '勃朗萨布隆'
+	list name '格林纳达'
+	list name '西班牙港'
+	list name '波多黎各'
+	list name '圣多明各'
+	option tz 'AST4'
+
+config timezone 2_31
+	option index '2.31'
+	option z_name '(UTC-4)'
+	list name '亚松森'
+	option tz '<-04>4<-03>,M10.1.0/0,M3.4.0/0'
+
+config timezone 2_32
+	option index '2.32'
+	option z_name '(UTC-4)'
+	list name '坎波格兰德'
+	list name '加拉加斯'
+	list name '圭亚那'
+	list name '拉巴斯'
+	list name '波尔图韦略'
+	option tz '<-04>4'
+
+config timezone 2_33
+	option index '2.33'
+	option z_name '(UTC-4)'
+	list name '格拉斯湾'
+	list name '鹅湾'
+	list name '哈利法克斯'
+	list name '百慕大'
+	option tz 'AST4ADT,M3.2.0,M11.1.0'
+
+config timezone 2_34
+	option index '2.34'
+	option z_name '(UTC-4)'
+	list name '大西洋时间(加拿大)'
+	option tz 'AST4ADT,M3.2.0,M11.1.0'
+
+config timezone 2_35
+	option index '2.35'
+	option z_name '(UTC-4)'
+	list name '圣地亚哥'
+	option tz '<-04>4<-03>,M9.1.6/24,M4.1.6/24'
+
+config timezone 2_36
+	option index '2.36'
+	option z_name '(UTC-4)'
+	list name '库亚巴'
+	option tz '<-04>4'
+
+config timezone 2_37
+	option index '2.37'
+	option z_name '(UTC-3:30)'
+	list name '圣约翰斯'
+	option tz 'NST3:30NDT,M3.2.0,M11.1.0'
+
+config timezone 2_38
+	option index '2.38'
+	option z_name '(UTC-3:30)'
+	list name '纽芬兰'
+	option tz 'NST3:30NDT,M3.2.0,M11.1.0'
+
+config timezone 2_39
+	option index '2.39'
+	option z_name '(UTC-3)'
+	list name '布宜诺斯艾利斯'
+	list name '圣路易斯'
+	list name '马塞奥'
+	list name '蒙得维的亚'
+	list name '帕拉马里博'
+	option tz '<-03>3'
+
+config timezone 2_40
+	option index '2.40'
+	option z_name '(UTC-3)'
+	list name '格陵兰'
+	option tz '<-02>2<-01>,M3.5.0/-1,M10.5.0/0'
+
+config timezone 2_41
+	option index '2.41'
+	option z_name '(UTC-3)'
+	list name '戈塔布'
+	option tz '<-02>2<-01>,M3.5.0/-1,M10.5.0/0'
+
+config timezone 2_42
+	option index '2.42'
+	option z_name '(UTC-3)'
+	list name '米克隆'
+	option tz '<-03>3<-02>,M3.2.0,M11.1.0'
+
+config timezone 2_43
+	option index '2.43'
+	option z_name '(UTC-3)'
+	list name '巴西利亚'
+	option tz '<-03>3'
+
+config timezone 2_44
+	option index '2.44'
+	option z_name '(UTC-2)'
+	list name '诺罗尼亚'
+	list name '南乔治亚岛'
+	option tz '<-02>2'
+
+config timezone 2_45
+	option index '2.45'
+	option z_name '(UTC-1)'
+	list name '佛得角'
+	option tz '<-01>1'
+
+config timezone 2_46
+	option index '2.46'
+	option z_name '(UTC-1)'
+	list name '斯科尔斯比松德'
+	list name '亚速尔群岛'
+	option tz 'AZOT+1AZOST,M3.5.0/0,M10.5.0/1'
+
+config timezone 2_47
+	option index '2.47'
+	option z_name '(UTC+0)'
+	list name '达喀尔'
+	list name '蒙罗维亚'
+	list name '圣多美'
+	list name '丹马克斯沙文'
+	list name '雷克雅未克'
+	list name '亚穆苏克罗'
+	option tz 'GMT0'
+
+config timezone 2_48
+	option index '2.48'
+	option z_name '(UTC+0)'
+	list name '协调世界时'
+	option tz 'CST'
+
+config timezone 2_49
+	option index '2.49'
+	option z_name '(UTC+0)'
+	list name '加那利'
+	list name '法罗'
+	list name '马德拉'
+	list name '里斯本'
+	option tz 'WET0WEST,M3.5.0/1,M10.5.0'
+
+config timezone 2_50
+	option index '2.50'
+	option z_name '(UTC+0)'
+	list name '根西岛'
+	list name '马恩岛'
+	list name '泽西岛'
+	list name '伦敦'
+	option tz 'GMT0BST,M3.5.0/1,M10.5.0'
+
+config timezone 2_51
+	option index '2.51'
+	option z_name '(UTC+1)'
+	list name '阿布贾'
+	list name '阿尔及尔'
+	list name '突尼斯'
+	option tz 'CET-1'
+
+config timezone 2_52
+	option index '2.52'
+	option z_name '(UTC+1)'
+	list name '班吉'
+	list name '布拉柴维尔'
+	list name '杜阿拉'
+	list name '金沙萨'
+	list name '拉各斯'
+	option tz 'WAT-1'
+
+config timezone 2_53
+	option index '2.53'
+	option z_name '(UTC+1)'
+	list name '马耳他'
+	list name '奥斯陆'
+	list name '卢森堡'
+	list name '阿伊恩'
+	option tz 'CET-1CEST,M3.5.0,M10.5.0/3'
+
+config timezone 2_54
+	option index '2.54'
+	option z_name '(UTC+1)'
+	list name '伯尔尼'
+	list name '柏林'
+	list name '哥本哈根'
+	list name '马德里'
+	list name '巴黎'
+	list name '罗马'
+	option tz 'CET-1CEST,M3.5.0,M10.5.0/3'
+
+config timezone 2_55
+	option index '2.55'
+	option z_name '(UTC+1)'
+	list name '都柏林'
+	option tz 'IST-1GMT0,M10.5.0,M3.5.0/1'
+
+config timezone 2_56
+	option index '2.56'
+	option z_name '(UTC+3)'
+	list name '安曼'
+	option tz '<+03>-3'
+
+config timezone 2_57
+	option index '2.57'
+	option z_name '(UTC+2)'
+	list name '贝鲁特'
+	option tz 'EET-2EEST,M3.5.0/0,M10.5.0/0'
+
+config timezone 2_58
+	option index '2.58'
+	option z_name '(UTC+2)'
+	list name '布兰太尔'
+	list name '布琼布拉'
+	list name '哈博罗内'
+	list name '哈拉雷'
+	option tz 'CAT-2'
+
+config timezone 2_59
+	option index '2.59'
+	option z_name '(UTC+2)'
+	list name '特里波利'
+	list name '加里宁格勒'
+	option tz 'EET-2'
+
+config timezone 2_60
+	option index '2.60'
+	option z_name '(UTC+2)'
+	list name '基希讷乌'
+	option tz 'EET-2EEST,M3.5.0,M10.5.0/3'
+
+config timezone 2_61
+	option index '2.61'
+	option z_name '(UTC+2)'
+	list name '大马士革'
+	option tz 'EET-2EEST,M3.5.5/0,M10.5.5/0'
+
+config timezone 2_62
+	option index '2.62'
+	option z_name '(UTC+2)'
+	list name '雅典'
+	list name '布加勒斯特'
+	list name '赫尔辛基'
+	list name '基辅'
+	list name '马里利亚哈姆'
+	list name '里加'
+	list name '塔林'
+	option tz 'EET-2EEST,M3.5.0/3,M10.5.0/4'
+
+config timezone 2_63
+	option index '2.63'
+	option z_name '(UTC+2)'
+	list name '加沙'
+	list name '希伯伦'
+	option tz 'EET-2EEST,M3.4.4/50,M10.4.4/50'
+
+config timezone 2_64
+	option index '2.64'
+	option z_name '(UTC+2)'
+	list name '耶路撒冷'
+	option tz 'IST-2IDT,M3.4.4/26,M10.5.0'
+
+config timezone 2_65
+	option index '2.65'
+	option z_name '(UTC+2)'
+	list name '约翰内斯堡'
+	list name '马塞卢'
+	list name '姆巴巴内'
+	list name '开普敦'
+	option tz 'SAST-2'
+
+config timezone 2_66
+	option index '2.66'
+	option z_name '(UTC+2)'
+	list name '特罗尔'
+	option tz '<+00>0<+02>-2,M3.5.0/1,M10.5.0/3'
+
+config timezone 2_67
+	option index '2.67'
+	option z_name '(UTC+3)'
+	list name '亚的斯亚贝巴'
+	list name '阿斯马拉'
+	list name '达累斯萨拉姆'
+	list name '内罗毕'
+	list name '塔那那利佛'
+	option tz 'EAT-3'
+
+config timezone 2_68
+	option index '2.68'
+	option z_name '(UTC+3)'
+	list name '莫斯科'
+	list name '辛菲罗波尔'
+	option tz 'MSK-3'
+
+config timezone 2_69
+	option index '2.69'
+	option z_name '(UTC+3)'
+	list name '巴格达'
+	list name '科威特'
+	list name '卡塔尔'
+	list name '利雅得'
+	list name '伊斯坦布尔'
+	option tz '<+03>-3'
+
+config timezone 2_70
+	option index '2.70'
+	option z_name '(UTC+3:30)'
+	list name '德黑兰'
+	option tz '<+0330>-3:30'
+
+config timezone 2_71
+	option index '2.71'
+	option z_name '(UTC+4)'
+	list name '迪拜'
+	list name '马斯喀特'
+	list name '阿斯特拉罕'
+	list name '萨拉托夫'
+	list name '马海'
+	list name '毛里求斯'
+	option tz '<+04>-4'
+
+config timezone 2_72
+	option index '2.72'
+	option z_name '(UTC+4)'
+	list name '第比利斯'
+	option tz '<+04>-4'
+
+config timezone 2_73
+	option index '2.73'
+	option z_name '(UTC+4:30)'
+	list name '喀布尔'
+	option tz '<+0430>-4:30'
+
+config timezone 2_74
+	option index '2.74'
+	option z_name '(UTC+5)'
+	list name '伊斯兰堡'
+	list name '卡拉奇'
+	option tz 'PKT-5'
+
+config timezone 2_75
+	option index '2.75'
+	option z_name '(UTC+5)'
+	list name '阿克托贝'
+	list name '杜尚贝'
+	list name '撒马尔罕'
+	list name '塔什干'
+	list name '叶卡捷琳堡'
+	list name '阿拉木图'
+	option tz '<+05>-5'
+
+config timezone 2_76
+	option index '2.76'
+	option z_name '(UTC+5:30)'
+	list name '科伦坡'
+	option tz '<+0530>-5:30'
+
+config timezone 2_77
+	option index '2.77'
+	option z_name '(UTC+5:30)'
+	list name '钦奈'
+	list name '加尔各答'
+	list name '孟买'
+	list name '新德里'
+	option tz 'IST-5:30'
+
+config timezone 2_78
+	option index '2.78'
+	option z_name '(UTC+5:45)'
+	list name '加德满都'
+	option tz '<+0545>-5:45'
+
+config timezone 2_79
+	option index '2.79'
+	option z_name '(UTC+6)'
+	list name '沃斯托克'
+	list name '达卡'
+	list name '鄂木斯克'
+	list name '廷布'
+	option tz '<+06>-6'
+
+config timezone 2_80
+	option index '2.80'
+	option z_name '(UTC+6:30)'
+	list name '仰光'
+	list name '科科斯'
+	option tz '<+0630>-6:30'
+
+config timezone 2_81
+	option index '2.81'
+	option z_name '(UTC+7)'
+	list name '河内'
+	list name '曼谷'
+	list name '巴瑙尔'
+	list name '胡志明'
+	list name '万象'
+	list name '新西伯利亚'
+	option tz '<+07>-7'
+
+config timezone 2_82
+	option index '2.82'
+	option z_name '(UTC+7)'
+	list name '雅加达'
+	list name '坤甸'
+	option tz 'WIB-7'
+
+config timezone 2_83
+	option index '2.83'
+	option z_name '(UTC+8)'
+	list name '文莱'
+	list name '伊尔库茨克'
+	list name '吉隆坡'
+	list name '新加坡'
+	list name '乌兰巴托'
+	option tz '<+08>-8'
+
+config timezone 2_84
+	option index '2.84'
+	option z_name '(UTC+8)'
+	list name '北京'
+	list name '重庆'
+	list name '香港特别行政区'
+	list name '乌鲁木齐'
+	option tz 'CST-8'
+
+config timezone 2_85
+	option index '2.85'
+	option z_name '(UTC+8)'
+	list name '中国澳门'
+	list name '上海'
+	list name '中国台北'
+	option tz 'CST-8'
+
+config timezone 2_86
+	option index '2.86'
+	option z_name '(UTC+8)'
+	list name '望加锡'
+	option tz 'WITA-8'
+
+config timezone 2_87
+	option index '2.87'
+	option z_name '(UTC+8)'
+	list name '马尼拉'
+	option tz 'PST-8'
+
+config timezone 2_88
+	option index '2.88'
+	option z_name '(UTC+8)'
+	list name '珀斯'
+	option tz 'AWST-8'
+
+config timezone 2_89
+	option index '2.89'
+	option z_name '(UTC+8:45)'
+	list name '尤克拉'
+	option tz '<+0845>-8:45'
+
+config timezone 2_90
+	option index '2.90'
+	option z_name '(UTC+9)'
+	list name '奇塔'
+	list name '帝力'
+	list name '坎迪加'
+	list name '雅库茨克'
+	list name '帕劳'
+	option tz '<+09>-9'
+
+config timezone 2_91
+	option index '2.91'
+	option z_name '(UTC+9)'
+	list name '查亚普拉'
+	option tz 'WIT-9'
+
+config timezone 2_92
+	option index '2.92'
+	option z_name '(UTC+9)'
+	list name '平壤'
+	list name '首尔'
+	option tz 'KST-9'
+
+config timezone 2_93
+	option index '2.93'
+	option z_name '(UTC+9)'
+	list name '大阪'
+	list name '札幌'
+	list name '东京'
+	option tz 'JST-9'
+
+config timezone 2_94
+	option index '2.94'
+	option z_name '(UTC+9:30)'
+	list name '阿德莱德'
+	list name '布罗肯希尔'
+	option tz 'ACST-9:30ACDT,M10.1.0,M4.1.0/3'
+
+config timezone 2_95
+	option index '2.95'
+	option z_name '(UTC+9:30)'
+	list name '达尔文'
+	option tz 'ACST-9:30'
+
+config timezone 2_96
+	option index '2.96'
+	option z_name '(UTC+10)'
+	list name '布里斯班'
+	list name '林德曼'
+	option tz 'AEST-10'
+
+config timezone 2_97
+	option index '2.97'
+	option z_name '(UTC+10)'
+	list name '柯里'
+	list name '霍巴特'
+	list name '墨尔本'
+	list name '悉尼'
+	option tz 'AEST-10AEDT,M10.1.0,M4.1.0/3'
+
+config timezone 2_98
+	option index '2.98'
+	option z_name '(UTC+10)'
+	list name '杜蒙特杜尔维尔'
+	list name '乌斯特内拉'
+	list name '弗拉迪沃斯托克'
+	list name '楚克'
+	list name '莫尔斯比港'
+	option tz '<+10>-10'
+
+config timezone 2_99
+	option index '2.99'
+	option z_name '(UTC+10)'
+	list name '关岛'
+	list name '塞班岛'
+	option tz 'ChST-10'
+
+config timezone 2_100
+	option index '2.100'
+	option z_name '(UTC+10:30)'
+	list name '澳大利亚东部标准时间'
+	option tz 'AEST-10AEDT,M10.1.0,M4.1.0/3'
+
+config timezone 2_101
+	option index '2.101'
+	option z_name '(UTC+11)'
+	list name '罗德豪维岛'
+	option tz '<+1030>-10:30<+11>-11,M10.1.0,M4.1.0'
+
+config timezone 2_102
+	option index '2.102'
+	option z_name '(UTC+11)'
+	list name '麦格理'
+	list name '马加丹'
+	list name '萨哈林'
+	list name '斯莱德内科林斯克'
+	list name '布干维尔'
+	option tz '<+11>-11'
+
+config timezone 2_103
+	option index '2.103'
+	option z_name '(UTC+11)'
+	list name '所罗门群岛'
+	list name '新喀里多尼亚'
+	option tz 'CST-11'
+
+config timezone 2_104
+	option index '2.104'
+	option z_name '(UTC+11:30)'
+	list name '诺福克岛标准时间'
+	option tz '<+11>-11<+12>,M10.1.0,M4.1.0/3'
+
+config timezone 2_105
+	option index '2.105'
+	option z_name '(UTC+12)'
+	list name '富纳富蒂'
+	list name '夸贾林'
+	list name '马朱罗'
+	list name '瑙鲁'
+	option tz '<+12>-12'
+
+config timezone 2_106
+	option index '2.106'
+	option z_name '(UTC+12)'
+	list name '斐济'
+	option tz '<+12>-12'
+
+config timezone 2_107
+	option index '2.107'
+	option z_name '(UTC+12)'
+	list name '惠灵顿'
+	list name '麦克默多'
+	list name '奥克兰'
+	option tz 'NZST-12NZDT,M9.5.0,M4.1.0/3'
+
+config timezone 2_108
+	option index '2.108'
+	option z_name '(UTC+12:45)'
+	list name '查塔姆岛'
+	option tz '<+1245>-12:45<+1345>,M9.5.0/2:45,M4.1.0/3:45'
+
+config timezone 2_109
+	option index '2.109'
+	option z_name '(UTC+13)'
+	list name '萨摩亚'
+	option tz '<+13>-13'
+
+config timezone 2_110
+	option index '2.110'
+	option z_name '(UTC+13)'
+	list name '恩德伯里'
+	list name '法考福'
+	list name '通塔普'
+	option tz '<+13>-13'
+
+config timezone 2_111
+	option index '2.111'
+	option z_name '(UTC+14)'
+	list name '基里蒂马蒂'
+	option tz '<+14>-14'
+
+config timezone 2_112
+	option index '2.112'
+	option z_name '(UTC+2)'
+	list name '开罗'
+	option tz 'EET-2EEST,M4.5.5/0,M10.5.4/24'
+
+config timezone 2_113
+	option index '2.113'
+	option z_name '(UTC+0)'
+	list name '卡萨布兰卡'
+	list name '拉巴特'
+	option tz '<+01>-1'

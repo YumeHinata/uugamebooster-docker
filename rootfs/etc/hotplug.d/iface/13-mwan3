@@ -1,0 +1,140 @@
+#!/bin/sh
+
+. /lib/functions.sh
+. /lib/functions/network.sh
+. /lib/mwan3/mwan3.sh
+
+[ "$ACTION" == "ifup" -o "$ACTION" == "ifdown" ] || exit 1
+
+if [ -n "$INTERFACE" ]; then
+	[ "" != "$(echo $INTERFACE | grep '^wan')" ] || exit 2
+fi
+
+if [ "$ACTION" == "ifup" ]; then
+	network_is_up $INTERFACE || exit 0
+	[ -n "$DEVICE" ] || exit 3
+fi
+
+config_load mwan3
+config_get_bool enabled globals 'enabled' '0'
+[ ${enabled} -gt 0 ] || exit 0
+
+# use policy routing
+[ "$(mwan3_routing_type)" = "2" ] || exit 0
+
+mwan3_get_iface_id id $INTERFACE
+
+# interface dns table index in rt_tables
+rt_index=$((id + 1000))
+
+# base pref of interface dns ip rule
+rule_pref_base=$((id * 10 + 900))
+
+IP4="/usr/sbin/ip -4"
+IP6="/usr/sbin/ip -6"
+IP=$IP4
+
+set_ip_cmd() {
+	local wan_sec=$1
+	[ "$wan_sec" = "wan6" -o "${wan_sec:0:4}" = "wan6" ] && IP=$IP6
+}
+
+create_iface_route() {
+	local interface="$1"
+	local device="$2"
+	local tb_name="$3"
+	local route_args=""
+
+	local rule_table=$(cat /etc/iproute2/rt_tables | grep "$tb_name")
+	if [ -z "$rule_table" ]; then
+		echo "$rt_index $tb_name" >>/etc/iproute2/rt_tables
+	else
+		sed -i "s/$rule_table/$rt_index $tb_name/" /etc/iproute2/rt_tables
+	fi
+
+	if [ "$IP" = "$IP6" ]; then
+		network_get_gateway6 route_args $interface
+	else
+		network_get_gateway route_args $interface
+	fi
+	if [ -n "$route_args" -a "$route_args" != "0.0.0.0" -a "$route_args" != "::" ]; then
+		route_args="via $route_args"
+	fi
+
+	log "$IP route flush table $tb_name"
+	log "$IP route add table $tb_name default $route_args dev $device"
+
+	$IP route flush table $tb_name
+	$IP route add table $tb_name default $route_args dev $device
+}
+
+delete_iface_route() {
+	local tb_name="$1"
+
+	local rule_table=$(cat /etc/iproute2/rt_tables | grep "$tb_name")
+	if [ -n "$rule_table" ]; then
+
+		log "$IP route flush table $tb_name"
+
+		$IP route flush table $tb_name
+		sed -i "/$rule_table/d" /etc/iproute2/rt_tables
+	fi
+}
+
+create_iface_rules() {
+	local tb_name="$1"
+	local ipaddr="$2"
+	local pref="$3"
+
+	log "$IP rule add pref $pref to $ipaddr table $tb_name"
+	$IP rule add pref $pref to $ipaddr table $tb_name
+}
+
+delete_iface_rules() {
+	local tb_name="$1"
+
+	for id in $($IP rule list | grep $tb_name | awk -F ":" '{print $1}'); do
+		log "$IP rule del pref $id"
+		$IP rule del pref $id
+	done
+}
+
+set_iface_dns_iprules() {
+	local tb_name="$1"
+	local interface="$2"
+	local device="$3"
+	local rule_pref="$4"
+	local count=0
+
+	create_iface_route $interface $device $tb_name
+
+	delete_iface_rules $tb_name
+
+	network_get_dnsserver dnsservers $interface
+	for dns in $dnsservers; do
+		count=$((count + 1))
+		rule_pref=$((rule_pref + count))
+		create_iface_rules $tb_name $dns $rule_pref
+	done
+}
+
+delete_iface_dns_iprules() {
+	local tb_name="$1"
+
+	delete_iface_rules $tb_name
+	delete_iface_route $tb_name
+}
+
+# choose ip command
+set_ip_cmd $INTERFACE
+
+case "$ACTION" in
+ifup)
+	set_iface_dns_iprules "${INTERFACE}_dns" $INTERFACE $DEVICE $rule_pref_base
+	;;
+ifdown)
+	delete_iface_dns_iprules "${INTERFACE}_dns"
+	;;
+esac
+
+exit 0

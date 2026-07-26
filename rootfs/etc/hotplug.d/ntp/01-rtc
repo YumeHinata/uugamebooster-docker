@@ -1,0 +1,5 @@
+#!/bin/sh
+
+logger -p notice -t "ntpsync" "01-rtc: run because ntp sync done"
+
+[ -c "/dev/rtc0" ] && hwclock -w -u

@@ -1,0 +1,3 @@
+/etc/init.d/qca-hostapd
+/usr/sbin/hostapd
+/lib/wifi/hostapd.sh

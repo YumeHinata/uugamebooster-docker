@@ -1,0 +1,2 @@
+/etc/init.d/anti_attack
+/usr/sbin/anti_attack_adjust.sh

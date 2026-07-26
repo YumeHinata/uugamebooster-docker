@@ -1,0 +1,209 @@
+#!/bin/sh
+
+LOCK_PORT_SERVICE="/var/run/port_service.lock"
+. /lib/miwifi/lib_port_service.sh
+
+
+global_init(){
+    local service="$1"
+    local default_ap_services="lag"
+    local default_router_services="lag game iptv wan wan_2"
+
+    SERVICE="$service"
+
+    ROUTER_SERVICES=$(ps_uci_get settings router_services)
+    [ -z "$ROUTER_SERVICES" ] && ROUTER_SERVICES="$default_router_services"
+
+    AP_SERVICES=$(ps_uci_get settings ap_services)
+    [ -z "$AP_SERVICES" ] && AP_SERVICES="$default_ap_services"
+
+    MULTI_SERVICES=$(ps_uci_get settings multi_services)
+
+    LIST_SERVICES="$ROUTER_SERVICES $MULTI_SERVICES"
+
+    NET_MODE="$(uci -q get xiaoqiang.common.NETMODE)"
+    [ -z "$NET_MODE" ] && NET_MODE="whc_cap"
+}
+
+check_service() {
+    local service="$1"
+    local wandt_enable vid service_vids port_vids
+
+    [ -n "$service" ] && LIST_SERVICES="$service"
+    wandt_enable=$(ps_uci_get wan wandt)
+    guest_enable=$(ps_uci_get guest enable)
+    iptv_2_enable=$(ps_uci_get iptv_2 enable)
+
+    case "$service" in
+        "wan_2")
+            LIST_SERVICES="wan ${LIST_SERVICES}"
+            ;;
+        "iptv")
+            LIST_SERVICES="${LIST_SERVICES} wan"
+            [ "1" = "$iptv_2_enable" ] && LIST_SERVICES="${LIST_SERVICES} iptv_2"
+            [ "1" = "$guest_enable" ] && LIST_SERVICES="${LIST_SERVICES} guest"
+        ;;
+        "game")
+            # wandt program's wandt_attr.ports will change, so need to restart
+            [ "1" = "$wandt_enable" ] && LIST_SERVICES="${LIST_SERVICES} wan"
+        ;;
+        "lag")
+            # wandt program's wandt_attr.ports will change, so need to restart
+            [ "1" = "$wandt_enable" ] && LIST_SERVICES="${LIST_SERVICES} wan"
+            [ "1" = "$guest_enable" ] && LIST_SERVICES="${LIST_SERVICES} guest"
+        ;;
+        *)
+        ;;
+    esac
+
+    [ "1" = "$(ps_uci_get iptv enable)"  ] && [ "0" != "$(ps_uci_get iptv_attr vid)" ] && append service_vids "$(ps_uci_get iptv_attr vid)"
+    [ "1" = "$(ps_uci_get wan wantag)"   ] && append service_vids "$(ps_uci_get wantag_attr vid)"
+    [ "1" = "$(ps_uci_get wan_2 wantag)" ] && append service_vids "$(ps_uci_get wan_2tag_attr vid)"
+    ps_uci_set "settings" "service_vids" "$service_vids"
+
+    [ "1" != "$(ps_uci_get settings ignore_vid_conflit)" ] && {
+        port_vids=$(uci show port_map | grep vid | cut -d "'" -f 2 | xargs)
+        for vid in $port_vids; do
+            list_contains service_vids "$vid" && {
+                # vid is conflict, rebuild network
+                ps_logger "vid conflict: port_vids = <$port_vids>"
+                ps_logger "vid conflict: service_vids = <$service_vids>"
+                port_map config set settings last_vlan_type ""
+                LIST_SERVICES="$ROUTER_SERVICES"
+            }
+        done
+    }
+
+    ps_check_service "$service"
+
+    ps_logger "check service finish: $LIST_SERVICES"
+    return
+}
+
+init_service() {
+    port_map rebuild proc
+    ps_init_service
+    ps_logger "init service finish"
+    return
+}
+
+stop_service() {
+    local service services
+
+    ps_pre_stop_service
+    services="$(echo "$LIST_SERVICES" | awk '{for(i=NF;i>=1;i--) printf("%s ",$i);print ""}')"
+    for service in $services; do
+        if [ "wan" = "${service:0:3}" ]; then
+            # for wan and wan_2 service
+            ps_wan_ctl stop "$service"
+        else
+            # for other service
+            ps_"${service}"_ctl stop
+        fi
+    done
+    ps_post_stop_service
+
+    ps_logger "stop service finish"
+    return
+}
+
+start_service() {
+    local service
+
+    # start all service
+    ps_pre_start_service
+    for service in $LIST_SERVICES; do
+        if [ "wan" = "${service:0:3}" ]; then
+            # for wan and wan_2 service
+            ps_wan_ctl start "$service"
+        else
+            # for other service
+            ps_"${service}"_ctl start
+        fi
+    done
+    ps_post_start_service
+
+    ps_logger "start service finish"
+    return
+}
+
+rebuild_map() {
+    # regenerate port_map config based on port_service config
+    port_map rebuild map
+    ps_logger "rebuild map finish"
+    return
+}
+
+rebuild_network() {
+    port_map rebuild network
+    ps_rebuild_network
+    ps_logger "rebuild network finish"
+}
+
+
+#******** main ********#
+global_init "$2"
+case "$1" in
+redetect)
+    shift
+    ps_wandt_ctl redetect_wan "$@"
+    exit 0
+    ;;
+reloadfw)
+    ps_reload_firewall
+    for service in $LIST_SERVICES; do
+        type "ps_${service}_ctl" | grep -qsw "function" && {
+            ps_"${service}"_ctl reload_firewall
+        }
+    done
+    exit 0
+    ;;
+reconfig)
+    if [ "default" = "$3" ]; then
+        ps_default_config "$2"
+    else
+        ps_transform_config "$2"
+    fi
+    exit 0
+    ;;
+ext)
+    shift
+    ext_process "$@"
+    exit 0
+    ;;
+esac
+
+trap "lock -u $LOCK_PORT_SERVICE; exit 1" SIGHUP SIGINT SIGTERM
+lock $LOCK_PORT_SERVICE
+check_service "$2"
+case "$1" in
+init)
+    init_service
+    ;;
+remap)
+    rebuild_map
+    ;;
+restart)
+    stop_service
+    rebuild_map
+    rebuild_network
+    start_service
+    ;;
+start)
+    start_service
+    ;;
+stop)
+    stop_service
+    ;;
+setwan)
+    shift
+    ps_setwan "$@"
+    ;;
+delwan)
+    shift
+    ps_delwan "$@"
+    ;;
+esac
+
+lock -u $LOCK_PORT_SERVICE
+exit 0

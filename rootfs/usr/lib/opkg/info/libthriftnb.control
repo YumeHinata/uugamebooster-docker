@@ -1,0 +1,9 @@
+Package: libthriftnb
+Version: 0.9.1-1
+Depends: libc, libthrift, libevent2
+Source: package/libs/thrift
+Section: opt
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 37064
+Description:  Thrift is a software framework for scalable cross-language services development. It combines a software stack with a code generation engine to build services that work efficiently and seamlessly between C++, Java, Python, PHP, Ruby, Erlang, Perl, Haskell, C#, Cocoa, Smalltalk, and OCaml.
+ libthriftnb: This library contains the Thrift nonblocking server, which uses libevent. To link this library you will also need to link libevent.

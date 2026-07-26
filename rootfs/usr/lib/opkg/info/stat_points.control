@@ -1,0 +1,8 @@
+Package: stat_points
+Version: 2.3-1.3
+Depends: libc, libcurl, lua, libjson-c, libmbedtls, libuci, milog
+Source: package/miwifi/system/stat_points
+Section: data
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 20952
+Description:  stat_points

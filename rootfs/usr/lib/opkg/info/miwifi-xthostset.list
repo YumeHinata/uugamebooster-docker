@@ -1,0 +1,3 @@
+/etc/init.d/miwifi-dname-ident
+/usr/lib/iptables/libxt_miwifi-xthostset.so
+/usr/lib/libmiwifi_dname_ident.so

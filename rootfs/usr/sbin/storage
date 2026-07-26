@@ -1,0 +1,83 @@
+#!/bin/sh
+
+###############################################
+# File : storage
+# Version: 1.0
+# Author: Hanjiayan
+###############################################
+
+. /lib/miwifi/storage/storage.sh
+
+usage(){
+    cat <<-EOF
+
+Usage:storage options
+
+Basic options:
+	dump				Dump all storage devices
+	bind <name> <uuid> <target>	Bind device mount path
+	unbind <name>			Unbind device mount path
+	used <device>			Get device used space size
+	free <device>			Get device available space size
+	uuid <device>			Get device uuid
+	umount <device>			Umount the device
+
+EOF
+    return
+}
+
+option="$1"
+
+config_load "${STORAGE_CONFIG_PATH}/storage"
+
+# options
+case "$option" in
+dump)
+	storage_dump
+	;;
+bind)
+	[ $# != 4 ] && {
+		usage
+		exit 2
+	}
+	name="$2"
+	uuid="$3"
+	target="$4"
+
+	storage_bind_partition_mount_path "$name" "$uuid" "$target"
+	;;
+unbind)
+	[ $# != 2 ] && {
+		usage
+		exit 2
+	}
+	name="$2"
+
+	storage_unbind_partition_mount_path "$name"
+	;;
+used)
+	device="$2"
+	used_size=$(storage_get_used_size "$device")
+	echo "$used_size"
+	;;
+free)
+	device="$2"
+	available_size=$(storage_get_available_size "$device")
+	echo "$available_size"
+	;;
+uuid)
+	device="$2"
+	uuid=$(storage_get_uuid_by_device "$device")
+	echo "$uuid"
+	;;
+umount)
+	device="$2"
+	storage_remove_device "$device"
+	;;
+*)
+	usage
+	exit 1
+	;;
+esac
+
+exit 0

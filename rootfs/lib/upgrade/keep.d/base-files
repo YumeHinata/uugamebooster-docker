@@ -1,0 +1,7 @@
+/etc/config/
+/etc/crontabs/
+/etc/dropbear/
+/etc/iproute2/rt_protos
+/etc/iproute2/rt_tables
+/etc/profile.d
+/etc/sysupgrade.conf

@@ -1,0 +1,15 @@
+/etc/syslog-ng.d/sprom.conf
+/etc/logrotate.d/stat_points
+/etc/logrotate.d/messages
+/etc/wan_check/conned.d/90-milog.sh
+/etc/config/milog
+/etc/wan_check/disconn.d/90-milog.sh
+/etc/syslog-ng.d/wifilog.conf
+/etc/syslog-ng.d/spweb.conf
+/etc/syslog-ng.d/sppri.conf
+/etc/traffic.d/device/90-milog.sh
+/usr/sbin/syslog_sync.sh
+/etc/init.d/milog
+/etc/syslog-ng.d/meminfo.conf
+/etc/logrotate.d/wifi_analysis
+/usr/sbin/milog.sh

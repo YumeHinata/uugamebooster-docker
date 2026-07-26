@@ -1,0 +1,85 @@
+#!/bin/sh /etc/rc.common
+
+START=19
+USE_PROCD=1
+QUIET=""
+
+firewall_disable()
+{
+	if [ ! -x /usr/sbin/check_isp ]; then
+		local netmode=$(uci -q get xiaoqiang.common.NETMODE)
+		if [ "$netmode" = "wifiapmode" ] \
+			|| [ "$netmode" = "lanapmode" ] \
+			|| [ "$netmode" = "whc_re" ]; then
+
+			return 0
+		fi
+	fi
+	return 1
+}
+
+validate_firewall_redirect()
+{
+	uci_validate_section firewall redirect "${1}" \
+		'proto:or(uinteger, string)' \
+		'src:string' \
+		'src_ip:cidr' \
+		'src_dport:or(port, portrange)' \
+		'dest:string' \
+		'dest_ip:cidr' \
+		'dest_port:or(port, portrange)' \
+		'target:or("SNAT", "DNAT")'
+}
+
+validate_firewall_rule()
+{
+	uci_validate_section firewall rule "${1}" \
+		'proto:or(uinteger, string)' \
+		'src:string' \
+		'dest:string' \
+		'src_port:or(port, portrange)' \
+		'dest_port:or(port, portrange)' \
+		'target:string'
+}
+
+service_triggers() {
+	procd_add_reload_trigger firewall	
+
+	procd_open_validate
+	validate_firewall_redirect
+	validate_firewall_rule
+	procd_close_validate
+}
+
+restart() {
+	fw3 stop
+	[ -x "/usr/sbin/arptables" ] && arptables -F
+
+	firewall_disable && return
+
+	fw3 start
+}
+
+start_service() {
+	firewall_disable && return
+
+	fw3 ${QUIET} start
+	[ -f "/usr/sbin/firewall.webinitrdr" ] && /usr/sbin/firewall.webinitrdr start
+}
+
+stop_service() {
+	fw3 flush
+	[ -x "/usr/sbin/arptables" ] && arptables -F
+}
+
+reload_service() {
+	firewall_disable && return
+	fw3 reload
+}
+
+boot() {
+	# Be silent on boot, firewall might be started by hotplug already,
+	# so don't complain in syslog.
+	QUIET=-q
+	start
+}

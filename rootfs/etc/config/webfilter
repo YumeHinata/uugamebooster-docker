@@ -1,0 +1,5 @@
+config filter 'admin'
+    option mode 'white'
+    option enable '0'
+
+

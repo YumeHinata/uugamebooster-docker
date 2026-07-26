@@ -1,0 +1,14 @@
+/etc/hotplug.d/iface/90-wan_check.sh
+/etc/wan_check/disconn.sh
+/usr/sbin/wan_check_status
+/usr/sbin/wan_check.sh
+/etc/wan_check/disconn.d/01-light_control.sh
+/etc/wan_check/conned.d/01-light_control.sh
+/etc/wan_check/link_down.sh
+/etc/config/wan_check
+/etc/wan_check/link_down.d/01-light_control.sh
+/lib/modules/5.4.213/wan_check.ko
+/etc/wan_check/conned.d/upcrash.sh
+/etc/wan_check/conned.sh
+/etc/traffic.d/linkstatus/03-wan_light_check.sh
+/etc/init.d/wan_check

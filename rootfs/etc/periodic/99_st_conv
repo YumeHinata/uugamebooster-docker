@@ -1,0 +1,79 @@
+#!/bin/ash
+
+readonly LOG_DIR="/tmp/stat_points/daily"
+readonly CONVS_DIR="/etc/sp_lib/convs"
+readonly REGEX_TYPE="^daily$"
+readonly DEST_ROM="/tmp/stat_points/pri_rom.log"
+readonly RAND_MOD=3600
+readonly TS_FILE=/var/run/statpoints.ts
+
+. /etc/sp_lib/conv_funcs.sh
+
+check_type() {
+	echo "$1" | grep -qsE "$REGEX_TYPE"
+}
+
+conv_data() {
+	local _file=$1
+	local _mode=
+	local _key=
+	local _func=
+	local _res=
+	local _dest="$DEST_ROM"
+
+	_mode=$(echo "${_file##*/}"|cut -d '_' -f1)
+	_key=$(echo "${_file##*/}"|cut -d '_' -f2)
+	_func=$(echo "${_file##*/}"|cut -d '_' -f3)
+
+	if [ "${_func:-none}" = "none" ]; then
+		grep -r "$_key=" "$LOG_DIR" \
+			| cut -d ' ' -f4- \
+			| tee -a "$_dest" >/dev/null
+	elif [ "$_func" = "custom" ]; then
+		grep -r "$_key=" "$LOG_DIR" \
+			| cut -d ' ' -f4- \
+			| sh "$_file" \
+			| tee -a "$_dest" >/dev/null
+	else
+		grep -r "$_key=" "$LOG_DIR" \
+			| cut -d ' ' -f4- \
+			| sed 's/.*=//' \
+			| "sp_$_func" \
+			| sed "s/^/$_key.$_func/" \
+			| tee -a "$_dest" >/dev/null
+	fi
+}
+
+find_convs() {
+	local _type=$1
+	local _file=
+
+	find "$CONVS_DIR" -type f \
+		| while read -r _file; do
+			conv_data "$_file"
+		done
+}
+
+adjust_time() {
+	local _base=$1
+	local _rand=
+
+	_rand=$(head -c 1000 /dev/urandom | tr -dc 0-9 | head -c8)
+	echo $((_base - (RAND_MOD / 2) + (${_rand:-0} % RAND_MOD)))
+}
+
+adjust_upload() {
+	local _adj=
+
+	_adj=$(adjust_time $(date +%s))
+	touch -t "$(date +%m%d%H%M -d @$_adj)" "$TS_FILE"
+}
+
+if ! check_type "$1"; then
+	exit 0
+fi
+
+find_convs "$1"
+
+# Adjust next upload time
+adjust_upload

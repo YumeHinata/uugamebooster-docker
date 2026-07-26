@@ -1,0 +1,7 @@
+#!/bin/sh
+logger -p notice -t "hotplug.d" "95-ddns: run because of $INTERFACE $ACTION"
+case "$ACTION" in
+ifup | ifdown)
+/etc/init.d/ddns restart &
+;;
+esac

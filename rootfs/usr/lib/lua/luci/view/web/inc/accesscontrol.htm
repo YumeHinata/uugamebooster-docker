@@ -1,0 +1,74 @@
+
+<%
+--[[
+    Info    安全中心
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+local wifiUtil = require("xiaoqiang.util.XQWifiUtil")
+local request_uri = luci.http.getenv("REMOTE_URI")
+local remote_addr = luci.http.getenv("REMOTE_ADDR")
+local mac = luci.sys.net.ip4mac(remote_addr) or ""
+local lanType = wifiUtil.getDeviceWifiIndex(mac)
+local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+local hardware = string.lower( XQSysUtil.getHardware() )
+
+local XQFunction = require("xiaoqiang.common.XQFunction")
+local netmod = 0
+local netmod = XQFunction.getnetmode()
+--2 有线中继
+--1 无线中继
+--4 mesh主设备  whc_cap
+--3 mesh从设备  whc_re
+--14 easymesh主设备 controller
+--13 easymesh从设备 agent
+--0 router
+
+%>
+<div class="mod-set mod-macfilter" id="modMacfilter" style="display:none;">
+    <div class="hd">
+        <h3><%:访问控制%></h3>
+        <div class="switch">
+            <a data-enable="1" class="btn-switch btn-switch-off" id="macfilterswitch" href="#"></a>
+        </div>
+    </div>
+    <div class="bd">
+        <%if netmod == 0 or netmod == 4 or netmod == 14 or netmod == 1 or netmod == 2 then%>
+        <div class="section" style="display:none;">
+            <h4><%:控制模式%>：</h4>
+            <p>
+                <label for="filtertype1">
+                    <input id="filtertype1" type="radio" name="filtertype" value="0" class="filtertype"> <span><%:黑名单模式（不允许列表中设备访问）%></span>
+                </label>
+				</br>
+                <label for="filtertype2">
+                    <input id="filtertype2" type="radio" name="filtertype" value="1" class="filtertype"> <span><%:白名单模式（只允许列表中设备访问）%></span>
+                </label>
+            </p>
+        </div>
+        <%end%>
+        <div class="section" style="display:none;">
+            <h4 id="typeText"><%:正在检测模式列表...%></h4>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th><%:设备名称%></th>
+                        <th><%:MAC地址%></th>
+                        <th width="80" style="padding-left:21px;"><%:操作%></th>
+                    </tr>
+                </thead>
+                <tbody id="deviceslist">
+                    <tr>
+                        <td colspan="3"><%:正在查询中...%></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="add-contral">
+                <a id="btnListAdd" href="#" class="btn btn-dft btn-m"><span><%:从在线列表添加%></span></a><a id="btnSelfAdd" href="#" class="btn btn-dft btn-m"><span><%:手工添加%></span></a>
+            </div>
+        </div>
+        <div class="form-contral">
+            <button style="display:none;" id="setWifiMacfilter" class="btn btn-primary btn-l" type="submit"><span><%:保存并生效%></span>
+            </button>
+        </div>
+    </div>
+</div>

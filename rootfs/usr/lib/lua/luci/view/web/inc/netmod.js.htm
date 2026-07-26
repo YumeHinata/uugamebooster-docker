@@ -1,0 +1,628 @@
+<%
+local XQFunction = require("xiaoqiang.common.XQFunction")
+local netmod = 0
+local netmod = XQFunction.getnetmode()
+--2 有线中继
+--1 无线中继
+--4 mesh主设备  whc_cap
+--3 mesh从设备  whc_re
+--0 router
+
+local isMesh = (netmod == 3 or netmod == 4) and "true" or "false"
+
+local capmode = XQFunction.getCAPMode()
+local features = require("xiaoqiang.XQFeatures").FEATURES
+local quick_ap_mode = (features.system.QuickApMode == "1") and 1 or 0
+%>
+
+<script>
+// r1c netmod.js
+var netmod = <%=netmod%>;
+var capmode = <%=capmode%>;
+var quick_ap_mode = <%=quick_ap_mode%>;
+var usUpdateing = false;
+$(function(){
+    var netModeDialog;
+    var meshDialog;
+    var stepwdsinit;
+    var currentmode = $('#currentnetmode').val();
+
+    $( '#btnNetmodSwitch' ).on( 'click', function( e ){
+        // alert(netmod);
+        e.preventDefault();
+            netModeDialog = $.dialog({
+                title:'<%:工作模式切换%>',
+                content: $('#tmplNetMode').html(),
+                padding: '30px 30px',
+                lock: true
+            });
+            setTimeout(function(){
+                $('#modeSelect .mode-option').eq( currentmode ).addClass('on');
+            }, 100);
+        
+    } );
+
+    //
+    var step = {
+        'prev': null,
+        'curr': 'step-select',
+        'next': null
+    };
+    var goToStep = function(stepClass){
+        step.prev = step.curr;
+        step.curr = stepClass;
+        $('.netmode-switch-dialog-cont .switch-step').hide();
+        $( "."+step.curr ).show();
+    };
+    var getWifiEncryptionStatus = function(){
+        var index = $('#ssidselect')[0].selectedIndex;
+        var selectoption = $('#ssidselect').find('option').eq(index);
+        var reg = /no-encryption/i;
+        var classname = selectoption.attr('class');
+        var result;
+
+        if( reg.test(classname) ){
+            //未加密
+            result = false;
+        }else{
+            //加密
+            result = true;
+        }
+        // console.log(classname, result);
+        return result;
+    };
+    var getWifiEncryption = function(){
+        var index = $('#ssidselect')[0].selectedIndex;
+        var selectoption = $('#ssidselect').find('option').eq(index);
+        var encryption = selectoption.attr('data-encryption');
+        return encryption;
+    };
+    var showHideWifiInput = function(){
+        var flag = getWifiEncryptionStatus();
+        var wifiInputDiv = $('#wdsWifiInputDivForSelect');
+        var wifiInputDivWep = $('#wdsWifiInputDivForSelectWep');
+        if( flag ){
+            wifiInputDiv.find('input').val('');
+            wifiInputDivWep.find('input').val('');
+            if( getWifiEncryption() == 'WEP' ){
+                wifiInputDivWep.show();
+                wifiInputDiv.hide();
+            }else{
+                wifiInputDivWep.hide();
+                wifiInputDiv.show();
+            }
+        }else{
+            wifiInputDiv.hide();
+            wifiInputDiv.find('input').val('12345678');
+            wifiInputDivWep.hide();
+            wifiInputDivWep.find('input').val('12345');
+        }
+    };
+    var updateWifiList = function(){
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api", "xqnetwork", "wifi_list")%>',
+            type: 'GET',
+            dataType: 'json',
+            success: function(res){
+                usUpdateing = false;
+                if( res.code == 0 ){
+                    if( res.list.length > 0 ){
+                        var fragment = document.createDocumentFragment();
+                        var list = res.list;
+                        var select = $('#ssidselect');
+
+                        $(list).each(function(index, item){
+                            var option = $('<option />');
+                            option.attr('data-bandwidth', item.bandwidth);
+                            option.attr('data-ssid',  item.ssid );
+                            //option.text( '<p>'+item.ssid+'</p>' );
+                            var p = $('<p/>');
+                            p.css({'max-width':'200px','display':'inline-block','overflow':'hidden','text-overflow':'ellipsis','text-indent':0,'white-space':'nowrap'})
+                            p.append(item.ssid)
+                            option.append( p );
+
+                            option.attr('data-band', item.band);
+                            option.attr('data-channel', item.channel);
+                            option.attr('data-enctype', item.enctype);
+                            option.attr('data-encryption', item.encryption);
+                            option.addClass( 'wds-wifi-option' );
+                            if( item.encryption == 'NONE' ){
+                                if( item.signal > 75 ){
+                                    option.addClass( 'no-encryption-4' );
+                                }else if( item.signal > 50 && item.signal <= 75 ){
+                                    option.addClass( 'no-encryption-3' );
+                                }else if( item.signal > 25 && item.signal <= 50 ){
+                                    option.addClass( 'no-encryption-2' );
+                                }else if( item.signal <= 25 ){
+                                    option.addClass( 'no-encryption-1' );
+                                }
+                            }else{
+                                if( item.signal > 75 ){
+                                    option.addClass( 'is-encryption-4' );
+                                }else if( item.signal > 50 && item.signal <= 75 ){
+                                    option.addClass( 'is-encryption-3' );
+                                }else if( item.signal > 25 && item.signal <= 50 ){
+                                    option.addClass( 'is-encryption-2' );
+                                }else if( item.signal <= 25 ){
+                                    option.addClass( 'is-encryption-1' );
+                                }
+                            }
+                             if(item.band == '5g' || item.band == '5gh'){
+                                var text = document.createElement("i");
+                                text.textContent = "5G";
+                                option.append(text);
+                            }
+                            fragment.appendChild(option[0]);
+                        });
+                        select.empty();
+                        $('#dummydata').hide().empty();
+                        select[0].appendChild(fragment);
+                        select.nextAll('.textContent').remove();
+                        $.selectBeautify({
+                            'maxHeight': '205px'
+                        });
+                        select.next('.textContent').show();
+                        showHideWifiInput();
+                    }else{
+                        $.alert('<%:未能扫描到Wi-Fi,请确保射频开启%>');
+                    }
+                }
+            }
+        });
+    };
+
+    $.sub('netmode:addEvent', function(){
+        $('body').delegate('.mode-option', 'click', function(){
+            $('#modeSelect .mode-option').removeClass('on');
+            $(this).addClass('on');
+            var index = $('#modeSelect .mode-option').index(this);
+            var currentmode = $('#currentnetmode').val();
+            console.log(currentmode, index);
+            if( currentmode == index ){
+                $('#modeSelectBtn').addClass('btn-primary-disabled');
+            }else{
+                $('#modeSelectBtn').removeClass('btn-primary-disabled');
+            }
+        });
+        $('body').delegate('#modeSelectBtn', 'click', function(e){
+            e.preventDefault();
+            var currentmode = $('#currentnetmode').val();
+            if( $(this).hasClass('btn-primary-disabled') ){
+                return;
+            }
+            var mode = $('#modeSelect .on').attr('data-mode');
+             stepwdsinit = function(){
+                $.selectBeautify({
+                    'maxHeight': '205px'
+                });
+                updateWifiList();
+                $.formInit();
+                goToStep('step-wds');
+            };
+            if( mode == 0 ){
+                if( currentmode  == 1 ){
+                    goToStep('step-repeat2normal');
+                    
+                }else if( currentmode == 2 ){
+                    goToStep('step-lanap2normal');
+                }
+            } else if( mode == 1 ) {
+                // $.getJSON('<%=luci.dispatcher.build_url("api","xqnetwork","wifi_detail_all")%>')
+                //     .done(function( rsp ){
+                //         if( rsp.code == 0 ){
+                //             if( rsp.info[2] && parseInt(rsp.info[2].status) === 1 ) {
+                //                 $.confirm('<%:切换为无线中继模式后，您的访客wifi将被关闭%>', function() {
+                //                     stepwdsinit();
+                //                 });
+                //             } else {
+                //                 stepwdsinit();
+                //             }
+                //         }
+                //     });
+                if(netmod == 4 || capmode == 1){
+                    var meshDialogMsg = '';
+                    meshDialogMsg = $('#meshDialogContent').html().replace("2.", "");
+                    meshDialog = $.dialog({
+                        title: "<%:提示%>",
+                        content: meshDialogMsg,
+                        padding: '30px 40px',
+                        lock: true,
+                        width: 450
+                    });
+                        
+                }else{
+                    <%if features["wifi"]["mesh"] and features["wifi"]["mesh"] == "0" then%>
+                    $.confirm('<div style="text-align: left"><div><%:如果您已开启访客wifi，切换为无线中继模式后，访客wifi将会关闭%></div></div>', function() {
+                                    stepwdsinit();
+                                });
+                    <%else%>
+                    $.confirm('<div style="text-align: left"><div><%:1.如果您已开启访客wifi，切换为无线中继模式后，访客wifi将会关闭%></div><div><%:2.切换为无线中继模式后，Mesh功能将不可用%></div></div>', function() {
+                                    stepwdsinit();
+                                });
+                    <%end%>
+                }
+                
+            }else{
+                $.formInit();
+                // $.getJSON('<%=luci.dispatcher.build_url("api","xqnetwork","wifi_detail_all")%>')
+                //     .done(function( rsp ) {
+                //         if (rsp.code == 0) {
+                //             if( rsp.info[2] && parseInt(rsp.info[2].status) === 1 ) {
+                //                 $.confirm('<%:切换为有线中继模式后，您的访客wifi将被关闭%>', function() {
+                //                     goToStep('step-lanap');
+                //                 });
+                //             } else {
+                //                 goToStep('step-lanap');
+                //             }
+                //         }
+                //     });
+                if (quick_ap_mode == 1) {
+                    goToStep('step-lanap');
+                } else {
+                    $.confirm('<div style="text-align: left"><div><%:如果您已开启访客wifi，切换为有线中继模式后，访客wifi将会关闭%></div></div>', function() {
+                                    goToStep('step-lanap');
+                                });
+                }
+            }
+        });
+        $('body').delegate('#changeSelectType', 'click', function(e){
+            e.preventDefault();
+            $('#wds .toggle-element').toggle();
+            $('#ssidSelectDiv').toggleClass('flag-is-select');
+            if( /<%:输入%>/.test( $(this).text() ) ){
+                $(this).html('<%:选择已有网络%>');
+            }else{
+                $(this).html('<%:手工输入网络名称%>');
+            }
+        });
+        $('body').delegate('#lanapform', 'submit', function(e){
+            e.preventDefault();
+            var frm = this.name;
+
+            // 1  连上网线  0  断开网线
+            var getWanLinkStatus = function(){
+                if ( quick_ap_mode == 1 )
+                    return 1;
+
+                var link;
+                $.ajax({
+                    url: '<%=luci.dispatcher.build_url("api", "xqnetwork", "wan_link")%>',
+                    type: 'GET',
+                    async: false,
+                    dataType: 'json',
+                    success: function(res){
+                        if( res.code == 0 ){
+                            link = res.link;
+                        }else{
+                            $.alert(res.msg);
+                        }
+                    }
+                });
+                return link;
+            };
+
+            if ( getWanLinkStatus() == 1 ) {
+                var reqData = {};
+                reqData.ssid = $.trim( $('#lanapform input[name="lanapssid"]').val() );
+                reqData.password = $.trim( $('#lanapform input[name="lanappassword"]').val() );
+
+                goToStep('step-setting');
+                //不允许关掉
+                $('.panel .close').hide();
+                $.ajax({
+                    url: '<%=luci.dispatcher.build_url("api", "xqnetwork", "set_lan_ap")%>',
+                    type: 'POST',
+                    data: reqData,
+                    dataType: 'json',
+                    success: function(res){
+                        if( res.code == 0 ){
+                            var haswifi50 = $('#currentssid2').length > 0 ? true : false;
+                            var haswifi5g2 = $('#currentssid3').length > 0 ? true : false;
+                            $('#lanapssid24').html( $('#currentssid1').val() );
+                            $('#lanapssid50').html( $('#currentssid2').val() );
+                            $('#lanapssid5g2').html( $('#currentssid3').val() );
+                            if( $('#currentssid1').attr('data-status') == '0' ){
+                                $('#lanapssid24').closest('p').hide();
+                            }
+                            if( !haswifi50 || $('#currentssid2').attr('data-status') == '0' ){
+                                $('#lanapssid50').closest('p').hide();
+                            }
+                            if( !haswifi5g2 || $('#currentssid3').attr('data-status') == '0' ){
+                                $('#lanapssid5g2').closest('p').hide();
+                            }
+                            if( $('#currentssid1').attr('data-status') == '0' && ( !haswifi50 || $('#currentssid2').attr('data-status') == '0' ) ){
+                                $('.wifi-on-text').hide();
+                            }
+                            if( $('#currentssid1').val() == $('#currentssid2').val() &&
+                                $('#currentssid1').attr('data-status') == '1' &&
+                                $('#currentssid2').attr('data-status') == '1' ){
+                                $('#lanapssid50').closest('p').hide();
+                            }
+                            if( $('#currentssid1').val() == $('#currentssid3').val() &&
+                                $('#currentssid1').attr('data-status') == '1' &&
+                                $('#currentssid3').attr('data-status') == '1' ){
+                                $('#lanapssid5g2').closest('p').hide();
+                            }
+                            $('#lanapip').html(res.ip);
+                            goToStep('step-succ-lanap');
+                            $('.panel .close').show();
+                        }else{
+                            netModeDialog.close();
+                            $.alert( res.msg );
+                        }
+                    },
+                    error: function(){
+                        netModeDialog.close();
+                        $.alert('<%:尝试有线中继失败了%>');
+                    }
+                });
+            }else{
+                var nowanlinktipDialog = $.dialog({
+                    'title': '<%:提示%>',
+                    'width': 396,
+                    'content': $('#tmplnowanlinktip').html()
+                });
+                $('#isconnectedwan').click(function(e){
+                    e.preventDefault();
+                    nowanlinktipDialog.close();
+                });
+                $('#abandonlanap').click(function(e){
+                    e.preventDefault();
+                    nowanlinktipDialog.close();
+                    netModeDialog.close();
+                });
+            }
+        });
+        $('body').delegate('#wds', 'submit', function(e){
+            e.preventDefault();
+            var validator = Valid.checkAll( this );
+            var selectType = $('#ssidSelectDiv').hasClass('flag-is-select') ? true : false;
+            var checkboxisCheck = $('#newssidtextInnetmod').is( ':checked' );
+            if ( validator ) {
+                var index = $('#ssidselect')[0].selectedIndex;
+                var selectoption = $('#ssidselect').find('option').eq(index);
+                var reqDataSelect = {
+                    ssid: StringH.decode4Html( selectoption.attr('data-ssid') ),
+                    encryption: selectoption.attr('data-encryption'),
+                    enctype: selectoption.attr('data-enctype'),
+                    password: $('#wds input[name="passwordforselect"]').val(),
+                    channel: selectoption.attr('data-channel'),
+                    bandwidth: selectoption.attr('data-bandwidth'),
+                    band: selectoption.attr('data-band')
+                };
+                if( getWifiEncryption() == 'WEP' ) {
+                    reqDataSelect.password = $('#wds input[name="passwordforselectwep"]').val();
+                }
+                var reqDataInput = {
+                    ssid: $.trim( $('#wds input[name="ssidinput"]').val() ),
+                    password: $('#wds input[name="passwordforinput"]').val()
+                };
+                if( $.trim( reqDataInput.password ).length == 0 ){
+                    reqDataInput.encryption = 'NONE';
+                }
+                var reqData;
+                if( selectType ){
+                    reqData = reqDataSelect;
+                }else{
+                    reqData = reqDataInput;
+                }
+
+                if( !checkboxisCheck ){
+                    reqData.nssid = $.trim( $('#wds input[name="ssidinputfornewssid"]').val() );
+                    reqData.nencryption = $.trim( $('#wds select[name="encryptionkey"]').val() );
+                    if( reqData.nencryption != 'none' ){
+                        reqData.npassword = $.trim( $('#wds input[name="passwordfornewssid"]').val() );
+                    }
+                }
+                goToStep('step-setting');
+                //不允许关掉
+                $('.panel .close').hide();
+                $.ajax({
+                    url: '<%=luci.dispatcher.build_url("api", "xqnetwork", "set_wifi_ap")%>',
+                    type: 'POST',
+                    data: reqData,
+                    dataType: 'json',
+                    success: function(res){
+                        if( res.code == 0 ){
+                            var haswifi50 = res.ssid5G ? true : false;
+                            var haswifi5g2 = res.ssid5G2 ? true : false;
+                            $('#wifiapssid24').html( StringH.encode4Html( res.ssid ) );
+                            if (haswifi50 && res.ssid5G != res.ssid) {
+                                $('#wifiapssid50').html( StringH.encode4Html( res.ssid5G ) ).closest("p").show();
+                            }
+                            if (haswifi5g2 && res.ssid5G2 != res.ssid && (!haswifi50 || res.ssid5G2 != res.ssid5G)) {
+                                $('#wifiapssid5g2').html( StringH.encode4Html( res.ssid5G2 ) ).closest("p").show();
+                            }
+                            $('#newip').html(res.ip);
+                            goToStep('step-succ');
+                            $('.panel .close').show();
+                        }else{
+                            netModeDialog.close();
+                            $.alert('<%:尝试无线中继失败了%>');
+                        }
+                    },
+                    error: function(){
+                        netModeDialog.close();
+                        $.alert('<%:尝试无线中继失败了%>');
+                    }
+                });
+            }
+        });
+
+        //repeat2normal
+        $('body').delegate('#repeattonormal', 'click', function(e){
+            e.preventDefault();
+            goToStep('step-setting');
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "xqnetwork", "disable_ap")%>',
+                type: 'GET',
+                dataType: 'json',
+                success: function(res){
+                    if( res.code == 0 ){
+                        setTimeout(function(){
+                            var haswifi50 = res.ssid5G ? true : false;
+                            var haswifi5g2 = res.ssid5G2 ? true : false;
+                            $('#normalssid').html( StringH.encode4Html( res.ssid ) );
+                            if (haswifi50 && res.ssid5G != res.ssid) {
+                                $('#normalssid50').html( StringH.encode4Html( res.ssid5G ) ).closest("p").show();
+                            }
+                            if (haswifi5g2 && res.ssid5G2 != res.ssid && (!haswifi50 || res.ssid5G2 != res.ssid5G)) {
+                                $('#normalssid5g2').html( StringH.encode4Html( res.ssid5G2 ) ).closest("p").show();
+                            }
+                            $('#normalip').html(res.lanip);
+                            goToStep('step-succ-repeat2normal');
+                        }, 30*1000);
+                    }else{
+                        netModeDialog.close();
+                        $.alert(res.msg);
+                    }
+                },
+                error: function(){
+                    netModeDialog.close();
+                    $.alert('<%:尝试工作模式切换失败了%>');
+                }
+            });
+        });
+        $('body').delegate('#unrepeattonormal', 'click', function(e){
+            e.preventDefault();
+            netModeDialog.close();
+        });
+        //lanap2normal
+        $('body').delegate('#lanaptonormal', 'click', function(e){
+            e.preventDefault();
+            goToStep('step-setting');
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "xqnetwork", "disable_lan_ap")%>',
+                type: 'GET',
+                dataType: 'json',
+                success: function(res){
+                    if( res.code == 0 ){
+                        setTimeout(function(){
+                            $('#lanap2normalssid').html( $('#currentssid1').val() );
+                            $('#lanap2normalssid50').html( $('#currentssid2').val() );
+                            
+                            if($('#currentssid1').val() == $('#currentssid2').val()){
+                                $('#lanap2normalssid50').closest('p').hide();
+                            }
+                            if($('#currentssid3').val()){
+                                $('#lanap2normalssid5g2').html( $('#currentssid3').val() );
+                                if($('#currentssid1').val() == $('#currentssid3').val()){
+                                    $('#lanap2normalssid5g2').closest('p').hide();
+                                }
+                            }
+                            
+                            $('#lanap2normalip').html(res.ip);
+                            goToStep('step-succ-lanap2normal');
+                        }, 30*1000);
+                    }else{
+                        netModeDialog.close();
+                        $.alert(res.msg);
+                    }
+                },
+                error: function(){
+                    netModeDialog.close();
+                    $.alert('<%:尝试工作模式切换失败了%>');
+                }
+            });
+        });
+        $('body').delegate('#unlanaptonormal', 'click', function(e){
+            e.preventDefault();
+            netModeDialog.close();
+        });
+
+        $('body').delegate('#btnSucc', 'click', function(e){
+            e.preventDefault();
+            netModeDialog.close();
+
+            if('<%=features["system"]["isp_name"]%>' == "CMCC" || '<%=features["system"]["isp_name"]%>' == "CTCC"){
+                window.location.replace('<%=luci.dispatcher.build_url("web", "home")%>')
+            }
+        });
+        $('body').delegate('#btnSuccLanap', 'click', function(e){
+            e.preventDefault();
+            netModeDialog.close();
+            if('<%=features["system"]["isp_name"]%>' == "CMCC" || '<%=features["system"]["isp_name"]%>' == "CTCC"){
+                window.location.replace('<%=luci.dispatcher.build_url("web", "home")%>')
+            }
+        });
+        $('body').delegate('#btnSuccRepeat2normal', 'click', function(e){
+            e.preventDefault();
+            netModeDialog.close();
+        });
+        $('body').delegate('#btnSuccLanap2normal', 'click', function(e){
+            e.preventDefault();
+            netModeDialog.close();
+            if('<%=features["system"]["isp_name"]%>' == "CMCC" || '<%=features["system"]["isp_name"]%>' == "CTCC"){
+                window.location.replace('<%=luci.dispatcher.build_url("web", "home")%>')
+            }
+        });
+
+        $('body').delegate('#btnFreshenWIFI', 'click', function(e){
+            $('#ssidselect').next('.textContent').html('<%:正在扫描附近的无线网络%>');
+            if (usUpdateing) {
+                return;
+            }
+            usUpdateing = true;
+            updateWifiList();
+        });
+        $('body').delegate('#dummydata .wds-wifi-option', 'click', function(e){
+            e.preventDefault();
+            showHideWifiInput()
+        });
+        //tips
+        $('body').delegate('#wds .ico-tip', 'click', function(e){
+            var self = this;
+            var item = $(this).closest('.tip-div').find('.tip-wrap');
+            var curClick = $(this).attr('data-click');
+            if (  curClick && curClick == 1 ) {
+                item.hide();
+                $(this).attr( 'data-click', 0 );
+                return;
+            }
+            e.stopPropagation();
+            item.show();
+            $(this).attr( 'data-click', 1 );
+            $(document).click(function(e){
+                if ( !$(e.target).is(".inner") ) {
+                    item.hide();
+                    $(self).attr( 'data-click', 0 );
+                }
+            });
+        });
+        //新建无线网络
+        $('body').delegate('#newssidtextInnetmod', 'click', function(e){
+            if( $(this).is( ':checked') ){
+                $('#newssiddivInnetmod').hide();
+            }else{
+                $('#newssiddivInnetmod').show();
+            }
+        });
+        //加密方式
+        var endOldPassVal;
+        $('body').delegate('#encryptionkeyInnetmod', 'change', function(e){
+            var val = $(this).val();
+            var item = $('#newssidpassitemInnetmod');
+            var oldPassVal = $.trim( item.find('input').val() );
+            if( oldPassVal != '12345678' ){
+                endOldPassVal = oldPassVal;
+            }
+            if( val == 'none' ){
+                item.hide();
+                item.find('input').val('12345678');
+            }else{
+                item.find('input').val( endOldPassVal );
+                item.show();
+            }
+        });
+        $('body').delegate('#meshDialogOpen', 'click', function (e) {
+            meshDialog.close()
+            stepwdsinit();
+        })
+        $('body').delegate('#meshDialogCancel', 'click', function (e) {
+            meshDialog.close();
+        })
+    });
+
+    $.pub('netmode:addEvent');
+});
+</script>

@@ -1,0 +1,10 @@
+Package: libexfat
+Version: 1.0.1-1
+Depends: libc, libuuid
+Source: package/utils/exfat-utils
+License: GPL-2.0
+Section: libs
+Maintainer: Daniel Golle <daniel@makrotopia.org>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 2284
+Description:  Library for exFAT File System tools

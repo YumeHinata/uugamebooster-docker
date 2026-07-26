@@ -1,0 +1,28 @@
+#!/bin/sh
+
+. /lib/miwifi/hotupgrade/hotupgrade_func.sh
+
+do_mount_hotupgrade() {
+    if [ ! -d "$HOTUPGRADE_DIR" ]; then
+        return 0
+    fi
+
+    if [ -z "$(ls $HOTUPGRADE_DIR)" ]; then
+        return 0
+    fi
+
+    for dir in $(find $HOTUPGRADE_DIR -maxdepth 1 -mindepth 1 -type d); do
+        local hotupgrade_name=$(basename $dir)
+        if [ ! -f $dir/$STATUS_FILE_NAME -o "$HOTUPGRADE_STATUS_END" != "$(cat $dir/$STATUS_FILE_NAME)" ]; then
+            if [ -f "/lib/miwifi/hotupgrade/${hotupgrade_name}.sh" ]; then
+                . "/lib/miwifi/hotupgrade/${hotupgrade_name}.sh"
+                hotupgrade_preinit_clean
+            fi
+            rm -rf $dir
+            continue
+        fi
+        hotupgrade_file_mount $hotupgrade_name
+    done
+}
+
+boot_hook_add preinit_main do_mount_hotupgrade

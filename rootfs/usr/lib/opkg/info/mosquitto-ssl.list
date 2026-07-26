@@ -1,0 +1,8 @@
+/etc/init.d/mosquitto
+/etc/mosquitto/mosquitto.conf
+/usr/bin/mosquitto_passwd
+/usr/share/xiaoqiang/cc/mq_a1
+/usr/share/xiaoqiang/cc/mq_b1
+/usr/sbin/mosquitto
+/usr/sbin/mqautogen.lua
+/etc/config/mosquitto

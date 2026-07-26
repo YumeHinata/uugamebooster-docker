@@ -1,0 +1,11 @@
+Package: libev
+Version: 4.22-1
+Depends: libc
+Source: feeds/packages/libs/libev
+License: BSD-2-Clause
+Section: libs
+Maintainer: Karl Palsson <karlp@tweak.net.au>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 18430
+Description:  A full-featured and high-performance event loop that is loosely modelled after
+ libevent, but without its limitations and bugs.

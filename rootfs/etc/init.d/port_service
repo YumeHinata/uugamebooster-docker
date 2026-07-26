@@ -1,0 +1,38 @@
+#!/bin/sh /etc/rc.common
+
+START=50
+PROG="/usr/sbin/port_service"
+
+[ ! -f "$PROG" ] && return
+
+start() {
+    local xqfac="1"
+    local link_check_module
+
+    [ -f "/proc/xiaoqiang/ft_mode" ] && xqfac=$(cat /proc/xiaoqiang/ft_mode)
+
+    link_check_module="/lib/modules/$(uname -r)/linkcheck.ko"
+    [ -f "$link_check_module" ] && insmod "$link_check_module"
+
+    $PROG init
+    [ "$xqfac" = "1" ] && return
+    $PROG restart
+    return
+}
+
+stop() {
+    $PROG stop
+    return
+}
+
+boot() {
+    [ "$(uci -q get misc.mesh.iptv)" = "1" ] && [ "$(uci -q get xiaoqiang.common.NETMODE)" = "whc_re" ] && \
+    [ "$(uci -q get port_service.iptv.enable)" = "1" ] && [ "$(uci -q get port_service.iptv_2.enable)" = "1" ] && \
+    {
+        uci set port_service.iptv.enable=0
+        uci set port_service.iptv_2.enable=0
+        uci commit port_service
+    }
+
+    start "$@"
+}

@@ -1,0 +1,3 @@
+/etc/init.d/qca-nss-ppe-ds
+/lib/modules/5.4.213/qca-nss-ppe-ds.ko
+/etc/modules.d/51-qca-nss-ppe-ds

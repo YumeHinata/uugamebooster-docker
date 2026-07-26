@@ -1,0 +1,13 @@
+/usr/bin/miotcentralctld
+/periodic/02_check_central.sh
+/etc/miio/bound.d/10-central.sh
+/etc/init.d/miio_central_base
+/etc/periodic/02_check_central.sh
+/usr/bin/central_software_pack.sh
+/etc/docker-up.d/10-central.sh
+/lib/config_post_ota/miio_central_notify.sh
+/usr/bin/miotcentralctl
+/etc/central_software_pack/platform.conf
+/usr/bin/miot_centralctld_hook.sh
+/etc/miio/unbound.d/10-central.sh
+/usr/bin/mdnsd

@@ -1,0 +1,12 @@
+Package: libpcap
+Version: 1.10.1
+Depends: libc
+Source: package/libs/libpcap
+License: BSD-3-Clause
+LicenseFiles: LICENSE
+Section: libs
+Maintainer: Felix Fietkau <nbd@nbd.name>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 94382
+Description:  This package contains a system-independent library for user-level network packet
+ capture.

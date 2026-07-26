@@ -1,0 +1,4 @@
+
+config ota settings
+	option enabled 1
+

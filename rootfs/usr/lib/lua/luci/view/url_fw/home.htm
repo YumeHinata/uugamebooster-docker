@@ -1,0 +1,131 @@
+<%
+    local LuciHttp = require("luci.http")
+    local UBUS = require("ubus")
+    local ver = require("xiaoqiang.XQVersion").webVersion
+
+    local session = "0"
+    local type = "unknown"
+    local policy = "reject"
+    local tagName = "unknown"
+    local url = LuciHttp.getenv("HTTP_HOST")
+
+    local ubus = UBUS.connect()
+    if ubus then
+        local session_info = ubus:call("antiy_url", "getSession", {
+            ["timeout"] = 600, ["url"] = url}
+        )
+        if session_info and session_info["session"] then
+            session = session_info["session"]
+        end
+
+        local result = ubus:call("antiy_url", "getTag", {["url"] = url})
+        if result and result["tag"] then
+            type = result["tag"]
+        end
+
+        result = ubus:call("uci", "get", {
+            ["config"] = "antiy_url_class",
+            ["section"] = type,
+            ["option"] = "name"
+        })
+        if result and result["value"] then
+            tagName = result["value"]
+        end
+
+        result = ubus:call("uci", "get", {
+            ["config"] = "antiy_url_policy",
+            ["section"] = type,
+            ["option"] = "policy"
+        })
+        if result and result["value"] then
+            policy = result["value"]
+        end
+    end
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<link rel="stylesheet" href="<%=resource%>/web/css/bc.css?v=<%=ver%>">
+<link rel="stylesheet" href="<%=resource%>/url_fw/css/url_fw.css?v=<%=ver%>">
+</head>
+<body>
+<div id="doc">
+    <div class="mod-url_fw">
+        <img class="pic" src="<%=resource%>/web/img/safe_d_pic.png">
+        <div class="content" id="reject">
+            <h1 class="contetTitle"><%:该访问已被小米路由器屏蔽%></h1>
+            <p class="urlType">这是因为该网站所属“<span class="name"><%=tagName%></span>”类别被您设置为“自动屏蔽”。若您仍期望访问该页面，可前往米家APP，在路由器网络安全保护功能内，调整拦截策略</p>
+        </div>
+        <div class="content" id="alarm">
+            <div class="contetTitle">
+                <h1 class="contetTitleDes">该网址被小米路由器判断为<span style="color: yellow;">危险</span></h1>
+            </div>
+            <div class="contentDes"><%:网址类型%>：<span class="name" style="color: yellow;"><%=tagName%></sapn></div>
+            <div class="enteryButtonWrap"><span class="enteryButton"><%:加入白名单，并继续访问%></span></div>
+            <div style="clear: both;"></div>
+        </div>
+    </div>
+    <%include("web/inc/footer")%>
+</div>
+</body>
+<script src="/js/jquery-1.8.3.js?v=<%=ver%>"></script>
+<script>
+    var html = document.getElementsByTagName("html")
+    html[0].style.fontSize = window.screen.width/10+"px"
+    
+    if('<%=policy%>' == "reject"){
+        $("#reject").show();
+    }else{
+        $("#alarm").show();
+    }
+
+    $(document).on('loading:start', function () {
+        var isLoading = $('html').hasClass('isloading');
+        if (isLoading) {
+            return;
+        }
+        var tplMask = '<div id="panel-loading-mask" class="panel-mask" style="position:fixed;left:0;top:0;style:none;"></div>',
+            tplLoading = ''
+                + '<div id="panel-loading" class="panel-loading" style="style:none;">'
+                + '<img src="/img/loading2.gif">'
+                + '</div>',
+            $mask = $(tplMask),
+            $loading = $(tplLoading),
+            zIndex = 10000;
+        $mask.css({
+            'z-index': zIndex,
+            width: $(window).width() + 'px',
+            height: $(window).height() + 'px'
+        });
+        $loading.css({'z-index': zIndex + 1});
+        $mask.appendTo(document.body).show();
+        $loading.appendTo(document.body).show();
+        $('html').addClass('isloading');
+    });
+
+    $(document).on('loading:stop', function () {
+        $('html').removeClass('isloading');
+        $('#panel-loading, #panel-loading-mask').remove();
+    });
+        
+    $("body").on("click", ".enteryButton", function() {
+        $(document).trigger('loading:start');
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api", "url_fw", "add_whitelist")%>',
+            dataType: 'json',
+            timeout: 20000,
+            type: 'POST',
+            data: {url:'<%=url%>', session:'<%=session%>'},
+            success: function( rsp ){
+                if( rsp.code === 0 ){
+                    console.log("Success");
+                    $(document).trigger('loading:stop');
+                    window.location.reload();               
+                }
+            }       
+        })
+    })
+
+
+</script>
+</html>

@@ -1,0 +1,12 @@
+nf_tables
+nft_numgen
+nft_ct
+nft_counter
+nft_log
+nft_limit
+nft_reject
+nft_reject_ipv4
+nft_reject_ipv6
+nft_reject_inet
+nft_redir
+nft_quota

@@ -1,0 +1,6 @@
+/usr/sbin/miio_bt_upgrade_to_h4
+/usr/sbin/testbeacon
+/etc/miio/unbound.d/miio_bt_unbind.sh
+/etc/init.d/miio_bt
+/etc/miio/bound.d/miio_bt_bind.sh
+/usr/sbin/miio_bt

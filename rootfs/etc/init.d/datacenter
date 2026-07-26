@@ -1,0 +1,40 @@
+#!/bin/sh /etc/rc.common
+
+START=80
+STOP=20
+
+USE_PROCD=1
+PROG=/usr/sbin/datacenter
+
+change_stopedApp_status() {
+	dir=/userdisk/appdata/app_infos
+	if [ -d "$dir" ];then
+		for file in `ls $dir | grep [^a-zA-Z]\.manifest$`
+		do
+			sed -i '/^status/s/\(.*\"\)\(7\)\(\".*\)/\1'5'\3/g' $dir/$file
+		done
+	fi
+}
+
+start_service() {
+
+	#删除记录插件pid的文件
+	rm -f /userdisk/appdata/plugin_id_info.cfg
+
+	#处理一部分data文件夹没有写权限的问题
+
+	if [ ! -d /userdisk/data ]
+	then
+		mkdir /userdisk/data
+	fi
+	chmod 777 /userdisk/data
+
+	#更改被任务管理器关闭的插件状态
+	change_stopedApp_status
+
+	procd_open_instance
+	procd_set_param command "$PROG"
+	procd_set_param respawn
+	procd_close_instance
+}
+

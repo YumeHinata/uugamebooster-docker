@@ -1,0 +1,12 @@
+Package: cryptsetup-openssl
+Version: 1.7.5-1
+Depends: libc, libblkid, libuuid, libpopt, lvm2, libdevmapper, libopenssl
+Source: feeds/packages/utils/cryptsetup
+License: GPL-2.0+ LGPL-2.1+
+LicenseFiles: COPYING COPYING.LGPL
+Section: utils
+Maintainer: Daniel Golle <daniel@makrotopia.org>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 86284
+Description:  Cryptsetup-luks
+ linked against openssl

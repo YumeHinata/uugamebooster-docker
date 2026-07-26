@@ -1,0 +1,12 @@
+/usr/share/messaging/messaging.conf
+/usr/bin/matool
+/etc/wan_check/conned.d/49-ma-conned.sh
+/etc/config/messaging
+/etc/init.d/messagingagent.sh
+/etc/ssl/certs/ca-mm.crt
+/lib/config_post_ota/messagingagent_broker_update.sh
+/etc/messagingagent/unbind.sh
+/usr/share/messaging/serverkey_2.pub
+/usr/share/messaging/serverkey.pub
+/usr/bin/messagingagent
+/usr/bin/mald

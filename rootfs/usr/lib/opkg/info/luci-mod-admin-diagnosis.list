@@ -1,0 +1,17 @@
+/usr/lib/lua/luci/view/diagnosis/home.htm
+/www/xiaoqiang/diagnosis/img/ico_r1d.png
+/www/xiaoqiang/diagnosis/img/ico_succ.png
+/www/xiaoqiang/diagnosis/css/diagnosis.css
+/www/xiaoqiang/diagnosis/img/ico_internet.png
+/www/xiaoqiang/diagnosis/img/bg_line_err.png
+/www/xiaoqiang/diagnosis/css/neterr.css
+/www/xiaoqiang/diagnosis/font/din.eot
+/www/xiaoqiang/diagnosis/img/ico_devices.png
+/www/xiaoqiang/diagnosis/img/logo.png
+/www/xiaoqiang/diagnosis/index.html
+/www/xiaoqiang/diagnosis/wanerr.html
+/www/xiaoqiang/diagnosis/img/progress.gif
+/www/xiaoqiang/diagnosis/img/ico_r1d_err.png
+/www/xiaoqiang/diagnosis/font/din.woff
+/www/xiaoqiang/diagnosis/img/ico_warn.png
+/usr/lib/lua/luci/controller/diagnosis/index.lua

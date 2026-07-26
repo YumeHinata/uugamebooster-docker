@@ -1,0 +1,31 @@
+#!/usr/bin/lua
+
+local json          = require("json")
+local posix         = require("posix")
+local netutil       = require("xiaoqiang.util.XQNetUtil")
+local util          = require("luci.util")
+local xqfunction    = require("xiaoqiang.common.XQFunction")
+local xqmbox        = require("xiaoqiang.module.XQMessageBox")
+
+function log(...)
+    posix.openlog("check-new-firmware", LOG_NDELAY, LOG_USER)
+    for i, v in ipairs({...}) do
+        posix.syslog(4, util.serialize_data(v))
+    end
+    posix.closelog()
+end
+
+function rom_upgrade_check()
+    local check = netutil.checkUpgrade()
+    if check and check.needUpdate == 1 then
+        xqmbox.addMessage({["type"] = 1, ["data"] = {["version"] = check.version}})
+        log("Has new firmware to upgrade..")
+    end
+end
+
+function main()
+    log("Start to check upgrade firmware")
+    rom_upgrade_check()
+end
+
+main()

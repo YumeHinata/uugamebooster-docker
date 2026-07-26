@@ -1,0 +1,10 @@
+Package: ppp-mod-pptp
+Version: 2.4.7-12
+Depends: libc, kmod-pptp, kmod-mppe, resolveip
+Source: package/network/services/ppp
+License: BSD-4-Clause
+Section: net
+Maintainer: Felix Fietkau <nbd@nbd.name>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 17461
+Description:  This package contains a PPtP plugin for ppp.

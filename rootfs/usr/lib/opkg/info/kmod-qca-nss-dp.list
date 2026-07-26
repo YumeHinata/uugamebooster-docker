@@ -1,0 +1,6 @@
+/etc/init.d/qca-nss-dp
+/etc/hotplug.d/iface/17-bridge
+/usr/bin/edma_dump
+/lib/modules/5.4.213/qca-nss-dp.ko
+/etc/config/qca_nss_dp
+/etc/modules.d/31-qca-nss-dp

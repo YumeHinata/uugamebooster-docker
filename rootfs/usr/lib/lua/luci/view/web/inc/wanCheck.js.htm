@@ -1,0 +1,481 @@
+<%
+local features = require("xiaoqiang.XQFeatures").FEATURES
+local XQMultiWan = require "xiaoqiang.module.XQMultiWanPolicy"
+local MultiWanEnable = XQMultiWan.getStatus()
+%>
+<script>
+    //需求改动：lan口聚合入口位置修改为局域网设置，故做判断拆分
+    if(window.location.href.indexOf("wan") > -1){
+        // if enabled multiwan, then hide wanCheckWarp
+        if ('<%=MultiWanEnable%>' == "1" && '<%=features["system"]["cpe"]%>' != "1")
+        {
+            $("#wanCheckWarp").hide();
+        } else {
+            $(".wanCheckWrap").show();
+            getData("wan");
+        }
+    }else if(window.location.href.indexOf("lannetset") > -1){
+        // if has ports_custom feature, lan lag will be shown in ports_custom page
+        if ((window.location.href.indexOf("apsetting") > -1 || '<%=features["apps"]["ports_custom"]%>' != "1") && '<%=features["apps"]["lanPort"]%>' == "1")
+        {
+            $(".lanCheckWrap").show();
+            getData("lag");
+        }
+    }
+    var olddata = '';
+    var oldLagInfo = '';
+	$('#wanCheckForm').delegate('input[type=text], input[type=checkbox], input[type=radio]', 'click', onControlFocus)
+                  .delegate('.ipt-text,.textContent', 'click', onControlFocus);
+
+	function onControlFocus() {
+        	$(this).parents('form').find('.btn-primary, .btn-dft').removeClass('hidden');
+		if($('#wanCheck').val() == 2 ){
+			$(".form-message").html("<%:接入到运营商宽带的网线可以插在任意网口%>")
+		}
+
+        // $("#static-ipv6,#native,#nat").find('.btn-primary, .btn-dft').removeClass('hidden');
+    	}
+
+	    //遍历LAN
+	function handlerLan(rsp,type){
+        var list = rsp.ports;
+        var container = $('.selectLan');
+        var tpl = $('#lanList').html();
+        //wan口选择
+        var wanContainer = $('.selectWan');
+        var wantpl = $('#wanList').html();
+        var arr = [];
+        var serviceTranslations = {
+            "聚合口": "<%:聚合口%>",
+            "游戏网口": "<%:游戏网口%>"
+        };
+        for(var i = 0; i < list.length; i++){
+            var item = {
+                index:list[i].index,
+                service:serviceTranslations[list[i].service] || list[i].service,
+                speed:list[i].speed,
+                speed:list[i].speed,
+                port:list[i].port,
+                label:list[i].label,
+            }
+            arr.push(item)
+        }
+        var tplData = {
+            list:arr
+        }
+        if(type == "lag"){
+            container.html( tpl.tmpl(tplData) );
+            setTimeout(function(){
+                clickFunction();
+                setVaule();
+            },10)
+        }else if(type == "wan"){
+            if (typeof(wantpl) == "undefined") {
+                return;
+            }
+            wanContainer.html( wantpl.tmpl(tplData) );
+            setTimeout(function(){
+                //wanClick();
+                setWanValue();
+                //setVaule();
+                if(rsp.description && rsp.description!=''){
+                    var description = '<div class="description">'+ rsp.description +'</div>'
+                    $('.selectWan').append(description);
+                    $(".selectWan").css("padding-bottom","40px")
+                }
+            },10)
+        }
+    }
+
+
+
+//LAN 口聚合选择
+    function clickFunction(obj,service){
+        $(".lanListDiv").on( 'click', function(){
+            if($(this).hasClass("disable") ){
+                return;
+            }else{
+                $(this).toggleClass("active");
+                if($(this).hasClass("active")){
+                    $(this).find(".service").text("<%:聚合口%>")
+                }else{
+                    $(this).find(".service").text("LAN")
+                }
+
+                if($(".lanListDiv.active").length==2){
+                    $(".lanBtn").show();
+                    $(".lanListDiv").each(function(){
+                        if($(this).hasClass("active") == false){
+                            $(this).addClass("disable")
+                       }
+                    })
+                }
+                else{
+                    $(".lanBtn").hide();
+
+                    // find the selected port, and save it's speed
+                    var active_speed = '';
+                    $(".lanListDiv").each(function(){
+                        if($(this).hasClass("active")){
+                            active_speed = $(this).attr("data-speed")
+                        }
+                    })
+
+                    if('' == active_speed){
+                        //no selected port, so we show all
+                        $(".lanListDiv").each(function(){
+                            if($(this).hasClass("disable") && $(this).attr("data-service")!='WAN' && $(this).attr("data-service")!='IPTV'){
+                                $(this).removeClass("disable")
+                            }
+                        })
+                    }else{
+                        //only show those ports which has same speed with the first selected port
+                        $(".lanListDiv").each(function(){
+                            if($(this).attr("data-speed")==active_speed && $(this).attr("data-service")!='WAN' && $(this).attr("data-service")!='IPTV'){
+                                $(this).removeClass("disable")
+                            }else{
+                                $(this).addClass("disable")
+                            }
+                        })
+                    }
+                }
+            }
+        })
+    }
+    //获取数据
+    function getData(type){
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api", "misystem", "get_ps_service")%>',
+            dataType: 'json',
+            timeout: 5000,
+            type: 'GET',
+            data: {"service":type},
+            success: function( rsp ){
+            if( rsp.code == 0 ){
+                //存入
+                oldData = rsp
+                if(type == "lag"){
+                    var lagInfo = rsp['lag'];
+                    oldLagInfo = lagInfo;
+                    //开关
+                    if( lagInfo.enable == 1){
+                            $('#lagSwitch')
+                            .removeClass('btn-switch-off')
+                            .addClass('btn-switch-on')
+                            .attr('data-on', '1');
+                            $('.lagItem').show()
+                    }else{
+                        $('#lagSwitch')
+                            .removeClass('btn-switch-on')
+                            .addClass('btn-switch-off')
+                            .attr('data-on', '0');
+                            $('.lagItem').hide()
+                    }
+                }else if(type == "wan"){
+                    oldWandtData = rsp.wan;
+                    if(rsp.wan.mode == 2){
+                        $("#wanCheck").val(2);
+                        $("#wanCheckForm .dummy").text("<%:WAN/LAN口自适应（推荐）%>");
+                    }else if(rsp.wan.mode == 1){
+                        $("#wanCheck").val(1);
+                        $("#wanCheckForm .dummy").text("<%:固定WAN口%>");
+                    }else if(rsp.wan.mode == 3){
+                        $("#wanCheck").val(3);
+                        $("#wanCheckForm .dummy").text("<%:全LAN口%>");
+                    }
+                }
+                $.getJSON('<%=luci.dispatcher.build_url("api","misystem","get_ps_map")%>').done(function(rsp){
+                if( rsp.code == 0 ){
+                    //遍历LAN
+                    if(type == "lag"){
+                        handlerLan(rsp,"lag")
+                    }else if(type == "wan"){
+                        handlerLan(rsp,"wan")
+                        $("#wanCheckForm").show()
+                    }
+                }
+            })
+            }
+        }
+    })
+    }
+
+    //lan口聚合提交
+    $('#btnSubmitlanCheck').on('click',function(e){
+        e.preventDefault();
+        var enable =  $('#lagSwitch').attr('data-on');
+        var ports = '';
+        $(".lanListDiv").each(function(index,item){
+            if($(item).hasClass("active")){
+                ports = ports + ' ' + $(item)[0].dataset.port;
+            }
+        })
+        var requestData = {
+            "service":"lag",
+            "enable":enable,
+            "ports":ports.substring(1),
+            "mode":oldLagInfo.mode
+        }
+        setLag(requestData,"lag");
+    })
+    //lan口开关
+    $('#lagSwitch').on('click',function(e){
+        e.preventDefault();
+        var on = $(this).attr('data-on') == 1 ? 1 : 0;
+        var enable = oldLagInfo.enable
+        if(enable == 0){
+            if( on == 0){
+                $(this).removeClass('btn-switch-off')
+                .addClass('btn-switch-on')
+                .attr('data-on', '1');
+                $('.lagItem').show()
+            }else{
+                $(this).removeClass('btn-switch-on')
+                .addClass('btn-switch-off')
+                .attr('data-on', '0');
+                $('.lagItem').hide()
+            }
+
+        }else{
+            var enable =  $('#lagSwitch').attr('data-on')==1?0:1;
+            var requestData = {
+                "service":"lag",
+                "enable":enable,
+                "ports":"",
+                "mode":oldLagInfo.mode
+                }
+
+                $.dialog({
+                    id : "confirm",
+                    width: 390,
+                    title : "<%:提示信息%>",
+                    content : "<%:确认是否关闭LAN口聚合功能%>",
+                    ok: function(){
+                        setLag(requestData,"lag");
+                    },
+                    cancel: function () {
+                    }
+                }).lock();
+            }
+        })
+    //wan口设置
+    $('#btnSubmitwanCheck').on('click', function(e){
+        e.preventDefault();
+        var ports = '';
+            $(".wanListDiv").each(function(index,item){
+                if($(item).hasClass("active")){
+                    ports = ports + ' ' + $(item)[0].dataset.port
+                }
+            })
+            var requestData = {
+                "service":"wan",
+                "mode":$("#wanCheck").val(),
+            }
+            if($("#wanCheck").val() == 1){
+                requestData.wan_port = ports.substring(1)
+            }
+            if(ports == '' && $("#wanCheck").val() == 1){
+                $.alert( '<%:请选择网口%>' );
+                return
+            }
+            //$('#btnSubmitwanCheck').addClass('btn-primary-disabled').prop('disabled', true).find('span').text('<%:保存中...%>');
+            setLag(requestData,"wan")
+    })
+    //设置lag wan
+    function setLag(requestData,type){
+        $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "misystem", "set_ps_service")%>',
+                dataType: 'json',
+                timeout: 5000,
+                type: 'POST',
+                data: requestData,
+                success: function( rsp ){
+                  //$.pub('loading:stop');
+                  if( rsp.code === 0 ){
+                    //setTimeout(function(){setVaule()}) ;
+                    if(type == "lag"){
+                        getData("lag");
+                        //$("#lanCheckForm").find('.btn-primary, .btn-dft').addClass('hidden');
+                        $(".lanBtn").hide();
+                    }else if(type == "wan"){
+                        getData("wan");
+                        $.loadingDialog({
+                            title : '<%:修改WAN口选择%>',
+                            content : '<%:设置成功，正在重启，请等待…%>',
+                            cancel: false
+                        }).lock().time( 10*1000 );
+                        setTimeout( function(){
+                            window.location.reload( true );
+                        }, 10*1000 );
+
+                        $("#wanCheckForm").find('.btn-primary, .btn-dft').addClass('hidden');
+                        //$("#btnSubmitwanCheck").hide();
+                    }
+                  } else {
+                    $.alert( rsp.msg )
+                    $('#btnSubmitwanspeed').removeClass('btn-primary-disabled').prop('disabled', false).find('span').text('<%:保存%>');
+                  }
+                },
+                error: function() {
+                  //$.pub('loading:stop');
+                  $.alert( '<%:网络异常，请检查是否联网%>' );
+                }
+            });
+    }
+    //lan口赋值
+    function setVaule(){
+        var portString = oldLagInfo.ports;
+        if(portString !='' && portString!=undefined){
+            var stringResult = portString.split(' ');
+            $.each(stringResult,function (index,value){
+                $(".lanListDiv").each(function(index,item){
+                if($(item)[0].dataset.port == value){
+                    $(item).addClass("active");
+                    $(item).removeClass("disable");
+                }
+            })
+            })
+            $(".lanListDiv").each(function(){
+                if($(this).hasClass("active") == false){
+                    $(this).addClass("disable")
+                }
+            })
+        }
+    }
+
+    //wan口
+    function wanClick(){
+        $(".wanListDiv").on("click",function(){
+            if($(this).hasClass("disable") == false ){
+                // first, set all LAN and WAN active port's service text to "LAN".
+                $(".wanListDiv").each(function(){
+                    if($(this).attr("data-service")=='LAN' || $(this).attr("data-service")=='WAN'){
+                        $(this).find(".service").text("LAN")
+                    }
+                })
+
+                // then, set the port's service text to "WAN" which is clicked by user.
+                $(this).addClass("active");
+                $(this).siblings().removeClass("active");
+                $(this).find(".service").text("WAN")
+                $(this).siblings().attr("data-service")
+                $("#wanCheckForm").find('.btn-primary, .btn-dft').removeClass('hidden');
+            }
+        })
+    }
+
+    //wan口设置初始值
+    function setWanValue(){
+        if(oldWandtData.mode == 2 && oldWandtData.wan_port == -1){//智能
+            $(".wanListDiv").each(function(){
+                if($(this).hasClass("disable") == false){
+                    $(this).addClass("green")
+                    $(this).find(".service").text("WAN/LAN")
+                }
+            })
+            $(".form-message").text("<%:未检测到宽带网线接入，请将网线连接到任意高亮网口%>")
+            $(".wanListDiv").unbind("onclick");
+
+        }else if(oldWandtData.mode == 2 && oldWandtData.wan_port !=-1){
+            var wanPort = parseInt(oldWandtData.wan_port);
+            $(".form-message").text("<%:智能识别网口“{$wanPort}”作为WAN口%>".tmpl({wanPort: wanPort}));
+        }
+        else if(oldWandtData.mode == 1 && oldWandtData.wan_port !=-1){
+            $(".form-message").text("")
+            $(".wanListDiv").removeClass("green");
+            $(".form-message").text("<%:请选择网口%>")
+            wanClick();
+            $(".auto-sense").hide();
+        }else if(oldWandtData.mode == 3){
+            $(".form-message").text("");
+            $(".wanListDiv").each(function(){
+                if($(this).hasClass("disable") == false){
+                    $(this).find(".service").text("LAN")
+                }
+            })
+            $(".auto-sense").hide();
+        }
+
+        $(".wanListDiv").each(function(index,item){
+                if($(item)[0].dataset.port == oldWandtData.wan_port){
+                    $(item).addClass("active");
+                    $(item).removeClass("disable");
+                    if(oldWandtData.mode == 2){
+                        $(this).siblings().addClass("disable");
+                    }
+                    return
+                }
+        })
+    }
+    //wan口选择
+    $("#wanCheck").change(function(){
+        $(".wanListDiv").removeClass("green");
+        $(".wanListDiv").removeClass("active");
+        $(".auto-sense").hide();
+        if($(this).val() == 1){//固定wan口
+            wanClick();
+            $(".wanListDiv").each(function(){
+                if($(this).hasClass("active") == false && $(this).attr("data-service")=='LAN'){
+                    $(this).find(".service").text("LAN")
+                    $(this).removeClass("disable");
+                }
+                else if($(this).attr("data-service")=='WAN'){
+                    if(oldWandtData.mode == 1){
+                        $(this).find(".service").text("WAN");
+                        $(this).addClass("active")
+                    }else{
+                        $(this).find(".service").text("LAN");
+                        $(this).removeClass("disable");
+                    }
+
+                }
+            })
+            //if(oldWandtData.wan_port ==-1){
+                $(".form-message").text("<%:请选择网口%>")
+           // }else{
+              //  $(".form-message").text("")
+            //}
+        }else if($(this).val() == 2){
+            if(oldWandtData.mode == 2&& oldWandtData.wan_port !=-1){
+                var wanPort = parseInt(oldWandtData.wan_port);
+                $(".form-message").text("<%:智能识别网口“{$wanPort}”作为WAN口%>".tmpl({wanPort: wanPort}));
+                $(".wanListDiv").each(function(index,item){
+                if($(item)[0].dataset.port == oldWandtData.wan_port){
+                    $(this).find(".service").text("WAN");
+                    $(this).addClass("active");
+                    $(this).siblings().addClass("disable");
+                    return
+                }
+            })
+            }else{
+                $(".wanListDiv").each(function(){
+                    if($(this).hasClass("disable") == false || $(this).attr("data-service")=='LAN'){
+                        $(this).find(".service").text("WAN/LAN");
+                        $(this).addClass("green");
+                    }
+                })
+                $(".form-message").text("<%:未检测到网络，请用网线将猫连接到路由器的任一网口%>")
+            }
+
+            $(".wanListDiv").unbind("click");
+            $(".auto-sense").show();
+            //setWanValue()
+        }else if($(this).val() == 3){
+            $(".wanListDiv").unbind("click");
+            $(".form-message").text("");
+            $(".wanListDiv").each(function(){
+                if($(this).attr("data-service")=='LAN' || $(this).attr("data-service")=='WAN'){
+                    $(this).find(".service").text("LAN")
+                    $(this).removeClass("disable");
+                }
+            })
+        }
+    })
+    //helping
+    $("#lanOpen").click(function(){
+        $(".lan-section-help").show();
+    })
+    $("#lanClose").click(function(){
+        $(".lan-section-help").hide();
+    })
+</script>

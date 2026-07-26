@@ -1,0 +1,968 @@
+<%
+--[[
+    Info    路由器端口转发
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+local XQLanWanUtil = require("xiaoqiang.util.XQLanWanUtil")
+local ip = XQLanWanUtil.getLanIp()
+local features = require("xiaoqiang.XQFeatures").FEATURES
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/nat.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/dmz.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+    <div id="doc">
+        <%include("web/inc/header")%>
+        <div id="bd" data-ip="<%=ip%>">
+        <%if features["apps"]["natpro"] == "1" then%>
+            <%include("web/inc/natpro")%>
+        <%else%>
+            <div class="mod-set mod-nat">
+                <div class='hd'>
+                    <h3><%:端口转发%></h3>
+                    <!--
+                    <div class='switch'>
+                        <a href="#" data-status="0" class="btn-switch btn-switch-on" id="btnnat"></a>
+                    </div>
+                    -->
+                </div>
+                <div class="bd">
+                    <h3><%:端口转发规则列表：%></h3>
+                    <form name="portFormEdit">
+                        <table class="table table-nat">
+                            <thead>
+                                <tr>
+                                    <th><%:名称%></th>
+                                    <th><%:协议%></th>
+                                    <th><%:外部端口%></th>
+                                    <th><%:内部IP地址%></th>
+                                    <th><%:内部端口%></th>
+                                    <!--    <th><%:状态%></th> -->
+                                    <th class="center" width="230"><%:操作%></th>
+                                </tr>
+                            </thead>
+                            <tbody id="natlist_port">
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+            </div>
+
+            <div class="mod-set mod-nat">
+                <div class="bd">
+                    <h3><%:范围转发规则列表：%></h3>
+                    <form name="rangeFormEdit">
+                        <table class="table  table-nat">
+                            <thead>
+                                <tr>
+                                    <th><%:名称%></th>
+                                    <th><%:协议%></th>
+                                    <th><%:起始端口%></th>
+                                    <th><%:结束端口%></th>
+                                    <th><%:目标IP%></th>
+                                    <!-- <th><%:状态%></th> -->
+                                    <th class="center" width="230"><%:操作%></th>
+                                </tr>
+                            </thead>
+                            <tbody id="natlist_range">
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+            </div>
+        <%end%>
+
+            <!-- dmz -->
+
+            <div class="mod-dmz mod-set">
+                <div class="hd">
+                    <h3>DMZ</h3>
+                    <div class='switch'>
+                        <a href="#" data-status="0" class="btn-switch btn-switch-off" id="btndmz"></a>
+                    </div>
+                </div>
+                <div class="bd">
+                    <div class="mod-dmz" id="dmzinfo">
+                        <%:开启DMZ功能可以将内网某一个设备的IP映射到外网，方便从外网访问到该设备。%>
+                    </div>
+                    <div class="mod-dmz" id="appdmz" style="display:none;">
+                        <form class="form form-dmz" name="dmzset" id="dmzset">
+                            <div class="form-item form-item-input">
+                                <!-- <label class="k dmz-k" style="width: 10em;right: 16px;"><%:DMZ IP地址%></label> -->
+                                <span class="v vi">
+                                    <span id="prefix" class="ippfix"></span>
+                                    <input name="ipval1" reqMsg="<%:IP地址最后一位%>" datatype="hostnumber" minValue="0" maxValue="254" id="ipval1" type="text" class="ipt-text iplimit no-init" maxlength="3">
+                                    <span>.</span>
+                                    <input name="ipval2" reqMsg="<%:IP地址最后一位%>" datatype="hostnumber" minValue="2" maxValue="254" id="ipval2" type="text" class="ipt-text iplimit no-init" maxlength="3">
+                                    <span class="t"><%:DMZ IP地址%></span>
+                                </span>
+                                <em class="t"></em>
+                            </div>
+                            <div class="item-more">
+                                <span><%:DMZ状态：%></span>
+                                <span class=""><span id="ipOK"><%:未生效%></span></span>
+                            </div>
+                            <div class="form-contral">
+                                <a class="btn btn-primary btn-l" id="save"><span><%:应用%></span></a>
+                                <!-- <a class="btn btn-dft" id="cancel"><span><%:取消%></span></a> -->
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+             <!--upnp-->
+             <%if features["system"]["upnp"] ~= "0" then%>
+             <%include("web/setting/upnp")%>
+             <%end%>
+        </div>
+    </div>
+
+    <%include("web/inc/footer")%>
+    <%if features["system"]["upnp"] == "0" then%>
+    <%include("web/inc/g.js")%>
+    <%end%>
+    <%if features["apps"]["natpro"] == "1" then%>
+    <%include( "web/inc/natpro.js")%>
+    <%end%>
+
+</div>
+
+<script type="tmpl/html" id="tpl_new_port">
+<form id="portForm" name="portForm" class="form form-horizontal">
+    <div class="form-item form-item-input">
+        <label for="name" class="k"><%:名称%></label>
+        <span class="v"><input type="text" name="name" reqMsg="<%:名称%>" value="" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item-select" style="margin-left: 107px;">
+        <label for="proto" class="k"><%:协议%></label>
+        <span class="v">
+            <select  name="proto" class="beautify" style="">
+                <option value='1'>TCP</option>
+                <option value='2'>UDP</option>
+                <option value='3'><%:TCP和UDP%></option>
+            </select>
+        </span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input">
+        <label for="sport" class="k"><%:外部端口%></label>
+        <span class="v"><input type="text" name="sport" reqMsg="<%:外部端口%>" datatype="portnum" minValue="1" maxValue="65535" value="" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input input-ip">
+        <label for="ip" class="k"><span class="portIpAdress"><%:内部IP地址：%></span><span class="iphere"></span></label>
+        <span class="v">
+            <input type="text" name="ip1" reqMsg="<%:IP地址最后一位%>" datatype="hostnumber" minValue="0" maxValue="" value="{$thirdStr}" class="ipt-text no-init" {js print(!$isEdit? "readonly": "")} />
+            <span>.</span>
+            <input type="text" name="ip2" reqMsg="<%:IP地址最后一位%>" datatype="hostnumber" minValue="2" maxValue="254" value="" class="ipt-text no-init" />
+        </span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input">
+        <label for="dport" class="k"><%:内部端口%></label>
+        <span class="v"><input type="text" name="dport" reqMsg="<%:内部端口%>" datatype="portnum" minValue="1" maxValue="65535" value="" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-contral">
+    </div>
+</form>
+</script>
+
+<script type="tmpl/html" id="tpl_new_range">
+<form id="rangeForm" name="rangeForm" class="form form-horizontal">
+    <div class="form-item form-item-input">
+        <label for="name" class="k"><%:名称%></label>
+        <span class="v"><input type="text" name="name" reqMsg="<%:名称%>" value="" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item-select" style="margin-left: 107px;">
+        <label for="proto" class="k"><%:协议%></label>
+        <span class="v">
+            <select  name="proto" class="beautify" style="">
+                <option value='1'>TCP</option>
+                <option value='2'>UDP</option>
+                <option value='3'><%:TCP和UDP%></option>
+            </select>
+        </span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input">
+        <label for="fport" class="k"><%:起始端口%></label>
+        <span class="v"><input type="text" name="fport" reqMsg="<%:起始端口%>" datatype="portnum" minValue="1" maxValue="65535" value="" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input">
+        <label for="tport" class="k"><%:结束端口%></label>
+        <span class="v"><input type="text" name="tport" reqMsg="<%:结束端口%>" datatype="portnum" minValue="1" maxValue="65535" value="" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input input-ip">
+        <label for="ip" class="k"><%:目标IP：%><span class="iphere"></span></label>
+        <span class="v">
+            <input type="text" name="ip1" reqMsg="<%:IP地址最后一位%>" datatype="hostnumber" minValue="0" maxValue="254" value="{$thirdStr}" class="ipt-text no-init" {js print(!$isEdit? "readonly": "")} />
+            <span>.</span>
+            <input type="text" name="ip2" reqMsg="<%:IP地址最后一位%>" datatype="hostnumber" minValue="2" maxValue="254" value="" class="ipt-text no-init" />
+        </span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-contral">
+    </div>
+</form>
+</script>
+<script type="text/template" id="tpl_tr_port">
+{for(var i=0;i<$arr.length;i++)}
+    <tr>
+        <td>{js print( StringH.encode4Html( $arr[i].name ) )}</td>
+        <td>
+            {if($arr[i].proto == 1)}TCP{/if}
+            {if($arr[i].proto == 2)}UDP{/if}
+            {if($arr[i].proto == 3)}<%:TCP和UDP%>{/if}
+        </td>
+        <td>{$arr[i].srcport}</td>
+        <td>{$arr[i].destip}</td>
+        <td>{$arr[i].destport}</td>
+     <!--   <td><%:未生效%></td> -->
+        <td class="center">
+            <a class="btn btn-dft delPort" href="javascript:;" data-port="{$arr[i].srcport}" data-proto="{$arr[i].proto}"><span><%:删除%></span></a>
+        </td>
+    </tr>
+{/for}
+</script>
+
+<script type="text/template" id="tpl_tr_port_edit">
+<form id="portForm" name="portForm" class="form form-horizontal">
+    <div class="form-item form-item-input">
+        <label for="name" class="k"><%:名称%></label>
+        <span class="v"><input type="text" name="name" reqMsg="<%:名称%>" value="{$item.name}" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-select">
+        <label for="proto" class="k"><%:协议%></label>
+        <span class="v">
+            <select  name="proto" class="beautify" style="">
+                <option value='1' {js print($item.proto == 1? "selected": "")}>TCP</option>
+                <option value='2' {js print($item.proto == 2? "selected": "")}>UDP</option>
+                <option value='3' {js print($item.proto == 3? "selected": "")}><%:TCP和UDP%></option>
+            </select>
+        </span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input">
+        <label for="sport" class="k"><%:外部端口%></label>
+        <span class="v"><input type="text" name="sport" reqMsg="<%:外部端口%>" datatype="portnum" minValue="1" maxValue="65535" value="{$item.srcport}" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input input-ip">
+        <label for="ip" class="k"><%:内部IP地址：%><span class="iphere"></span></label>
+        <span class="v"><input type="text" name="ip" reqMsg="<%:IP地址最后一位%>" datatype="hostnumber" minValue="2" maxValue="254" value="{$item.destip}" class="ipt-text no-init" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input">
+        <label for="dport" class="k"><%:内部端口%></label>
+        <span class="v"><input type="text" name="dport" reqMsg="<%:内部端口%>" datatype="portnum" minValue="1" maxValue="65535" value="{$item.destport}" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-contral">
+    </div>
+</form>
+</script>
+<script type="text/template" id="tpl_tr_range">
+{for(var i=0;i<$arr.length;i++)}
+    <tr>
+        <td>{js print( StringH.encode4Html( $arr[i].name ) )}</td>
+        <td>
+            {if($arr[i].proto == 1)}TCP{/if}
+            {if($arr[i].proto == 2)}UDP{/if}
+            {if($arr[i].proto == 3)}<%:TCP和UDP%>{/if}
+        </td>
+        <td>{$arr[i].srcport.f}</td>
+        <td>{$arr[i].srcport.t}</td>
+        <td>{$arr[i].destip}</td>
+        <!-- <td><%:未生效%></td> -->
+        <td class="center">
+            <a class="btn btn-dft delRange" href="javascript:;" data-port="{$arr[i].srcport.f}" data-proto="{$arr[i].proto}"><span><%:删除%></span></a>
+        </td>
+    </tr>
+{/for}
+</script>
+<script type="text/template" id="tpl_tr_range_edit">
+<form id="rangeForm" name="rangeForm" class="form form-horizontal">
+    <div class="form-item form-item-input">
+        <label for="name" class="k"><%:名称%></label>
+        <span class="v"><input type="text" name="name" reqMsg="<%:名称%>" value="{$item.name}" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-select">
+        <label for="proto" class="k"><%:协议%></label>
+        <span class="v">
+            <select  name="proto" class="beautify" style="">
+                <option value='1' {js print($item.proto == 1? "selected": "")}>TCP</option>
+                <option value='2' {js print($item.proto == 2? "selected": "")}>UDP</option>
+                <option value='3' {js print($item.proto == 3? "selected": "")}><%:TCP和UDP%></option>
+            </select>
+        </span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input">
+        <label for="fport" class="k"><%:起始端口%></label>
+        <span class="v"><input type="text" name="fport" reqMsg="<%:起始端口%>" datatype="portnum" minValue="1" maxValue="65535" value="{$item.srcport.f}" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input">
+        <label for="tport" class="k"><%:结束端口%></label>
+        <span class="v"><input type="text" name="tport" reqMsg="<%:结束端口%>" datatype="portnum" minValue="1" maxValue="65535" value="{$item.srcport.t}" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-item form-item-input">
+        <label for="ip" class="k"><%:目标IP%></label>
+        <span class="v"><input type="text" name="ip" reqMsg="<%:目标IP%>" datatype="ipaddr" value="{$item.destip}" class="ipt-text" /></span>
+        <em class="t"></em>
+    </div>
+
+    <div class="form-contral">
+    </div>
+</form>
+</script>
+
+<script>
+var isEdit = true
+var thirdStr = 31
+var modelNat = (function(){
+	return {
+		init : function(){
+
+        // save ip for later use
+        var ip = $('#bd').data('ip');
+        var iparr = ip.split('.');
+        thirdStr = iparr[2]
+        iparr.pop();
+        iparr.pop();
+        var ipprefix = iparr.join('.') + '.';
+        window.ipprefix = ipprefix;
+
+        // newPost
+            $('body').on('click', '.newPort' ,function(e) {
+                var dlg = window.art.dialog({
+                    title: '<%:新建端口转发规则%>',
+                    content: StringH.tmpl($('#tpl_new_port').html(), {thirdStr: thirdStr,isEdit:isEdit}),
+                    initialize: function() {
+                        $.selectBeautify();
+                        $.formInit();
+                        $('.iphere').text( window.ipprefix);
+                    },
+                    lock: true,
+                    fixed: true,
+                    okValue: '<%:添加%>',
+                    ok: function() {
+                        e.preventDefault();
+                        var $portForm = $('#portForm'),
+                                data = $portForm.serialize(), ip;
+
+                        ip = $portForm.find('.iphere').text() + $portForm.find('input[name="ip1"]').val() + '.' + $portForm.find('input[name="ip2"]').val();
+                        data = data.replace(/ip=\d{1,3}/, 'ip=' + ip);
+                        data = data.replace(/ip1=\d{1,3}/, 'ip=' + ip);
+                        data = data.replace(/&ip2=\d{1,3}/, '');
+                        var validator = Valid.checkAll( $portForm[0] );
+                        if (validator) {
+                            modelNat.addPort(data, 'new');
+                        } else {
+                            return false;
+                        }
+                    }
+                });
+            });
+
+            // delPort
+            $('#natlist_port').on('click', '.delPort', function(e) {
+                e.preventDefault();
+                var port = $(this).data('port');
+                var proto = $(this).data('proto');
+                var dlg = window.art.dialog({
+                    title: '<%:端口转发%>',
+                    content: '<%:确定要删除这条规则吗？%>',
+                    lock: true,
+                    fixed: true,
+                    ok: function() {
+                        modelNat.delPort(port, proto);
+                    },
+                    cancel: function() {}
+                })
+            });
+
+            // editPort
+            $('#natlist_port').on('click', '.editPort', function(e) {
+                e.preventDefault();
+                var item = $(e.currentTarget).data('item');
+                modelNat.editPort(item, e);
+            });
+
+            // confirmEdit port
+            // $('#natlist_port').on('click', '.confirmEdit', function(e) {
+
+            //     var data = $(e.target).parents('form').serialize();
+            //     var validator = FormValidator.checkAll('portFormEdit', [
+            //         {
+            //             name: 'ip',
+            //             display :'<%:IP地址最后一位%>',
+            //             rules: 'required|is_natural|less_than[255]|greater_than[1]'
+            //         },
+            //         {
+            //             name: 'name',
+            //             display: '<%:名称%>',
+            //             rules: 'required'
+            //         },
+            //         {
+            //             name: 'sport',
+            //             display: '<%:外部端口%>',
+            //             rules: 'required|is_natural|less_than[65536]'
+            //         },
+            //         {
+            //             name: 'dport',
+            //             display: '<%:内部端口%>',
+            //             rules: 'required|is_natural|less_than[65536]'
+            //         }
+            //     ]);
+            //     if (validator) {
+            //         modelNat.addPort(data, 'edit');
+            //     }
+            //     e.preventDefault();
+            // });
+
+            // cancelEdit port
+            $('#natlist_port').on('click', '.cancelEdit', function(e) {
+                e.preventDefault();
+                var $tr = $(e.currentTarget).parent().parent();
+                $tr.html(modelNat.savedItem);
+            });
+
+            // newRange
+            $('body').on('click', '.newRange', function(e) {
+                var dlg = window.art.dialog({
+                    title: '<%:新建范围转发规则%>',
+                    content: StringH.tmpl($('#tpl_new_range').html(), {thirdStr: thirdStr,isEdit:isEdit}),
+                    initialize: function() {
+                        $.selectBeautify();
+                        $.formInit();
+                        $('.iphere').text( window.ipprefix );
+                    },
+                    lock: true,
+                    fixed: true,
+                    okValue: '<%:添加%>',
+                    ok: function() {
+                        e.preventDefault();
+
+                        var $rangeForm = $('#rangeForm'),
+                                data = $rangeForm.serialize(), ip;
+
+                        ip = $rangeForm.find('.iphere').text() + $rangeForm.find('input[name="ip1"]').val() + '.' + $rangeForm.find('input[name="ip2"]').val();
+                        data = data.replace(/ip=\d{1,3}/, 'ip=' + ip);
+                        data = data.replace(/ip1=\d{1,3}/, 'ip=' + ip);
+                        data = data.replace(/&ip2=\d{1,3}/, '');
+                        var validator = Valid.checkAll( $rangeForm[0] );
+                        if (validator) {
+                            modelNat.addRange(data, 'new');
+                        } else {
+                            return false;
+                        }
+                    }
+                });
+            });
+
+            // delRange
+            $('#natlist_range').on('click', '.delRange', function(e) {
+                e.preventDefault();
+                var port = $(this).data('port');
+                var proto = $(this).data('proto');
+
+                var dlg = window.art.dialog({
+                    title: '<%:端口转发%>',
+                    content: '<%:确定要删除这条规则吗？%>',
+                    lock: true,
+                    fixed: true,
+                    ok: function() {
+                        modelNat.delRange(port, proto);
+                    },
+                    cancel: function() {}
+                })
+            });
+
+            // editRange
+            $('#natlist_range').on('click', '.editRange', function(e) {
+                e.preventDefault();
+                var item = $(e.currentTarget).data('item');
+                modelNat.editRange(item, e);
+            });
+
+            // confirmEdit range
+            // $('#natlist_range').on('click', '.confirmEditRange', function(e) {
+            //     e.preventDefault();
+
+            //     var data = $(e.target).parents('form').serialize();
+            //     var validator = FormValidator.checkAll('rangeFormEdit', [
+            //         {
+            //             name: 'ip',
+            //             display :'<%:目标IP%>',
+            //             rules: 'required|valid_ip|callback_no_change'
+            //         },
+            //         {
+            //             name: 'name',
+            //             display: '<%:名称%>',
+            //             rules: 'required'
+            //         },
+            //         {
+            //             name: 'fport',
+            //             display: '<%:起始端口%>',
+            //             rules: 'required|is_natural|less_than[65536]'
+            //         },
+            //         {
+            //             name: 'tport',
+            //             display: '<%:结束端口%>',
+            //             rules: 'required|is_natural|less_than[65536]'
+            //         }
+            //     ]);
+            //     if (validator) {
+            //         modelNat.addRange(data, 'edit');
+            //     }
+            //     e.preventDefault();
+            // });
+
+            // cancelEdit range
+            $('#natlist_range').on('click', '.cancelEditRange', function(e) {
+                e.preventDefault();
+                var $tr = $(e.currentTarget).parent().parent();
+                $tr.html(modelNat.savedItemRange);
+            });
+
+            // init
+            // ftype: 0/1/2 全部/端口/范围
+            modelNat.getRedirectPort();
+            modelNat.getRedirectRange();
+		},
+        addPort: function(data, type) {
+            $.post(modelNat.url.addPort, data, function(rsp) {
+                if (rsp.code === 0) {
+                    modelNat.getRedirectPort();
+                    if (type === 'new') {
+                        // 成功后清空form
+                        $('#portForm').find('input:not(".dummy")').val('');
+                    }
+                } else {
+                    $.dialog({
+                        title: '<%:端口转发%>',
+                        content: rsp.msg,
+                        fixed: true,
+                        lock: true,
+                        time: 5*1000
+                    });
+                }
+            }, 'json');
+        },
+        addRange: function(data, type) {
+            $.post(modelNat.url.addRange, data, function(rsp) {
+                if (rsp.code === 0) {
+                    modelNat.getRedirectRange();
+                    if (type === 'new') {
+                        $('#rangeForm').find('input:not(".dummy")').val('');
+                    }
+                } else {
+                    $.dialog({
+                        title: '<%:端口转发%>',
+                        content: rsp.msg,
+                        fixed: true,
+                        lock: true,
+                        time: 5*1000
+                    });
+
+                }
+            }, 'json');
+        },
+        delPort: function(port, proto) {
+            $.post(modelNat.url.delRedirect, {port: port, proto: proto}, function(rsp) {
+                if (rsp.code === 0) {
+                    //修复XP-39484 删除端口转发规则后不刷新页面无法开启DMZ
+                    modelDMZ.getDmzStatus();
+                    modelNat.getRedirectPort();
+                } else {
+                    $.dialog({
+                        title: '<%:端口转发%>',
+                        content: rsp.msg,
+                        lock: true,
+                        fixed: true,
+                        time: 5*1000
+                    });
+                }
+            }, 'json');
+        },
+        delRange: function(port, proto) {
+            $.post(modelNat.url.delRedirect, {port: port, proto: proto}, function(rsp) {
+                if (rsp.code === 0) {
+                    modelNat.getRedirectRange();
+                } else {
+                    $.dialog({
+                        title: '<%:端口转发%>',
+                        content: rsp.msg,
+                        fixed: true,
+                        lock: true,
+                        time: 5*1000
+                    });
+                }
+            }, 'json');
+        },
+        savedItem: '',
+        savedItemRange: '',
+        editPort: function(item, e) {
+            item = QW.JSON.parse(decodeURIComponent(item));
+            var $tr = $(e.currentTarget).parent().parent();
+            modelNat.savedItem = $tr.html();
+
+            var dlg = window.art.dialog({
+                title: '<%:编辑端口转发规则%>',
+                content: StringH.tmpl($('#tpl_tr_port_edit').html(), {item: item}),
+                initialize: function() {
+                    $.selectBeautify();
+                    $.formInit();
+                    $('.iphere').text(window.ipprefix);
+                    var ip = $('input[name="ip"]').val();
+                    $('input[name="ip"]').val(ip.split('.')[3]);
+                },
+                lock: true,
+                fixed: true,
+                okValue: '<%:更新%>',
+                ok: function() {
+                    e.preventDefault();
+                    var data = $('#portForm').serialize();
+                    var ip = window.ipprefix + $('input[name="ip"]').val();
+                    data = data.replace(/ip=\d{1,3}/, 'ip=' + ip);
+                    data += '&force=1'; // 编辑时增加参数 force=1
+                    var validator = Valid.checkAll( $('#portForm')[0] );
+                    if (validator) {
+                        modelNat.addPort(data, 'new');
+                    } else {
+                        return false;
+                    }
+                }
+            });
+        },
+        editRange: function(item, e) {
+            item = QW.JSON.parse(decodeURIComponent(item));
+            var $tr = $(e.currentTarget).parent().parent();
+            modelNat.savedItemRange = $tr.html();
+
+            var dlg = window.art.dialog({
+                title: '<%:编辑范围转发规则%>',
+                content: StringH.tmpl($('#tpl_tr_range_edit').html(), {item: item}),
+                initialize: function() {
+                    $.selectBeautify();
+                    $.formInit();
+                },
+                lock: true,
+                fixed: true,
+                okValue: '<%:更新%>',
+                ok: function() {
+                    e.preventDefault();
+
+                    var data = $('#rangeForm').serialize();
+                    // 编辑时添加参数
+                    data += '&force=1';
+                    var validator = Valid.checkAll( $('#rangeForm')[0] );
+                    if (validator) {
+                        modelNat.addRange(data, 'new');
+                    } else {
+                        return false;
+                    }
+                }
+            });
+        },
+        getRedirectPort: function() {
+            $.getJSON(modelNat.url.getRedirect, 'ftype='+1, function(rsp) {
+                var html, htmlAdd = '<tr><td colspan="6"><a class="btn btn-dft newPort btn-l" href="#"><span><%:添加规则%></span></a></td></tr>';
+                if (rsp.code === 0) {
+                    isEdit = rsp.lanmask == '255.255.0.0'
+                    if (rsp.list.length !== 0) {
+                        html = StringH.tmpl($('#tpl_tr_port').html(), {arr: rsp.list});
+                        $('#natlist_port').html(html);
+                        $('#natlist_port').append(htmlAdd)
+                    } else {
+                        $('#natlist_port').html(htmlAdd);
+                    }
+                } else {
+                    $.dialog({
+                        title: '<%:端口转发%>',
+                        content: rsp.msg,
+                        lock: true,
+                        fixed: true,
+                        time: 5*1000
+                    });
+                }
+            });
+        },
+        getRedirectRange: function() {
+            $.getJSON(modelNat.url.getRedirect, 'ftype='+2, function(rsp) {
+                var html, htmlAdd = '<tr><td colspan="6"><a class="btn btn-dft newRange btn-l" href="#"><span><%:添加规则%></span></a></td></tr>';
+                if (rsp.code === 0) {
+                    if (rsp.list.length !== 0) {
+                        html = StringH.tmpl($('#tpl_tr_range').html(), {arr: rsp.list});
+                        $('#natlist_range').html(html);
+                        $('#natlist_range').append(htmlAdd);
+                    } else {
+                        $('#natlist_range').html(htmlAdd);
+                    }
+                } else {
+                    $.dialog({
+                        title: '<%:端口转发%>',
+                        content: rsp.msg,
+                        fixed: true,
+                        lock: true,
+                        time: 5*1000
+                    });
+                }
+            });
+        },
+        url: {
+            'addPort': '<%=luci.dispatcher.build_url("api", "xqsystem", "add_redirect")%>',
+            'addRange': '<%=luci.dispatcher.build_url("api", "xqsystem", "add_range_redirect")%>',
+            'delRedirect': '<%=luci.dispatcher.build_url("api", "xqsystem", "delete_redirect")%>',
+            'applyRedirect': '<%=luci.dispatcher.build_url("api", "xqsystem", "redirect_apply")%>',
+            'getRedirect': '<%=luci.dispatcher.build_url("api", "xqsystem", "portforward")%>'
+        }
+	}
+}());
+$(function(){
+    if ('<%=features["apps"]["natpro"]%>' != "1" ){
+        $.selectBeautify();
+        $.formInit();
+        modelNat.init();
+    }
+    
+});
+function _no_change(){console.log('is callback_no_change')}
+</script>
+
+<script>
+var modelDMZ = (function(){
+    function clickHelper() {
+        $('.dmz-k').click(function() {
+            $('#ipval1').focus();
+            $('#ipval2').focus();
+            $('.dmz-k').hide();
+        });
+    }
+
+    function dmzStatus(){
+        $.getJSON('<%=luci.dispatcher.build_url("api", "xqsystem", "dmz")%>', {}, function(rsp){
+            if (rsp.code == 0) {
+            $('#appdmz').data('lanip', rsp.lanip);
+            $('#appdmz').data('ip', rsp.ip);
+            isEdit = rsp.lanmask == '255.255.0.0'
+
+            var nowip = rsp.lanip.split('.');
+            nowip.pop();
+            nowip.pop();
+            $('#prefix').text(nowip.join('.') + '.');
+
+                var btndmz = $('#btndmz')[0],
+                    listdmz = $('#appdmz'),
+                    dmzOK = $('#appdmzOK');
+                var info = $('#dmzinfo');
+                if (rsp.status == 0 || rsp.status == 2) {
+                    btndmz.className = 'btn-switch btn-switch-off';
+                    listdmz.hide();
+                }else{ // 开启
+                    btndmz.className = 'btn-switch btn-switch-on';
+                    //var last = rsp.ip.split('.')[3];
+                    //$('[name=ip]').val(last);
+                     $('.dmz-k').hide();
+                    $('#ipOK').text('<%:IP地址%>' + ' ' + rsp.ip + ' '+ '<%:已生效%>')
+                        .addClass('blue');
+                    var last1 = rsp.ip.split('.')[2];
+                    var last2 = rsp.ip.split('.')[3];
+                    $('#ipval1').val(last1);
+                    $('#ipval2').val(last2);
+                    listdmz.show();
+                    //dmzOK.show();
+                    info.hide();
+                }
+
+                if(!isEdit){
+                    $('#ipval1').attr('readonly',true).val(thirdStr)
+                }
+                $('#btndmz').attr('data-status', rsp.status);
+            }
+        });
+    }
+
+    function dmzSwitch(){
+        var btndmz = $('#btndmz'),
+            listdmz = $('#appdmz')
+            dmzOK = $('#appdmzOK');
+        var info = $('#dmzinfo');
+        btndmz.on('click', function(e){
+            e.preventDefault();
+            var st = $(this).hasClass('btn-switch-on'),
+                btn = this,
+                status = $(this).attr('data-status');
+
+            if ( status == '2' ) {
+                $.dialog({
+                    title: 'DMZ',
+                    content: '<%:端口转发开启了，不可以设置DMZ%>',
+                    lock: true,
+                    time: 1000
+                });
+                return;
+            }
+            if ( st ) {
+                btn.className = 'btn-switch btn-switch-off';
+                listdmz.hide();
+                info.show();
+                //dmzOK.hide();
+
+                if ( status == 1 ) {
+                    $.getJSON('<%=luci.dispatcher.build_url("api", "xqsystem", "dmz_off")%>', {}, function(rsp){
+                        if (rsp.code == 0) {
+                            var dlg = $.dialog({
+                                title: '<%:设置DMZ%>',
+                                content: '<%:关闭成功，生效中，请稍候...%>',
+                                lock: true,
+                                time: 15*1000
+                            });
+                            $('#btndmz').attr('data-status', 0);
+                            $('#appdmz').removeData('ip');
+                            var urlReload = '<%=luci.dispatcher.build_url("api", "xqsystem", "dmz_reload")%>';
+                            $.get(urlReload, function(rsp) {
+                                if (rsp.code === 0) {
+                                    dlg.close();
+                                    $('#ipOK').text('<%:未生效%>').removeClass('blue');
+                                }
+                            }, 'json');
+                        }
+                    });
+                }
+            } else {
+                btn.className = 'btn-switch btn-switch-on';
+                //　这里把inpu清空,　因为关闭之后再进来的
+                $('#ipval1').val('');
+                $('#ipval2').val('');
+                listdmz.show();
+                info.hide();
+                if(!isEdit){
+                    $('#ipval1').attr('readonly',true).val(thirdStr)
+                }
+            }
+        });
+    }
+
+    function dmzedit() {
+        $('#edit').on('click', function(e) {
+            $('#appdmz').show();
+            $('#appdmzOK').hide();
+            var ip = $('#appdmz').data('ip');
+            var last1 = ip.split('.')[2];
+            var last2 = ip.split('.')[3];
+            $('#ipval1').val(last1);
+            $('#ipval2').val(last2);
+        });
+        $('#cancel').on('click', function(e) {
+            //　这里需要判断，是点编辑之后，还是点击按钮开启之后
+            var ip = $('#appdmz').data('ip');
+            if (ip) {
+                $('#appdmz').hide();
+                $('#appdmzOK').show();
+            } else {
+                $('#dmzinfo').show();
+                $('#appdmz').hide();
+                $('#appdmzOK').hide();
+                $('#btndmz')[0].className = 'btn-switch btn-switch-off';
+            }
+        });
+    }
+
+    function dmzset(){
+        $('#save').on('click', function(e){
+            e.preventDefault();
+            var url = '<%=luci.dispatcher.build_url("api", "xqsystem", "set_dmz")%>',
+                // checkAll的第一个参数在dom里最好唯一, 不要有同名的id，　否则 ie下会有问题
+                validator = Valid.checkAll( $('#dmzset')[0] );
+            var ip = $('#appdmz').data('lanip');
+            var prefix1 = ip.substr(0, ip.lastIndexOf('.'));
+            var prefix2 = prefix1.substr(0, prefix1.lastIndexOf('.'));
+            var last1 = $('#ipval1').val();
+            var last2 = $('#ipval2').val();
+            var data = prefix2 + '.' + last1 + '.' + last2;
+            if (validator) {
+                var dlg = $.dialog({
+                    title: '<%:设置DMZ%>',
+                    content: '<%:配置中，请稍候...%>',
+                    lock: true,
+                    time: 17*1000
+                });
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: 'ip=' + data,
+                    dataType: 'json',
+                    success: function(rsp){
+                        if (rsp.code == 0) {
+                            dlg.close();
+                           // $('#appdmz').hide();
+                           // $('#appdmzOK').show();
+                           // $('#ipOK').text(data);
+                            var ip = $('#prefix').text() + $('#ipval1').val() + '.' + $('#ipval2').val();
+                            $('#ipOK').text('<%:IP地址%>' + ' ' + ip + ' ' + '<%:已生效%>')
+                                .addClass('blue');
+
+                            $('#appdmz').data('ip', data);
+                            $('#btndmz').attr('data-status', 1);
+                        }else{
+                            dlg.close();
+                            $.alert(rsp.msg, function(){
+                                location.reload( true );
+                            });
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    return {
+        init : function(){
+            dmzStatus();
+            dmzSwitch();
+            dmzset();
+            dmzedit();
+            clickHelper();
+        },
+        getDmzStatus:function(){dmzStatus()} 
+    }
+}());
+$(function(){
+    modelDMZ.init();
+});
+</script>
+</body>
+</html>

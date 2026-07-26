@@ -1,0 +1,24 @@
+config mapping EU
+	option CountryCode 'DE'
+config mapping UK
+	option CountryCode 'GB'
+config mapping AS
+	option CountryCode 'MY'
+config mapping JP
+	option CountryCode 'JP'
+config mapping KR
+	option CountryCode 'KR'
+config mapping US
+	option CountryCode 'US'
+config mapping ID
+	option CountryCode 'ID'
+config mapping IN
+	option CountryCode 'IN'
+config mapping CN
+	option CountryCode 'CN'
+config mapping DE
+	option CountryCode 'DE'
+config mapping SG
+	option CountryCode 'SG'
+config mapping RU
+	option CountryCode 'RU'

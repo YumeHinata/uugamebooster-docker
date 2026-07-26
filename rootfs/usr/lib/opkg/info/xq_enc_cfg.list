@@ -1,0 +1,2 @@
+/etc/hotplug.d/inited/99-sec_cfg_bak.sh
+/usr/sbin/sec_cfg_bak.sh

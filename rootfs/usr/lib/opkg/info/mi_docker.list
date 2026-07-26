@@ -1,0 +1,4 @@
+/etc/hotplug.d/mount/45-mi_docker
+/lib/config_post_ota/docker_cfg_fix.sh
+/etc/uci-defaults/99-mi_docker
+/etc/init.d/mi_docker

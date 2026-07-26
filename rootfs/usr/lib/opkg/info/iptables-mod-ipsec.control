@@ -1,0 +1,15 @@
+Package: iptables-mod-ipsec
+Version: 1.6.2-2
+Depends: libc, iptables, kmod-ipt-ipsec
+Source: package/network/utils/iptables
+License: GPL-2.0
+Section: net
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 5562
+Description:  iptables extensions for matching ipsec traffic.
+ 
+ Matches:
+ - ah
+ - esp
+ - policy
+ 

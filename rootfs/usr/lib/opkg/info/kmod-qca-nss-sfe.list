@@ -1,0 +1,3 @@
+/lib/modules/5.4.213/qca-nss-sfe.ko
+/usr/bin/sfe_dump
+/etc/modules.d/09-qca-nss-sfe

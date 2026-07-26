@@ -1,0 +1,5 @@
+/usr/sbin/xtables-multi
+/usr/sbin/iptables-save
+/usr/sbin/iptables-restore
+/usr/lib/iptables/libipt_TRIGGER.so
+/usr/sbin/iptables

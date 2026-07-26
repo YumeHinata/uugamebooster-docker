@@ -1,0 +1,16 @@
+#!/bin/sh /etc/rc.common
+
+START=60
+#STOP=99
+
+NAME=iweventd
+USE_PROCD=1
+PROC="/usr/sbin/iweventd.sh"
+
+start_service() {
+	procd_open_instance
+	procd_set_param command ${PROC}
+	procd_set_param respawn
+	procd_close_instance
+	echo "iwevent-call start ok"
+}

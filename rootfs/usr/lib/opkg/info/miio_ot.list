@@ -1,0 +1,13 @@
+/usr/bin/miio_spec.sh
+/usr/bin/miio_send_line
+/usr/bin/miio_resp.sh
+/usr/bin/miio_bind_demon.sh
+/usr/bin/miio_client_helper_nomqtt.sh
+/usr/bin/miio_client
+/usr/bin/miio_recv_line
+/etc/hotplug.d/ntp/10-miio-ntp.sh
+/usr/bin/miio_proxy
+/etc/messagingagent/unbind/miio_unbind.sh
+/etc/init.d/miio_client
+/etc/config/miio_ot
+/usr/bin/miio_bind.sh

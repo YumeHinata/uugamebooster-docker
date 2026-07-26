@@ -1,0 +1,19 @@
+#!/bin/sh
+
+. /lib/config/uci.sh
+
+logger -p notice -t "wan_check" "20-autovpn: run because internet connect"
+
+autovpn=$(uci -q get network.vpn.auto)
+vpnproto=$(uci -q get network.vpn.proto)
+useroption=$(uci_get_state network vpn user_option "1")
+
+[ "$autovpn" = "1" -a "$vpnproto" = "pptp" -a "$useroption" = "1" ] && {
+    vpnstatus=$(ifstatus vpn | grep \"up\" | cut -d ' ' -f 2 | cut -d ',' -f 1)
+
+    [ "$vpnstatus" = "false" ] && {
+        ifdown vpn
+        /usr/sbin/vpn.lua up
+    }
+}
+
