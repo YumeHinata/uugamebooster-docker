@@ -1,8 +1,0 @@
-Package: netapi
-Version: 2.0-1.1
-Depends: libc, libcurl, liblua, libjson-c, libuci, libubus, libz
-Source: package/miwifi/netapi
-Section: data
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 6383
-Description:  netapi

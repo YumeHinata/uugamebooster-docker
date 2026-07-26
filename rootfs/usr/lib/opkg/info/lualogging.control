@@ -1,8 +1,0 @@
-Package: lualogging
-Version: 1-1.3.0
-Depends: libc, lua
-Source: package/lualogging
-Section: lang
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 3996
-Description:  lualogging

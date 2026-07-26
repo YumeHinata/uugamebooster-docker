@@ -1,9 +1,0 @@
-Package: miniupnpd
-Version: 2.1.20190630
-Depends: libc, iptables, libip4tc, libip6tc, libnfnetlink
-Source: feeds/packages/net/miniupnpd
-Section: net
-Maintainer: Daniel Dickinson <openwrt@cshore.neomailbox.net>
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 61545
-Description:  Lightweight UPnP daemon

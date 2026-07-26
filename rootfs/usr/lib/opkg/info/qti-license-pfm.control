@@ -1,9 +1,0 @@
-Package: qti-license-pfm
-Version: 1
-Depends: libc
-Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/qca-platform-utils/qti-license-pfm
-Section: QCA
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 1970
-Description:  This package contains a license pfm init and upgrade which can be used
- internally by QTI to update the pfm license files

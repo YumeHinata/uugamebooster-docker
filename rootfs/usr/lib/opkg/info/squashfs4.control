@@ -1,8 +1,0 @@
-Package: squashfs4
-Version: 4.2
-Depends: libc, liblzma, zlib
-Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/platform_utils/squashfs4
-Section: utils
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 75514
-Description:  squashfs tools

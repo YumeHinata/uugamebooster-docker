@@ -1,8 +1,0 @@
-Package: smartcontroller_c
-Version: 1-1.2
-Depends: libc, libubus, ubusd, glib2, libjson-c
-Source: package/miwifi/smartcontroller_c
-Section: opt
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 17474
-Description:  the smart controller c demaon

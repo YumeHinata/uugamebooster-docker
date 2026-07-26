@@ -1,9 +1,0 @@
-Package: breakpad
-Version: 0.1-1
-Depends: libc, libstdcpp
-Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/platform_utils/breakpad/breakpad
-Section: BREAKPAD
-Maintainer: Google
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 13393
-Description:  breakpad

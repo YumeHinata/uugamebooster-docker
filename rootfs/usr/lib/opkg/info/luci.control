@@ -1,9 +1,0 @@
-Package: luci
-Version: 0.11.1-1
-Depends: libc, luci-mod-admin-base, luci-mod-admin-CN-common, luci-theme-openwrt, luci-app-firewall, luci-proto-core, luci-proto-ppp, libiwinfo-lua
-Source: feeds/luci/luci
-Section: luci
-Maintainer: LuCI Development Team <luci@lists.subsignal.org>
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 105
-Description:  Standard OpenWrt set including full admin with ppp support and the default OpenWrt theme

@@ -1,9 +1,0 @@
-Package: qca-icm
-Version: miwifi_git-1
-Depends: libc, kmod-qca-wifi, libpthread, qca-spectral, libnl
-Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/qca/utils/qca-icm
-Section: QCA
-Maintainer: Qualcomm Atheros
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 105900
-Description:  QCA Intelligent channel manager

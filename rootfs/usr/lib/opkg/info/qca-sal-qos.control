@@ -1,8 +1,0 @@
-Package: qca-sal-qos
-Version: miwifi_git-1
-Depends: libc, libstdcpp
-Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/nss-sap/sal-qos
-Section: utils
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 2606
-Description:  Qos configuration library

@@ -1,8 +1,0 @@
-Package: filetunnel
-Version: 2-1
-Depends: libc, libcurl, libstdcpp, libpthread, librt, glog, boost-atomic, boost-system, boost-thread, boost-chrono, libopenssl, gflags, jsoncpp, stringencoders, boost-iostreams, boost-filesystem, protobuf, json-c, ubox, ubus, blobmsg_json
-Source: package/miwifi/filetunnel
-Section: opt
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 535218
-Description:  File Tunnel

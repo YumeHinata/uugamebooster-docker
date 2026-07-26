@@ -1,3 +1,0 @@
-config diag 'config'
-	option signal_thr '-60'
-	option iperf_test_thr '25'

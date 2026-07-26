@@ -1,9 +1,0 @@
-Package: libnl-genl
-Version: 3.4.0-2
-Depends: libc, libnl-core
-Source: package/libs/libnl
-License: LGPL-2.1
-Section: libs
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 7372
-Description:  Generic Netlink Library Functions

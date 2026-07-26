@@ -1,9 +1,0 @@
-Package: ipv6-support-v2
-Version: 2022-4-27-1
-Depends: libc, kmod-ipv6, ip6tables, odhcp6c
-Source: package/miwifi/ipv6-support-v2
-Section: ipv6
-Architecture: all
-Installed-Size: 8369
-Description:  This package provides basic IPv6 support including Router Discovery,
- DHCPv6 (client & server), prefix delegation and distribution.

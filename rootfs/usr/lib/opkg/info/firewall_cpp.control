@@ -1,8 +1,0 @@
-Package: firewall_cpp
-Version: 1.0-1.0
-Depends: libc, wrt_cppwrap, libstdcpp, libubus, firewall
-Source: package/miwifi/firewall_cpp
-Section: opt
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 89962
-Description:  TODO

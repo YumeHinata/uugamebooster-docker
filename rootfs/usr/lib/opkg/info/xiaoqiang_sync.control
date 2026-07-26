@@ -1,8 +1,0 @@
-Package: xiaoqiang_sync
-Version: 0.1
-Depends: libc, uci, libubus, libblobmsg-json, ubusd, libubox
-Source: package/miwifi/xiaoqiang_sync
-Section: net
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 6584
-Description:  xiaomi Router sync with AP/LAN/RE replay

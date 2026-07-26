@@ -1,8 +1,0 @@
-Package: kmod-qca-nss-ppe-gretap
-Version: 5.4.213+miwifi_git-2
-Depends: kernel (=5.4.213-1-b03fef75f247f6a85b8c8530633d37c5), kmod-qca-nss-ppe-tun, kmod-gre6, kmod-gre
-Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/nss-host/qca-nss-ppe-gretap
-Section: kernel
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 5316
-Description:  Kernel driver for PPE GRE tunnel (client)

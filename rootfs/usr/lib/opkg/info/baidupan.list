@@ -1,7 +1,0 @@
-/etc/hotplug.d/mount/40-baidupan
-/usr/sbin/baidupan_uci_lock.sh
-/usr/sbin/baidupan.lua
-/usr/sbin/kill_baidupan.sh
-/etc/init.d/baidupan
-/etc/config/baidupan
-/usr/sbin/baidupan

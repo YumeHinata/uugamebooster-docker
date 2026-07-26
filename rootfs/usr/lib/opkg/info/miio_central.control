@@ -1,8 +1,0 @@
-Package: miio_central
-Version: 0.1-0.1
-Depends: libc, miio_ot, mi_docker
-Source: package/miwifi/miio_central
-Section: net
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 226682
-Description:  miot central pack

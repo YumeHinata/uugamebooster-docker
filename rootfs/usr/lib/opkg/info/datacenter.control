@@ -1,8 +1,0 @@
-Package: datacenter
-Version: 1-1.1
-Depends: libc, curl, libstdcpp, libpthread, libthriftnb, boost-thread, boost-filesystem, libjson-c, boost-date_time, libsqlite3, libconfig, libltdl, libzip, common-tools, packagesign, glog, gtest, libuuid, libubus, libubox, libblobmsg-json, libiconv-full, libexif, uci, libblkid, rsync
-Source: package/miwifi/datacenter
-Section: data
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 1107664
-Description:  the data center demaon

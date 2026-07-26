@@ -1,8 +1,0 @@
-Package: nfc
-Version: 0
-Depends: libc
-Source: package/miwifi/nfc
-Section: net
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 1348
-Description:  nfc

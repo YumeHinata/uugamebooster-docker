@@ -1,9 +1,0 @@
-Package: nss-udp-st
-Version: miwifi_git-1
-Depends: libc, kmod-nss-udp-st-drv
-Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/nss-host/nss-userspace-oss/nss-udp-st
-Section: QTI
-Maintainer: Qualcomm Technologies, Inc.
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 3608
-Description:  NSS UDP SpeedTest

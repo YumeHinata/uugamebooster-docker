@@ -1,8 +1,0 @@
-Package: miio_ot
-Version: 0.1-0.1
-Depends: libc, libubus, libblobmsg-json, libjson
-Source: package/miwifi/miio_ot
-Section: net
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 341762
-Description:  miot ot for connect to mijia

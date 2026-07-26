@@ -1,4 +1,0 @@
-/etc/init.d/rngd
-/usr/bin/rngtest
-/sbin/rngd
-/etc/uci-defaults/rngd

@@ -1,8 +1,0 @@
-Package: mobile_accel
-Version: 1.0-1.0
-Depends: libc, iptables-mod-ipopt, iptables-mod-filter
-Source: package/miwifi/mobile_accel
-Section: data
-Architecture: all
-Installed-Size: 2411
-Description:  mobile_accel

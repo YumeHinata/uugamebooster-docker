@@ -1,9 +1,0 @@
-Package: minidump
-Version: miwifi_git-1
-Depends: libc
-Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/minidump/minidump
-Section: QTI
-Maintainer: Qualcomm Technologies, Inc.
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 3508
-Description:  QTI minidump

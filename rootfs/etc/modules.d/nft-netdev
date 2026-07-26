@@ -1,4 +1,0 @@
-nf_tables_netdev
-nf_dup_netdev
-nft_dup_netdev
-nft_fwd_netdev

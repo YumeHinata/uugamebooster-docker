@@ -1,4 +1,0 @@
-/etc/hotplug.d/dump/10-breakpad-dump
-/usr/lib/libbreakpad_qcawrapper.so
-/usr/bin/breakpad/breakpad_reporter
-/etc/init.d/breakpad

@@ -1,8 +1,0 @@
-Package: gtest
-Version: 1.7.0-1
-Depends: libc, libstdcpp
-Source: package/feeds/packages/gtest
-Section: opt
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 99025
-Description:  gtest

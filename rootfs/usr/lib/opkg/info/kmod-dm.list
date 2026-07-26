@@ -1,6 +1,0 @@
-/etc/modules.d/30-dm
-/lib/modules/5.4.213/dm-region-hash.ko
-/lib/modules/5.4.213/dm-req-crypt.ko
-/lib/modules/5.4.213/dm-mirror.ko
-/lib/modules/5.4.213/dm-log.ko
-/lib/modules/5.4.213/dm-crypt.ko

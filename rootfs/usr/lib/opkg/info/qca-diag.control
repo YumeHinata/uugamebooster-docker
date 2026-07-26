@@ -1,8 +1,0 @@
-Package: qca-diag
-Version: miwifi_git-1
-Depends: libc, libpthread
-Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/qca-platform-utils/qca-diag
-Section: QCA
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 66451
-Description:  QCA Linux diag software

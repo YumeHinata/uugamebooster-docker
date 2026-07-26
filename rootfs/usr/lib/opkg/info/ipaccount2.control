@@ -1,8 +1,0 @@
-Package: ipaccount2
-Version: 1.2-1
-Depends: libc, lua, libnl-tiny
-Source: package/miwifi/trafficd
-Section: net
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 6341
-Description:  ip account

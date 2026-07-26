@@ -1,7 +1,0 @@
-#parental control 配置
-config global 'global'
-        option disabled '1'
-
-
-
- 

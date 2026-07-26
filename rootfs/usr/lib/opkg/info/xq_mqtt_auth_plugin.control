@@ -1,8 +1,0 @@
-Package: xq_mqtt_auth_plugin
-Version: 1.0-1.0
-Depends: libc, libmosquitto-ssl, libopenssl
-Source: package/miwifi/xq_mqtt_auth_plugin
-Section: lib
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 5320
-Description:  xiaomi auth plugin for mosquitto
