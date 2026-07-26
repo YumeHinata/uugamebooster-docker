@@ -16,31 +16,30 @@ if [ "${QEMU_DEBUG}" = "1" ]; then
 fi
 cd /arm-root
 
-# ── 动态链接器检查 ──
+# ── 动态链接器修复 ──
 echo "[DIAG] Dynamic linker state:"
 ls -la /arm-root/lib/ld-musl-aarch64.so.1 2>&1 | sed 's/^/  /'
 ls -la /arm-root/lib/libc.so 2>&1 | sed 's/^/  /'
-# 强制重建符号链接（无论当前状态如何）
-ln -sf libc.so /arm-root/lib/ld-musl-aarch64.so.1
+# 1) 确保 libc.so 有执行权限（QEMU 加载 PIE 二进制时需 mmap PROT_EXEC 解释器）
+chmod +x /arm-root/lib/libc.so
+# 2) 用实际副本替代符号链接（避免 QEMU 解析 symlink 的潜在问题）
+rm -f /arm-root/lib/ld-musl-aarch64.so.1
+cp /arm-root/lib/libc.so /arm-root/lib/ld-musl-aarch64.so.1
+chmod +x /arm-root/lib/ld-musl-aarch64.so.1
 echo "  After fix: $(ls -la /arm-root/lib/ld-musl-aarch64.so.1 2>&1)"
 
-# ── 验证 ARM 二进制可执行性（显示完整错误） ──
+# ── 验证 ARM 二进制可执行性 ──
 echo "[DIAG] Testing ARM binary execution..."
-echo "  qemu binary: $(ls -la /usr/bin/qemu-aarch64-static 2>&1)"
-echo "  busybox ELF header:"
-head -c 20 /arm-root/bin/busybox | od -A x -t x1z 2>&1 | head -2 | sed 's/^/    /'
-BUSYBOX_ERR=$(/usr/bin/qemu-aarch64-static -L /arm-root /arm-root/bin/busybox true 2>&1)
+BUSYBOX_ERR=$(/usr/bin/qemu-aarch64-static -L /arm-root /arm-root/bin/busybox echo hello 2>&1)
 BUSYBOX_RET=$?
 echo "  busybox test: exit=$BUSYBOX_RET output='$BUSYBOX_ERR'"
 if [ $BUSYBOX_RET -eq 0 ]; then
     echo "  [OK] busybox (ARM) runs"
 else
-    echo "  [FAIL] busybox (ARM) cannot execute!"
-    echo "  Trying without -L:"
-    /usr/bin/qemu-aarch64-static /arm-root/bin/busybox true 2>&1 | sed 's/^/    /'
-    echo "  Trying with QEMU_LD_PREFIX only:"
-    QEMU_LD_PREFIX=/arm-root /usr/bin/qemu-aarch64-static /arm-root/bin/busybox true 2>&1 | sed 's/^/    /'
+    echo "  [FAIL] busybox: $BUSYBOX_ERR"
 fi
+GUARDIAN_ERR=$(/usr/bin/qemu-aarch64-static -L /arm-root ./xuplugin-guardian 2>&1 | head -1)
+echo "  guardian test: '$GUARDIAN_ERR'"
 
 # ── iptables legacy 切换 ──
 update-alternatives --set iptables /usr/sbin/iptables-legacy 2>/dev/null
@@ -85,10 +84,15 @@ fi
 
 # ── 启动 ──
 echo "[INFO] Starting uuplugin (with -L /arm-root for child exec)..."
-/usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin
+QEMU_STRACE=1 /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin 2>&1 | tee /tmp/uuplugin_full.log &
+UU_PID=$!
+# 等待一段时间显示初始输出
+sleep 10
+echo "[DIAG] uuplugin running as PID $UU_PID, waiting..."
+wait $UU_PID 2>/dev/null
 RET=$?
 echo "[ERROR] uuplugin exited with code $RET"
-echo "[DEBUG] Keeping container alive for inspection (Ctrl+C to stop)..."
-echo "  Check: docker exec -it <container> /bin/sh"
-# 保持容器运行以便调试
+echo "[DEBUG] Last 30 lines of strace log:"
+tail -30 /tmp/uuplugin_full.log 2>/dev/null
+echo "[DEBUG] Keeping container alive for inspection..."
 while true; do sleep 3600; done

@@ -23,8 +23,11 @@ COPY rootfs /arm-root
 COPY start.sh /start.sh
 
 RUN chmod +x /start.sh /arm-root/uuplugin /arm-root/xuplugin-guardian && \
-    # ── 1. 修复符号链接（Windows 构建会丢失 symlink） ──
-    ln -sf libc.so /arm-root/lib/ld-musl-aarch64.so.1 && \
+    # ── 1. 修复动态链接器（用实际副本+执行权限，避免 symlink/权限问题） ──
+    chmod +x /arm-root/lib/libc.so && \
+    rm -f /arm-root/lib/ld-musl-aarch64.so.1 && \
+    cp /arm-root/lib/libc.so /arm-root/lib/ld-musl-aarch64.so.1 && \
+    chmod +x /arm-root/lib/ld-musl-aarch64.so.1 && \
     cd /arm-root/bin && \
     for cmd in sh cat tar mv rm grep mkdir echo sleep ps kill ls pwd date \
                ln cp chmod touch uname gzip gunzip sed head ping netstat \
