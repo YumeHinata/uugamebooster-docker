@@ -15,7 +15,7 @@ services:
     network_mode: host
     # ── 环境变量 ──
     environment:
-      - QEMU_DEBUG=1          # 设为1开启QEMU调试日志，稳定后改为0
+      - QEMU_DEBUG=0          # 设为1开启QEMU strace调试日志
     # ── 日志限制 ──
     logging:
       driver: json-file

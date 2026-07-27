@@ -1,6 +1,8 @@
 FROM debian:bullseye-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
+# PATH 中优先搜索 ARM rootfs 的 wrapper 路径（宿主 shell 执行时需要）
+ENV PATH=/arm-root/usr/sbin:/arm-root/sbin:/usr/sbin:/usr/bin:/sbin:/bin
 
 RUN apt-get update && \
     apt-get install -y \
@@ -28,19 +30,27 @@ RUN chmod +x /start.sh /arm-root/uuplugin /arm-root/xuplugin-guardian && \
     rm -f /arm-root/lib/ld-musl-aarch64.so.1 && \
     cp /arm-root/lib/libc.so /arm-root/lib/ld-musl-aarch64.so.1 && \
     chmod +x /arm-root/lib/ld-musl-aarch64.so.1 && \
+    # ── 2. xuplugin-guardian → wrapper 脚本（QEMU 5.2 不拦截子进程 execve） ──
+    mv /arm-root/xuplugin-guardian /arm-root/xuplugin-guardian.real && \
+    printf '#!/bin/sh\nexec /usr/bin/qemu-aarch64-static -L /arm-root /arm-root/xuplugin-guardian.real "$@"\n' > /arm-root/xuplugin-guardian && \
+    chmod +x /arm-root/xuplugin-guardian && \
     cd /arm-root/bin && \
-    for cmd in sh cat tar mv rm grep mkdir echo sleep ps kill ls pwd date \
+    # ── 3. busybox 符号链接（不含 sh，sh 用宿主 shell） ──
+    for cmd in cat tar mv rm grep mkdir echo sleep ps kill ls pwd date \
                ln cp chmod touch uname gzip gunzip sed head ping netstat \
                zcat dd df sync true false mktemp watch; do \
         ln -sf busybox "$cmd"; \
     done && \
-    # ── 2. 创建运行时目录和 sbin 工具链接 ──
+    # ── 4. /bin/sh → 宿主 shell（所有 system() 调用依赖此链路） ──
+    rm -f /arm-root/bin/sh && \
+    ln -sf /bin/sh /arm-root/bin/sh && \
+    # ── 5. 创建运行时目录和 sbin 工具链接 ──
     mkdir -p /arm-root/var/tmp/uu /arm-root/tmp/uu /arm-root/sbin /arm-root/usr/sbin && \
     cd /arm-root/sbin && \
     for cmd in ifconfig insmod route; do \
         ln -sf ../bin/busybox "$cmd"; \
     done && \
-    # ── 3. 创建宿主机网络工具 wrapper（ARM 进程通过 QEMU 执行宿主机 x86 工具） ──
+    # ── 6. 创建宿主机网络工具 wrapper ──
     printf '#!/bin/sh\nexec /usr/sbin/iptables-legacy "$@"\n' > /arm-root/usr/sbin/iptables && \
     printf '#!/bin/sh\nexec /usr/sbin/ip6tables-legacy "$@"\n' > /arm-root/usr/sbin/ip6tables && \
     printf '#!/bin/sh\nexec /sbin/ip "$@"\n' > /arm-root/sbin/ip && \
@@ -48,7 +58,7 @@ RUN chmod +x /start.sh /arm-root/uuplugin /arm-root/xuplugin-guardian && \
     printf '#!/bin/sh\nexec /usr/sbin/nft "$@"\n' > /arm-root/usr/sbin/nft && \
     chmod +x /arm-root/usr/sbin/iptables /arm-root/usr/sbin/ip6tables \
              /arm-root/sbin/ip /arm-root/usr/sbin/ipset /arm-root/usr/sbin/nft && \
-    # ── 4. iptables 兼容（强制指定 x86_64 扩展路径，避免 ARM 污染） ──
+    # ── 7. iptables 兼容（强制指定 x86_64 扩展路径，避免 ARM 污染） ──
     XTD=$(dirname $(find /usr/lib -name "libxt_tcp.so" | head -1)) && \
     mv /usr/sbin/iptables-legacy /usr/sbin/iptables-legacy.real && \
     mv /usr/sbin/ip6tables-legacy /usr/sbin/ip6tables-legacy.real && \

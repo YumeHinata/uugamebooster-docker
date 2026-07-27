@@ -38,7 +38,7 @@ if [ $BUSYBOX_RET -eq 0 ]; then
 else
     echo "  [FAIL] busybox: $BUSYBOX_ERR"
 fi
-GUARDIAN_ERR=$(/usr/bin/qemu-aarch64-static -L /arm-root ./xuplugin-guardian 2>&1 | head -1)
+GUARDIAN_ERR=$(/usr/bin/qemu-aarch64-static -L /arm-root ./xuplugin-guardian.real 2>&1 | head -1)
 echo "  guardian test: '$GUARDIAN_ERR'"
 
 # ── iptables legacy 切换 ──
@@ -84,15 +84,20 @@ fi
 
 # ── 启动 ──
 echo "[INFO] Starting uuplugin (with -L /arm-root for child exec)..."
-QEMU_STRACE=1 /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin 2>&1 | tee /tmp/uuplugin_full.log &
-UU_PID=$!
-# 等待一段时间显示初始输出
-sleep 10
-echo "[DIAG] uuplugin running as PID $UU_PID, waiting..."
-wait $UU_PID 2>/dev/null
-RET=$?
-echo "[ERROR] uuplugin exited with code $RET"
-echo "[DEBUG] Last 30 lines of strace log:"
-tail -30 /tmp/uuplugin_full.log 2>/dev/null
-echo "[DEBUG] Keeping container alive for inspection..."
-while true; do sleep 3600; done
+if [ "${QEMU_DEBUG}" = "1" ]; then
+    # 调试模式：strace 输出到日志文件，容器保持运行
+    QEMU_STRACE=1 /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin 2>/tmp/uuplugin_strace.log &
+    UU_PID=$!
+    sleep 5
+    echo "[DIAG] uuplugin running as PID $UU_PID"
+    echo "[DIAG] strace log: /tmp/uuplugin_strace.log"
+    wait $UU_PID 2>/dev/null
+    RET=$?
+    echo "[ERROR] uuplugin exited with code $RET"
+    tail -30 /tmp/uuplugin_strace.log 2>/dev/null
+    # 保持容器运行供调试
+    while true; do sleep 3600; done
+else
+    # 正常模式：直接前台运行
+    exec /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin
+fi
