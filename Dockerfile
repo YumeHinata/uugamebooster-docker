@@ -23,8 +23,9 @@ RUN apt-get update && \
 # ARM rootfs（精简版：仅含 uuplugin 运行所需的最小依赖集）
 COPY rootfs /arm-root
 COPY start.sh /start.sh
+COPY uuclearnat.sh /usr/bin/uuclearnat
 
-RUN chmod +x /start.sh /arm-root/uuplugin /arm-root/xuplugin-guardian && \
+RUN chmod +x /start.sh /arm-root/uuplugin /arm-root/xuplugin-guardian /usr/bin/uuclearnat && \
     # ── 1. 修复动态链接器（用实际副本+执行权限，避免 symlink/权限问题） ──
     chmod +x /arm-root/lib/libc.so && \
     rm -f /arm-root/lib/ld-musl-aarch64.so.1 && \
@@ -72,6 +73,9 @@ RUN chmod +x /start.sh /arm-root/uuplugin /arm-root/xuplugin-guardian && \
     printf '#!/bin/sh\nexport XTABLES_LIBDIR=%s\nexec /usr/libexec/iptables/iptables-legacy "$@"\n' "$XTD" > /usr/sbin/iptables-legacy && \
     printf '#!/bin/sh\nexport XTABLES_LIBDIR=%s\nexec /usr/libexec/iptables/ip6tables-legacy "$@"\n' "$XTD" > /usr/sbin/ip6tables-legacy && \
     chmod +x /usr/sbin/iptables-legacy /usr/sbin/ip6tables-legacy && \
+    # ── 8. uuplugin 期望 XTABLES_LIBDIR=/lib，创建符号链接 ──
+    mkdir -p /lib && \
+    ln -sf /usr/lib/x86_64-linux-gnu/xtables /lib/xtables && \
     update-alternatives --set iptables /usr/sbin/iptables-legacy 2>/dev/null || true && \
     update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy 2>/dev/null || true
 

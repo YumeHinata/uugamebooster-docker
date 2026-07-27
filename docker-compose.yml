@@ -9,6 +9,8 @@ services:
     cap_add:
       - NET_ADMIN
       - NET_RAW
+      - SYS_PTRACE
+      - SYS_NICE
     devices:
       - /dev/net/tun:/dev/net/tun
     # ── 使用宿主机网络栈（iptables 规则直接生效于宿主机） ──
