@@ -38,8 +38,8 @@ RUN chmod +x /start.sh /arm-root/uuplugin /arm-root/xuplugin-guardian /usr/bin/u
     cd /arm-root/bin && \
     # ── 3. busybox 符号链接（不含 sh，sh 用宿主 shell） ──
     for cmd in cat tar mv rm grep mkdir echo sleep ps kill ls pwd date \
-               ln cp chmod touch uname gzip gunzip sed head ping netstat \
-               zcat dd df sync true false mktemp watch; do \
+               ln cp chmod touch uname gzip gunzip sed head tail cut ping netstat \
+               zcat dd df sync true false mktemp watch wget; do \
         ln -sf busybox "$cmd"; \
     done && \
     # busybox 本身必须有 +x（PIE ELF，QEMU 需要执行权限） ──
@@ -51,7 +51,7 @@ RUN chmod +x /start.sh /arm-root/uuplugin /arm-root/xuplugin-guardian /usr/bin/u
     mkdir -p /arm-root/var/tmp/uu /arm-root/tmp/uu /arm-root/sbin /arm-root/usr/sbin && \
     chmod 777 /arm-root/var/tmp/uu /arm-root/tmp/uu && \
     cd /arm-root/sbin && \
-    for cmd in ifconfig insmod route; do \
+    for cmd in ifconfig insmod route modprobe; do \
         ln -sf ../bin/busybox "$cmd"; \
     done && \
     # ── 6. 创建宿主机网络工具 wrapper ──
