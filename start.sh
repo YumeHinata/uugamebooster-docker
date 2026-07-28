@@ -183,6 +183,8 @@ else
             kill $OLD_GUARDIANS 2>/dev/null
             sleep 1
         fi
+        # 清理旧的 pid 文件（否则 uuplugin 误判已有实例在运行 → exit(255)）
+        rm -f /var/run/uuplugin.pid 2>/dev/null
         echo "[INFO] Starting uuplugin (attempt $((RESTART_COUNT + 1)))..."
         # 用 background + wait 捕获真实退出码（pipeline 的 $? 只反映 tee）
         /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin \
