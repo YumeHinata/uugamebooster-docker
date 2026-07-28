@@ -184,11 +184,26 @@ else
             sleep 1
         fi
         echo "[INFO] Starting uuplugin (attempt $((RESTART_COUNT + 1)))..."
-        /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin 2>&1 | tee /tmp/uuplugin_stderr.log
-        RET=$?
+        # 用 background + wait 捕获真实退出码（pipeline 的 $? 只反映 tee）
+        /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin \
+            >/tmp/uuplugin_stdout.log 2>/tmp/uuplugin_stderr.log &
+        UU_PID=$!
+        wait $UU_PID
+        REAL_RET=$?
         RESTART_COUNT=$((RESTART_COUNT + 1))
-        echo "[WARN] uuplugin exited with code $RET (total restarts: $RESTART_COUNT)"
-        if [ $RET -eq 0 ]; then
+        # 判断是信号还是正常退出
+        if [ $REAL_RET -ge 128 ]; then
+            SIG_NUM=$((REAL_RET - 128))
+            echo "[WARN] uuplugin killed by signal $SIG_NUM (exit=$REAL_RET, restarts=$RESTART_COUNT)"
+        elif [ $REAL_RET -eq 0 ]; then
+            echo "[INFO] uuplugin exited normally (restarts=$RESTART_COUNT)"
+        else
+            echo "[WARN] uuplugin exited with code $REAL_RET (restarts=$RESTART_COUNT)"
+        fi
+        # 打印 stderr 的最后几行帮助诊断
+        echo "[DIAG] Last stderr lines:"
+        tail -5 /tmp/uuplugin_stderr.log 2>/dev/null
+        if [ $REAL_RET -eq 0 ]; then
             echo "[INFO] Normal exit, restarting in 5s..."
         else
             echo "[WARN] Crash detected, restarting in 10s..."
