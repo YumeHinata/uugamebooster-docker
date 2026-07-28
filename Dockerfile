@@ -42,6 +42,8 @@ RUN chmod +x /start.sh /arm-root/uuplugin /arm-root/xuplugin-guardian /usr/bin/u
                zcat dd df sync true false mktemp watch; do \
         ln -sf busybox "$cmd"; \
     done && \
+    # busybox 本身必须有 +x（PIE ELF，QEMU 需要执行权限） ──
+    chmod +x busybox && \
     # ── 4. /bin/sh → 宿主 shell（所有 system() 调用依赖此链路） ──
     rm -f /arm-root/bin/sh && \
     ln -sf /bin/sh /arm-root/bin/sh && \

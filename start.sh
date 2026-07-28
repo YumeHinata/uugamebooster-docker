@@ -16,6 +16,12 @@ if [ "${QEMU_DEBUG}" = "1" ]; then
 fi
 cd /arm-root
 
+# ── 运行时加固（防止 overlay/restart 导致关键文件丢失） ──
+chmod +x /arm-root/bin/busybox 2>/dev/null
+[ -L /arm-root/bin/sh ] || ln -sf /bin/sh /arm-root/bin/sh 2>/dev/null
+mkdir -p /lib 2>/dev/null
+[ -L /lib/xtables ] || ln -sf /usr/lib/x86_64-linux-gnu/xtables /lib/xtables 2>/dev/null
+
 # ── 动态链接器修复 ──
 echo "[DIAG] Dynamic linker state:"
 ls -la /arm-root/lib/ld-musl-aarch64.so.1 2>&1 | sed 's/^/  /'
