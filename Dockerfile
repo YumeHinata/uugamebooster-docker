@@ -33,7 +33,7 @@ RUN chmod +x /start.sh /arm-root/uuplugin /arm-root/xuplugin-guardian /usr/bin/u
     chmod +x /arm-root/lib/ld-musl-aarch64.so.1 && \
     # ── 2. xuplugin-guardian → wrapper 脚本（QEMU 5.2 不拦截子进程 execve） ──
     mv /arm-root/xuplugin-guardian /arm-root/xuplugin-guardian.real && \
-    printf '#!/bin/sh\nexec /usr/bin/qemu-aarch64-static -L /arm-root /arm-root/xuplugin-guardian.real "$@"\n' > /arm-root/xuplugin-guardian && \
+    printf '#!/bin/sh\nexec setpriv --reuid=nobody --regid=nogroup --clear-groups /usr/bin/qemu-aarch64-static -L /arm-root /arm-root/xuplugin-guardian.real "$@"\n' > /arm-root/xuplugin-guardian && \
     chmod +x /arm-root/xuplugin-guardian && \
     cd /arm-root/bin && \
     # ── 3. busybox 符号链接（不含 sh，sh 用宿主 shell） ──
@@ -49,6 +49,7 @@ RUN chmod +x /start.sh /arm-root/uuplugin /arm-root/xuplugin-guardian /usr/bin/u
     ln -sf /bin/sh /arm-root/bin/sh && \
     # ── 5. 创建运行时目录和 sbin 工具链接 ──
     mkdir -p /arm-root/var/tmp/uu /arm-root/tmp/uu /arm-root/sbin /arm-root/usr/sbin && \
+    chmod 777 /arm-root/var/tmp/uu /arm-root/tmp/uu && \
     cd /arm-root/sbin && \
     for cmd in ifconfig insmod route; do \
         ln -sf ../bin/busybox "$cmd"; \
