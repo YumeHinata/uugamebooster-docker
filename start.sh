@@ -88,22 +88,71 @@ if [ ! -f /var/tmp/uu/h3c_info ]; then
     echo "[INFO] h3c_info created (MAC=$MAC, SN=$SN)"
 fi
 
+# ── 清理旧容器遗留的 iptables/ip rules（host networking 下不随容器删除） ──
+echo "[DIAG] Cleaning up leftover rules from previous container runs..."
+# 清理 mangle INPUT DROP（uuplugin 的客户端加速标记）
+iptables -t mangle -F INPUT 2>/dev/null
+echo "  mangle INPUT flushed"
+# 清理 mangle PREROUTING MARK（uuclearnat 添加的）
+iptables -t mangle -F PREROUTING 2>/dev/null
+echo "  mangle PREROUTING flushed"
+# 清理 nat PREROUTING DNAT（uuclearnat 添加的 DNS 重定向）
+iptables -t nat -F PREROUTING 2>/dev/null
+echo "  nat PREROUTING flushed"
+# 清理 nat POSTROUTING MASQUERADE
+iptables -t nat -F POSTROUTING 2>/dev/null
+echo "  nat POSTROUTING flushed"
+# 清理 filter FORWARD
+iptables -t filter -F FORWARD 2>/dev/null
+echo "  filter FORWARD flushed"
+# 清理旧的 tun163
+iptables -t filter -D FORWARD -i tun163 -j ACCEPT 2>/dev/null
+iptables -t filter -D FORWARD -o tun163 -j ACCEPT 2>/dev/null
+ip link del tun163 2>/dev/null
+echo "  tun163 cleaned"
+# 清理旧的 ip rules（table 163 相关，可能有上千条）
+DELETED=0
+echo "  cleaning ip rules (this may take a moment)..."
+while ip rule show 2>/dev/null | grep -q "lookup 163"; do
+    # 取第一条 lookup 163 的规则，提取优先级
+    LINE=$(ip rule show 2>/dev/null | grep "lookup 163" | head -1)
+    PRIO=$(echo "$LINE" | awk -F: '{print $1}' | tr -d ' ')
+    if [ -n "$PRIO" ]; then
+        ip rule del prio "$PRIO" 2>/dev/null
+        DELETED=$((DELETED + 1))
+    else
+        break
+    fi
+done
+echo "  ip rules cleaned: $DELETED entries removed"
+
 # ── 启动 ──
 echo "[INFO] Starting uuplugin (with -L /arm-root for child exec)..."
 if [ "${QEMU_DEBUG}" = "1" ]; then
-    # 调试模式：strace 输出到日志文件，容器保持运行
-    QEMU_STRACE=1 /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin 2>/tmp/uuplugin_strace.log &
+    # 调试模式：stderr + strace 进程追踪
+    QEMU_STRACE=1 /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin \
+        2>/tmp/uuplugin_stderr.log &
     UU_PID=$!
-    sleep 5
-    echo "[DIAG] uuplugin running as PID $UU_PID"
-    echo "[DIAG] strace log: /tmp/uuplugin_strace.log"
+    sleep 3
+    strace -e trace=clone,fork,vfork,execve,execveat -f -p $UU_PID \
+        -o /tmp/uuplugin_proc_trace.log &
+    STRACE_PID=$!
+    echo "[DIAG] uuplugin PID=$UU_PID, strace PID=$STRACE_PID"
+    echo "[DIAG] stderr → /tmp/uuplugin_stderr.log"
+    echo "[DIAG] proc trace → /tmp/uuplugin_proc_trace.log"
+    echo ""
+    echo "=== Now trigger acceleration from phone, wait 30s, then: ==="
+    echo "docker exec UUgamebooster cat /tmp/uuplugin_stderr.log"
+    echo "docker exec UUgamebooster grep -a execve /tmp/uuplugin_proc_trace.log | tail -20"
+    echo ""
     wait $UU_PID 2>/dev/null
     RET=$?
     echo "[ERROR] uuplugin exited with code $RET"
-    tail -30 /tmp/uuplugin_strace.log 2>/dev/null
-    # 保持容器运行供调试
+    kill $STRACE_PID 2>/dev/null
+    echo "=== stderr log ==="
+    tail -30 /tmp/uuplugin_stderr.log 2>/dev/null
     while true; do sleep 3600; done
 else
-    # 正常模式：直接前台运行
-    exec /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin
+    # 正常模式：stderr 同时写入日志和 docker logs
+    exec /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin 2>&1 | tee /tmp/uuplugin_stderr.log
 fi
