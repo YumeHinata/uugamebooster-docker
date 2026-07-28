@@ -176,6 +176,13 @@ else
     # 正常模式：带自动重启的主循环
     RESTART_COUNT=0
     while true; do
+        # 清理上次遗留的 guardian 进程（uuplugin 被杀后 guardian 成为孤儿）
+        OLD_GUARDIANS=$(ps | grep "xuplugin-guardian" | grep -v grep | awk '{print $1}')
+        if [ -n "$OLD_GUARDIANS" ]; then
+            echo "[CLEANUP] Killing orphaned guardians: $OLD_GUARDIANS"
+            kill $OLD_GUARDIANS 2>/dev/null
+            sleep 1
+        fi
         echo "[INFO] Starting uuplugin (attempt $((RESTART_COUNT + 1)))..."
         /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin 2>&1 | tee /tmp/uuplugin_stderr.log
         RET=$?
