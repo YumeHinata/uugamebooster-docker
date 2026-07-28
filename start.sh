@@ -83,7 +83,13 @@ echo "R3600" > /var/model
 mkdir -p /var/tmp/uu /tmp/uu
 if [ ! -f /var/tmp/uu/h3c_info ]; then
     MAC=$(cat /sys/class/net/eth0/address 2>/dev/null || cat /sys/class/net/br-lan/address 2>/dev/null || echo "00:00:00:00:00:00")
-    SN=$(cat /proc/sys/kernel/random/uuid | tr -d '-' | head -c 16)
+    if [ -n "${FIXED_SN}" ]; then
+        SN="${FIXED_SN}"
+        echo "[INFO] Using fixed SN from FIXED_SN env: $SN"
+    else
+        SN=$(cat /proc/sys/kernel/random/uuid | tr -d '-' | head -c 16)
+        echo "[INFO] Generated random SN (set FIXED_SN env to persist across rebuilds)"
+    fi
     printf 'manucode=R3600\nproductname=R3600\nmac=%s\nsn=%s\n' "$MAC" "$SN" > /var/tmp/uu/h3c_info
     echo "[INFO] h3c_info created (MAC=$MAC, SN=$SN)"
 fi
@@ -93,28 +99,42 @@ echo "[DIAG] Cleaning up leftover rules from previous container runs..."
 # 清理 mangle INPUT DROP（uuplugin 的客户端加速标记）
 iptables -t mangle -F INPUT 2>/dev/null
 echo "  mangle INPUT flushed"
-# 清理 mangle PREROUTING MARK（uuclearnat 添加的）
-iptables -t mangle -F PREROUTING 2>/dev/null
-echo "  mangle PREROUTING flushed"
-# 清理 nat PREROUTING DNAT（uuclearnat 添加的 DNS 重定向）
-iptables -t nat -F PREROUTING 2>/dev/null
-echo "  nat PREROUTING flushed"
-# 清理 nat POSTROUTING MASQUERADE
-iptables -t nat -F POSTROUTING 2>/dev/null
-echo "  nat POSTROUTING flushed"
-# 清理 filter FORWARD
-iptables -t filter -F FORWARD 2>/dev/null
-echo "  filter FORWARD flushed"
-# 清理旧的 tun163
+# 清理 mangle PREROUTING MARK（uuclearnat 添加的，只删 fwmark 0x163 的）
+RULE_NUM=$(iptables -t mangle -L PREROUTING -n --line-numbers 2>/dev/null | grep -c "MARK set 0x163")
+if [ "$RULE_NUM" -gt 0 ]; then
+    iptables -t mangle -L PREROUTING -n --line-numbers 2>/dev/null | \
+        grep "MARK set 0x163" | awk '{print $1}' | sort -rn | \
+        while read N; do iptables -t mangle -D PREROUTING "$N" 2>/dev/null; done
+    echo "  mangle PREROUTING: $RULE_NUM MARK rules removed"
+else
+    echo "  mangle PREROUTING: no leftover MARK rules"
+fi
+# 清理 nat PREROUTING DNAT（uuclearnat 添加的 DNS 重定向到 8.8.8.8）
+RULE_NUM=$(iptables -t nat -L PREROUTING -n --line-numbers 2>/dev/null | grep -c "to:8.8.8.8")
+if [ "$RULE_NUM" -gt 0 ]; then
+    iptables -t nat -L PREROUTING -n --line-numbers 2>/dev/null | \
+        grep "to:8.8.8.8" | awk '{print $1}' | sort -rn | \
+        while read N; do iptables -t nat -D PREROUTING "$N" 2>/dev/null; done
+    echo "  nat PREROUTING: $RULE_NUM DNAT rules removed"
+else
+    echo "  nat PREROUTING: no leftover DNAT rules"
+fi
+# 只清理 tun163 相关的 POSTROUTING MASQUERADE（不碰宿主机的规则！）
+iptables -t nat -D POSTROUTING -o tun163 -j MASQUERADE 2>/dev/null && \
+    echo "  nat POSTROUTING: tun163 MASQUERADE removed" || \
+    echo "  nat POSTROUTING: no tun163 rules (host rules preserved)"
+# 只清理 tun163 相关的 FORWARD ACCEPT（不碰宿主机的规则！）
 iptables -t filter -D FORWARD -i tun163 -j ACCEPT 2>/dev/null
-iptables -t filter -D FORWARD -o tun163 -j ACCEPT 2>/dev/null
-ip link del tun163 2>/dev/null
-echo "  tun163 cleaned"
+DEL_COUNT=0
+iptables -t filter -D FORWARD -o tun163 -j ACCEPT 2>/dev/null && DEL_COUNT=$((DEL_COUNT+1))
+[ "$DEL_COUNT" -gt 0 ] && echo "  filter FORWARD: $DEL_COUNT tun163 rules removed" || \
+    echo "  filter FORWARD: no tun163 rules (host rules preserved)"
+# 清理旧的 tun163 设备
+ip link del tun163 2>/dev/null && echo "  tun163 device removed" || echo "  tun163: no leftover device"
 # 清理旧的 ip rules（table 163 相关，可能有上千条）
 DELETED=0
 echo "  cleaning ip rules (this may take a moment)..."
 while ip rule show 2>/dev/null | grep -q "lookup 163"; do
-    # 取第一条 lookup 163 的规则，提取优先级
     LINE=$(ip rule show 2>/dev/null | grep "lookup 163" | head -1)
     PRIO=$(echo "$LINE" | awk -F: '{print $1}' | tr -d ' ')
     if [ -n "$PRIO" ]; then
@@ -153,6 +173,19 @@ if [ "${QEMU_DEBUG}" = "1" ]; then
     tail -30 /tmp/uuplugin_stderr.log 2>/dev/null
     while true; do sleep 3600; done
 else
-    # 正常模式：stderr 同时写入日志和 docker logs
-    exec /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin 2>&1 | tee /tmp/uuplugin_stderr.log
+    # 正常模式：带自动重启的主循环
+    RESTART_COUNT=0
+    while true; do
+        echo "[INFO] Starting uuplugin (attempt $((RESTART_COUNT + 1)))..."
+        /usr/bin/qemu-aarch64-static -L /arm-root ./uuplugin 2>&1 | tee /tmp/uuplugin_stderr.log
+        RET=$?
+        RESTART_COUNT=$((RESTART_COUNT + 1))
+        echo "[WARN] uuplugin exited with code $RET (total restarts: $RESTART_COUNT)"
+        if [ $RET -eq 0 ]; then
+            echo "[INFO] Normal exit, restarting in 5s..."
+        else
+            echo "[WARN] Crash detected, restarting in 10s..."
+        fi
+        sleep 10
+    done
 fi
