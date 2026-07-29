@@ -65,6 +65,21 @@ else
     echo "        Run with: --device /dev/net/tun --cap-add NET_ADMIN"
 fi
 
+# ── WAN1 虚拟接口（uuplugin 硬编码检查此接口名） ──
+# iStoreOS 使用 pppoe-wan/eth0 等非标准名称，需创建 dummy 别名
+if ! ip link show WAN1 >/dev/null 2>&1; then
+    echo "[DIAG] Creating WAN1 dummy interface (uuplugin requires it)"
+    ip link add WAN1 type dummy 2>/dev/null && \
+        echo "  [OK] WAN1 dummy created" || \
+        echo "  [WARN] WAN1 create failed (check NET_ADMIN)"
+fi
+if ip link show WAN1 >/dev/null 2>&1; then
+    ip link set WAN1 up 2>/dev/null
+    echo "[OK] WAN1 UP"
+else
+    echo "[WARN] WAN1 missing — uuplugin may fail init!"
+fi
+
 # ── natflushdev FIFO（uuplugin ↔ uuclearnat IPC 通道） ──
 # QEMU_LD_PREFIX 将 /dev/natflushdev 映射到 /arm-root/dev/natflushdev
 # uuclearnat.sh 也是原生 x86_64，同样访问 /arm-root/dev/natflushdev
@@ -148,6 +163,8 @@ iptables -t filter -D FORWARD -o tun163 -j ACCEPT 2>/dev/null && DEL_COUNT=$((DE
     echo "  filter FORWARD: no tun163 rules (host rules preserved)"
 # 清理旧的 tun163 设备
 ip link del tun163 2>/dev/null && echo "  tun163 device removed" || echo "  tun163: no leftover device"
+# 清理旧的 WAN1 dummy（上次运行残留，将在启动时重新创建）
+ip link del WAN1 2>/dev/null
 # 清理旧的 ip rules（table 163 相关，可能有上千条）
 DELETED=0
 echo "  cleaning ip rules (this may take a moment)..."
