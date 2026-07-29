@@ -65,6 +65,23 @@ else
     echo "        Run with: --device /dev/net/tun --cap-add NET_ADMIN"
 fi
 
+# ── natflushdev FIFO（uuplugin ↔ uuclearnat IPC 通道） ──
+# QEMU_LD_PREFIX 将 /dev/natflushdev 映射到 /arm-root/dev/natflushdev
+# uuclearnat.sh 也是原生 x86_64，同样访问 /arm-root/dev/natflushdev
+NATFLUSH="/arm-root/dev/natflushdev"
+if [ ! -p "$NATFLUSH" ]; then
+    echo "[DIAG] Creating FIFO $NATFLUSH"
+    rm -f "$NATFLUSH" 2>/dev/null
+    mkdir -p "$(dirname "$NATFLUSH")"
+    mkfifo "$NATFLUSH" 2>/dev/null || echo "[WARN] mkfifo $NATFLUSH failed"
+    chmod 666 "$NATFLUSH" 2>/dev/null
+fi
+if [ -p "$NATFLUSH" ]; then
+    echo "[OK] $NATFLUSH FIFO ready"
+else
+    echo "[WARN] $NATFLUSH FIFO not available (uuplugin may hang!)"
+fi
+
 # ── 网络工具链检查 ──
 echo "[DIAG] Tool chain check:"
 for tool in /arm-root/usr/sbin/iptables /arm-root/sbin/ip /arm-root/usr/sbin/ipset /arm-root/usr/sbin/nft; do
@@ -181,6 +198,13 @@ else
         if [ -n "$OLD_GUARDIANS" ]; then
             echo "[CLEANUP] Killing orphaned guardians: $OLD_GUARDIANS"
             kill $OLD_GUARDIANS 2>/dev/null
+            sleep 1
+        fi
+        # 清理上次遗留的 uuclearnat 进程
+        OLD_LEARNAT=$(ps | grep "uuclearnat" | grep -v grep | grep -v "$$" | awk '{print $1}')
+        if [ -n "$OLD_LEARNAT" ]; then
+            echo "[CLEANUP] Killing orphaned uuclearnat processes: $OLD_LEARNAT"
+            kill $OLD_LEARNAT 2>/dev/null
             sleep 1
         fi
         # 清理旧的 pid 文件（否则 uuplugin 误判已有实例在运行 → exit(255)）

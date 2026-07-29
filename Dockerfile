@@ -17,7 +17,8 @@ RUN apt-get update && \
         tcpdump \
         strace \
         curl \
-        ca-certificates && \
+        ca-certificates \
+        socat && \
     rm -rf /var/lib/apt/lists/*
 
 # ARM rootfs（精简版：仅含 uuplugin 运行所需的最小依赖集）
@@ -52,6 +53,10 @@ RUN chmod +x /start.sh /arm-root/uuplugin /arm-root/xuplugin-guardian /usr/bin/u
     # ── 5. 创建运行时目录和 sbin 工具链接 ──
     mkdir -p /arm-root/var/tmp/uu /arm-root/tmp/uu /arm-root/sbin /arm-root/usr/sbin && \
     chmod 777 /arm-root/var/tmp/uu /arm-root/tmp/uu && \
+    # 预创建 /dev/natflushdev FIFO（uuplugin ↔ uuclearnat 的 IPC 通道）
+    rm -f /arm-root/dev/natflushdev && \
+    mkfifo /arm-root/dev/natflushdev && \
+    chmod 666 /arm-root/dev/natflushdev && \
     cd /arm-root/sbin && \
     for cmd in ifconfig insmod route modprobe; do \
         ln -sf ../bin/busybox "$cmd"; \
