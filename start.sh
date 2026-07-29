@@ -126,6 +126,23 @@ if [ ! -f /var/tmp/uu/h3c_info ]; then
     echo "[INFO] h3c_info created (MAC=$MAC, SN=$SN)"
 fi
 
+# ── factoryinfo（H3C 路由器工厂信息，uuplugin 初始化必需） ──
+# QEMU_LD_PREFIX 将 /proc/manufactory/factoryinfo 映射到此路径
+mkdir -p /arm-root/proc/manufactory
+if [ ! -f /arm-root/proc/manufactory/factoryinfo ]; then
+    MAC=$(cat /sys/class/net/eth0/address 2>/dev/null | head -1 || echo "00:e0:b4:1b:6d:b8")
+    printf 'manucode=R3600\nproductname=R3600\nmac=%s\nsn=%s\nwan_if=WAN1\nwan_mtu=1492\npath_mtu=1492\nrsv=0\n' \
+        "$MAC" "${FIXED_SN:-DEADBEEFCAFE0001}" > /arm-root/proc/manufactory/factoryinfo
+    echo "[INFO] factoryinfo created"
+fi
+
+# ── activate_status（uuplugin 用 inotify 监控此文件的激活状态） ──
+# QEMU_LD_PREFIX 将 /tmp/uu/activate_status 映射到此路径
+if [ ! -f /arm-root/tmp/uu/activate_status ]; then
+    echo "0" > /arm-root/tmp/uu/activate_status
+    echo "[INFO] activate_status initialized"
+fi
+
 # ── 清理旧容器遗留的 iptables/ip rules（host networking 下不随容器删除） ──
 echo "[DIAG] Cleaning up leftover rules from previous container runs..."
 # 清理 mangle INPUT DROP（uuplugin 的客户端加速标记）
