@@ -45,8 +45,8 @@ services:
       # Standard
       - HOME=/root
       - TZ=CST-8
-      # Optional SN binding
-      # - FIXED_SN=
+      # Fixed SN (persistent identity to avoid new-device reset each restart)
+      - FIXED_SN=h3c5c3100496130413d
       # Debug: enable strace capture
       # - STRACE_DEBUG=1
 
