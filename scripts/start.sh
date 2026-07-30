@@ -59,17 +59,21 @@ H3C_PORT="16000"
 NETEASE_HOST="rglg.uu.netease.com"
 RGLG_163="rglg.uu.163.com"
 
-echo "[INFO] DNS hijack: $NETEASE_HOST + $RGLG_163 → $H3C_HOST"
-H3C_IP=$(getent hosts "$H3C_HOST" 2>/dev/null | awk '{print $1; exit}')
-if [ -n "$H3C_IP" ]; then
-    for DOMAIN in "$NETEASE_HOST" "$RGLG_163"; do
-        sed -i "/$DOMAIN/d" /etc/hosts 2>/dev/null
-        echo "$H3C_IP $DOMAIN" >> /etc/hosts
-    done
-    echo "[OK] /etc/hosts: $H3C_IP → $NETEASE_HOST + $RGLG_163"
+if [ "${SKIP_DNS_HIJACK}" = "1" ]; then
+    echo "[INFO] SKIP_DNS_HIJACK=1 — DNS hijack skipped, using existing /etc/hosts"
 else
-    echo "[WARN] Cannot resolve $H3C_HOST — DNS hijack disabled"
-    echo "[WARN] uuplugin will connect to real registration servers (basic features only)"
+    echo "[INFO] DNS hijack: $NETEASE_HOST + $RGLG_163 → $H3C_HOST"
+    H3C_IP=$(getent hosts "$H3C_HOST" 2>/dev/null | awk '{print $1; exit}')
+    if [ -n "$H3C_IP" ]; then
+        for DOMAIN in "$NETEASE_HOST" "$RGLG_163"; do
+            sed -i "/$DOMAIN/d" /etc/hosts 2>/dev/null
+            echo "$H3C_IP $DOMAIN" >> /etc/hosts
+        done
+        echo "[OK] /etc/hosts: $H3C_IP → $NETEASE_HOST + $RGLG_163"
+    else
+        echo "[WARN] Cannot resolve $H3C_HOST — DNS hijack disabled"
+        echo "[WARN] uuplugin will connect to real registration servers (basic features only)"
+    fi
 fi
 
 # ── iptables legacy mode ───────────────────────────────────────────────────
