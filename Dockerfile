@@ -14,7 +14,8 @@ RUN apt-get update && \
         net-tools \
         ca-certificates \
         curl \
-        strace && \
+        strace \
+        kmod && \
     rm -rf /var/lib/apt/lists/*
 
 # ── Application files ──────────────────────────────────────────────────────
