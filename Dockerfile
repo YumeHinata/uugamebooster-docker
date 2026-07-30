@@ -42,6 +42,8 @@ RUN chmod +x \
     done && \
     # Pre-create OpenWrt paths the binary expects at runtime
     mkdir -p /usr/sbin/uu /var/tmp/uu /tmp/uu && \
+    # uuplugin calls xtables-nft-multi from its own directory
+    ln -sf /usr/sbin/xtables-nft-multi /opt/uu/bin/xtables-nft-multi && \
     # iptables legacy mode (Debian default is nft, but xtables modules need legacy)
     update-alternatives --set iptables /usr/sbin/iptables-legacy 2>/dev/null || true && \
     update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy 2>/dev/null || true
