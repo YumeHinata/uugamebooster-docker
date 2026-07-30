@@ -17,12 +17,38 @@ echo "========================================="
 echo "UU Game Booster - x86_64 Docker Runtime"
 echo "========================================="
 
-# ── H3C Identity Spoofing ──────────────────────────────────────────────────
-# Go's os.Getenv() reads these at startup → priority over /var/model
+# ── Environment Variables ──────────────────────────────────────────────────
+# uuplugin (statically linked C++ binary) reads ALL of these via getenv().
+# Any missing → std::string(nullptr) → SIGABRT "basic_string::_M_construct null not valid"
+# These are the complete set extracted from binary strings.
+
+# Standard env vars (may be absent in minimal containers)
+export HOME="${HOME:-/root}"
+export TZ="${TZ:-CST-8}"
+
+# Device identity (user-configurable)
 export UU_MODEL="${UU_MODEL:-h3c-nx30pro}"
 export UU_VENDOR="${UU_VENDOR:-h3c}"
 export UU_DEVICE_TYPE="${UU_DEVICE_TYPE:-router}"
 export UU_FIRMWARE_VERSION="${UU_FIRMWARE_VERSION:-v14.3.0}"
+export UU_SN="${UU_SN:-${FIXED_SN:-unknown}}"
+export UU_PLUGIN_VESION="${UU_PLUGIN_VESION:-v14.3.0}"
+export UU_RANDOM="${UU_RANDOM:-$(cat /proc/sys/kernel/random/uuid 2>/dev/null || echo 'default')}"
+
+# Network interface info (populated at runtime by binary, but needs non-null defaults)
+export UU_DEVICE_MAC="${UU_DEVICE_MAC:-00:00:00:00:00:00}"
+export UU_DEVICE_IP="${UU_DEVICE_IP:-127.0.0.1}"
+export UU_DEVICE_FWMARK="${UU_DEVICE_FWMARK:-0}"
+export UU_DEVICE_LINK_TYPE="${UU_DEVICE_LINK_TYPE:-ethernet}"
+export UU_LAN_IP="${UU_LAN_IP:-192.168.1.1}"
+export UU_LAN_NAME="${UU_LAN_NAME:-br-lan}"
+export UU_WAN_IP="${UU_WAN_IP:-0.0.0.0}"
+export UU_TUN_IP="${UU_TUN_IP:-10.0.0.1}"
+export UU_TUN_NAME="${UU_TUN_NAME:-tun163}"
+export UU_ROUTE_DEFAULT_TABLE="${UU_ROUTE_DEFAULT_TABLE:-main}"
+export UU_ROUTE_FWMARK_TABLE="${UU_ROUTE_FWMARK_TABLE:-163}"
+export UU_N_PR_H="${UU_N_PR_H:-0}"
+
 echo "[INFO] Identity: MODEL=$UU_MODEL VENDOR=$UU_VENDOR TYPE=$UU_DEVICE_TYPE"
 
 # ── DNS Hijack: rglg.uu.netease.com → h3crglg.uu.163.com ────────────────────
