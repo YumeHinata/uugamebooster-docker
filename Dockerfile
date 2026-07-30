@@ -13,7 +13,8 @@ RUN apt-get update && \
         procps \
         net-tools \
         ca-certificates \
-        curl && \
+        curl \
+        strace && \
     rm -rf /var/lib/apt/lists/*
 
 # ── Application files ──────────────────────────────────────────────────────
