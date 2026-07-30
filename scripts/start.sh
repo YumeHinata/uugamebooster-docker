@@ -111,8 +111,27 @@ mkfifo "$NATFLUSH" 2>/dev/null && chmod 666 "$NATFLUSH"
 # ── OpenWrt paths (binary expects these absolute paths) ────────────────────
 # uuplugin was compiled for OpenWrt x86_64; statically linked but uses hardcoded
 # absolute paths for its runtime data (not relative to binary location).
-mkdir -p /usr/sbin/uu /var/tmp/uu /tmp/uu
+mkdir -p /usr/sbin/uu /var/tmp/uu /tmp/uu /var/tmp/plugmnt/uu /usr/uufactory
 chmod 755 /usr/sbin/uu
+
+# ── H3C factory info (real device identity from community port) ────────────
+# /usr/uufactory/factoryinfo = H3C hardware factory partition (simulated)
+# /var/tmp/uu/h3c_info        = copied by init.d script, read by uuplugin
+if [ ! -f /usr/uufactory/factoryinfo ]; then
+    SN="${FIXED_SN:-12345678900987654321}"
+    MAC="${UU_DEVICE_MAC:-00:00:00:00:00:00}"
+    cat > /usr/uufactory/factoryinfo << FACTORYEOF
+productname=NX30Pro
+ethaddr=$MAC
+hardversion=VER.A
+bootversion=100
+manucode=$SN
+FACTORYEOF
+    echo "[OK] /usr/uufactory/factoryinfo created (SN=$SN)"
+fi
+# Copy to h3c_info (binary reads from here for registration)
+cp /usr/uufactory/factoryinfo /var/tmp/uu/h3c_info
+echo "[INFO] h3c_info copied from factoryinfo"
 
 # ── Device identity files ──────────────────────────────────────────────────
 echo "CST-8" > /etc/TZ 2>/dev/null
@@ -134,14 +153,7 @@ else
     echo "[OK] /etc/lsb-release exists"
 fi
 
-# h3c_info — factory identity for H3C registration protocol
-if [ ! -f /var/tmp/uu/h3c_info ]; then
-    MAC=$(cat /sys/class/net/eth0/address 2>/dev/null || echo "00:00:00:00:00:00")
-    SN="${FIXED_SN:-$(cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '-' | head -c 16)}"
-    printf 'manucode=%s\nproductname=%s\nmac=%s\nsn=%s\n' \
-        "${UU_VENDOR}" "${UU_MODEL}" "$MAC" "$SN" > /var/tmp/uu/h3c_info
-    echo "[INFO] h3c_info: productname=$UU_MODEL sn=$SN"
-fi
+# h3c_info already created above from factoryinfo
 
 # .sn — serial number cache (binary reads this AFTER creating it empty, crashes on null)
 if [ ! -s /usr/sbin/uu/.sn ]; then
@@ -234,11 +246,11 @@ while true; do
 
     echo "[INFO] Starting uuplugin (attempt $((RESTART_COUNT + 1)))..."
     if [ "$STRACE_DEBUG" = "1" ]; then
-        strace -f -o /tmp/strace_${RESTART_COUNT}.log "$UU_BIN" >/tmp/uuplugin_stdout.log 2>/tmp/uuplugin_stderr.log &
+        strace -f -o /tmp/strace_${RESTART_COUNT}.log "$UU_BIN" /opt/uu/conf/uu.conf >/tmp/uuplugin_stdout.log 2>/tmp/uuplugin_stderr.log &
         UU_PID=$!
         echo "[DEBUG] strace PID=$UU_PID log=/tmp/strace_${RESTART_COUNT}.log"
     else
-        "$UU_BIN" >/tmp/uuplugin_stdout.log 2>/tmp/uuplugin_stderr.log &
+        "$UU_BIN" /opt/uu/conf/uu.conf >/tmp/uuplugin_stdout.log 2>/tmp/uuplugin_stderr.log &
         UU_PID=$!
     fi
     wait $UU_PID
