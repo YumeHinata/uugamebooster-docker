@@ -47,6 +47,8 @@ services:
       - TZ=CST-8
       # Optional SN binding
       # - FIXED_SN=
+      # Debug: enable strace capture
+      # - STRACE_DEBUG=1
 
     # ── Log rotation ──
     logging:

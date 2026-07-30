@@ -215,8 +215,14 @@ while true; do
     rm -f /var/run/uuplugin.pid 2>/dev/null
 
     echo "[INFO] Starting uuplugin (attempt $((RESTART_COUNT + 1)))..."
-    "$UU_BIN" >/tmp/uuplugin_stdout.log 2>/tmp/uuplugin_stderr.log &
-    UU_PID=$!
+    if [ "$STRACE_DEBUG" = "1" ]; then
+        strace -f -o /tmp/strace_${RESTART_COUNT}.log "$UU_BIN" >/tmp/uuplugin_stdout.log 2>/tmp/uuplugin_stderr.log &
+        UU_PID=$!
+        echo "[DEBUG] strace PID=$UU_PID log=/tmp/strace_${RESTART_COUNT}.log"
+    else
+        "$UU_BIN" >/tmp/uuplugin_stdout.log 2>/tmp/uuplugin_stderr.log &
+        UU_PID=$!
+    fi
     wait $UU_PID
     REAL_RET=$?
     RESTART_COUNT=$((RESTART_COUNT + 1))
