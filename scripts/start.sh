@@ -119,7 +119,12 @@ chmod 755 /usr/sbin/uu
 # /var/tmp/uu/h3c_info        = copied by init.d script, read by uuplugin
 if [ ! -f /usr/uufactory/factoryinfo ]; then
     SN="${FIXED_SN:-12345678900987654321}"
-    MAC="${UU_DEVICE_MAC:-00:00:00:00:00:00}"
+    # Get real host MAC (critical: server may reject all-zeros MAC)
+    REAL_MAC=$(cat /sys/class/net/br-lan/address 2>/dev/null || \
+               cat /sys/class/net/eth0/address 2>/dev/null || \
+               cat /sys/class/net/eth1/address 2>/dev/null || \
+               echo "")
+    MAC="${REAL_MAC:-${UU_DEVICE_MAC:-00:00:00:00:00:00}}"
     cat > /usr/uufactory/factoryinfo << FACTORYEOF
 productname=NX30Pro
 ethaddr=$MAC
@@ -127,11 +132,17 @@ hardversion=VER.A
 bootversion=100
 manucode=$SN
 FACTORYEOF
-    echo "[OK] /usr/uufactory/factoryinfo created (SN=$SN)"
+    echo "[OK] /usr/uufactory/factoryinfo created (SN=$SN MAC=$MAC)"
 fi
 # Copy to h3c_info (binary reads from here for registration)
 cp /usr/uufactory/factoryinfo /var/tmp/uu/h3c_info
 echo "[INFO] h3c_info copied from factoryinfo"
+
+# /var/run/landevname.txt — H3C init.d writes bridge name here
+# Binary reads this to determine which interface to scan for LAN devices!
+# Without this, device discovery may not work at all.
+echo "br-lan" > /var/run/landevname.txt 2>/dev/null
+echo "[OK] /var/run/landevname.txt = br-lan"
 
 # ── Device identity files ──────────────────────────────────────────────────
 echo "CST-8" > /etc/TZ 2>/dev/null

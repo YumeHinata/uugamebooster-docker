@@ -34,6 +34,8 @@ RUN chmod +x \
     # uuplugin hardcodes /bin/uuclearnat (OpenWrt path)
     ln -sf /opt/uu/scripts/uuclearnat.sh /bin/uuclearnat && \
     ln -sf /opt/uu/scripts/uuclearnat.sh /usr/bin/uuclearnat && \
+    # uuplugin spawns ./xuplugin-guardian (CWD relative); WORKDIR=/opt/uu
+    ln -sf /opt/uu/bin/xuplugin-guardian /opt/uu/xuplugin-guardian && \
     # xtables compat: uuplugin uses XTABLES_LIBDIR=/lib (OpenWrt convention)
     mkdir -p /lib && \
     ln -sf /usr/lib/x86_64-linux-gnu/xtables /lib/xtables && \
