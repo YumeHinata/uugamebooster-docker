@@ -47,8 +47,8 @@ services:
       - TZ=CST-8
       # Fixed SN (persistent identity to avoid new-device reset each restart)
       - FIXED_SN=h3c5c3100496130413d
-      # Debug: enable strace capture
-      # - STRACE_DEBUG=1
+      # Debug: strace capture enabled
+      - STRACE_DEBUG=1
 
     # ── Log rotation ──
     logging:
