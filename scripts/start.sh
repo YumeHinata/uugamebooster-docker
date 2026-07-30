@@ -193,6 +193,12 @@ XTABLES_LIBDIR=/lib iptables -w -A INPUT -p tcp --dport 65534 -j ACCEPT >/dev/nu
     echo "[FAIL] XTABLES_LIBDIR=/lib"
 ip link show >/dev/null 2>&1 && echo "[OK] ip works" || echo "[FAIL] ip"
 
+# ── xtables-nft-multi (binary calls it from its own dir) ──────────────────
+if [ ! -e /opt/uu/bin/xtables-nft-multi ] && [ -e /usr/sbin/xtables-nft-multi ]; then
+    ln -sf /usr/sbin/xtables-nft-multi /opt/uu/bin/xtables-nft-multi
+    echo "[OK] xtables-nft-multi symlinked"
+fi
+
 # ── Start uuplugin (x86_64 native, no QEMU!) ──────────────────────────────
 UU_BIN="/opt/uu/bin/uuplugin"
 echo "[INFO] Starting uuplugin (x86_64 native)..."
