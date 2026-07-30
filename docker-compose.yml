@@ -5,20 +5,24 @@ services:
     build: .
     container_name: uuplugin
     restart: unless-stopped
-    # ── 网络权限（加速核心依赖） ──
+
+    # ── Network privileges (acceleration core requirements) ──
     cap_add:
       - NET_ADMIN
       - NET_RAW
-      - SYS_PTRACE
-      - SYS_NICE
     devices:
       - /dev/net/tun:/dev/net/tun
-    # ── 使用宿主机网络栈（iptables 规则直接生效于宿主机） ──
+
+    # ── Host networking (iptables rules apply directly to host) ──
     network_mode: host
-    # ── 环境变量 ──
+
+    # ── Identity spoofing for H3C full-feature activation ──
     environment:
-      - QEMU_DEBUG=0          # 设为1开启QEMU strace调试日志
-    # ── 日志限制 ──
+      - UU_MODEL=h3c-nx30pro
+      - UU_VENDOR=h3c
+      # - FIXED_SN=    # Uncomment to bind a persistent SN
+
+    # ── Log rotation ──
     logging:
       driver: json-file
       options:

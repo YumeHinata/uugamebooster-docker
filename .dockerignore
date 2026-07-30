@@ -1,0 +1,16 @@
+# Analysis scripts (reverse engineering reference, not needed for build)
+analysis/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Temp files
+*.txt
+*.pyc
+__pycache__/
+
+# Docker
+.dockerignore
+docker-compose.yml
