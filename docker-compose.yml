@@ -2,7 +2,8 @@ version: "3.8"
 
 services:
   uuplugin:
-    build: .
+    image: yumehinata/uugamebooster-docker:latest
+    # build: .   # Uncomment to build locally instead of pulling image
     container_name: UUgamebooster
     restart: unless-stopped
 
