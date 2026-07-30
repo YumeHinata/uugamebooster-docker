@@ -30,8 +30,8 @@ COPY scripts/uuclearnat.sh  /opt/uu/scripts/uuclearnat.sh
 # ignoring UU_MODEL env var. Patch to H3C NX30Pro identity (same byte length).
 RUN printf 'h3cnx30' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4089051 conv=notrunc && \
     printf 'NX30Pro' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4106351 conv=notrunc && \
-    printf 'h3cnx30-x86_64' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091231 conv=notrunc && \
-    echo "[OK] uuplugin patched: openwrt → h3cnx30, OpenWrt → NX30Pro"
+    printf 'h3cnx30-aarch64' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091231 conv=notrunc && \
+    echo "[OK] uuplugin patched: openwrt → h3cnx30, OpenWrt → NX30Pro, x86_64 → aarch64"
 
 # ── One-time setup ─────────────────────────────────────────────────────────
 RUN chmod +x \
