@@ -125,6 +125,13 @@ if [ ! -f /var/tmp/uu/h3c_info ]; then
     echo "[INFO] h3c_info: productname=$UU_MODEL sn=$SN"
 fi
 
+# .sn — serial number cache (binary reads this AFTER creating it empty, crashes on null)
+if [ ! -s /usr/sbin/uu/.sn ]; then
+    SN="${FIXED_SN:-$(cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '-' | head -c 16)}"
+    echo "$SN" > /usr/sbin/uu/.sn
+    echo "[INFO] /usr/sbin/uu/.sn written"
+fi
+
 # activate_status — uuplugin monitors this via inotify
 echo "0" > /tmp/uu/activate_status 2>/dev/null
 
