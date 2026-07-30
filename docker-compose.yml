@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   uuplugin:
-    image: yumehinata/uugamebooster-docker:main
+    image: yumehinata/uugamebooster-docker:latest
     # build: .   # Uncomment to build locally instead of pulling image
     container_name: UUgamebooster
     restart: unless-stopped
@@ -19,11 +19,34 @@ services:
     # ── Host networking (iptables rules apply directly to host) ──
     network_mode: host
 
-    # ── Identity spoofing for H3C full-feature activation ──
+    # ── All env vars required by uuplugin (getenv() must not return NULL) ──
     environment:
+      # Device identity
       - UU_MODEL=h3c-nx30pro
       - UU_VENDOR=h3c
-      # - FIXED_SN=    # Uncomment to bind a persistent SN
+      - UU_DEVICE_TYPE=router
+      - UU_FIRMWARE_VERSION=v14.3.0
+      - UU_SN=unknown
+      - UU_PLUGIN_VESION=v14.3.0
+      - UU_RANDOM=default
+      # Network interfaces (populated at runtime but must be non-null)
+      - UU_DEVICE_MAC=00:00:00:00:00:00
+      - UU_DEVICE_IP=127.0.0.1
+      - UU_DEVICE_FWMARK=0
+      - UU_DEVICE_LINK_TYPE=ethernet
+      - UU_LAN_IP=192.168.1.1
+      - UU_LAN_NAME=br-lan
+      - UU_WAN_IP=0.0.0.0
+      - UU_TUN_IP=10.0.0.1
+      - UU_TUN_NAME=tun163
+      - UU_ROUTE_DEFAULT_TABLE=main
+      - UU_ROUTE_FWMARK_TABLE=163
+      - UU_N_PR_H=0
+      # Standard
+      - HOME=/root
+      - TZ=CST-8
+      # Optional SN binding
+      # - FIXED_SN=
 
     # ── Log rotation ──
     logging:
