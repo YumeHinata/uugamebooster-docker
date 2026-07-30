@@ -118,6 +118,22 @@ chmod 755 /usr/sbin/uu
 echo "CST-8" > /etc/TZ 2>/dev/null
 echo "$UU_MODEL" > /var/model 2>/dev/null
 
+# /etc/lsb-release — OS detection (binary reads this; without it, falls back to "openwrt" hardcoded default,
+# ignoring UU_MODEL env var entirely)
+if [ ! -f /etc/lsb-release ]; then
+    cat > /etc/lsb-release << 'LSBEOF'
+DISTRIB_ID="OpenWrt"
+DISTRIB_RELEASE="21.02.0"
+DISTRIB_REVISION="r16495-bf0c965af0"
+DISTRIB_TARGET="x86/64"
+DISTRIB_ARCH="x86_64"
+DISTRIB_DESCRIPTION="OpenWrt 21.02.0"
+LSBEOF
+    echo "[OK] /etc/lsb-release created"
+else
+    echo "[OK] /etc/lsb-release exists"
+fi
+
 # h3c_info — factory identity for H3C registration protocol
 if [ ! -f /var/tmp/uu/h3c_info ]; then
     MAC=$(cat /sys/class/net/eth0/address 2>/dev/null || echo "00:00:00:00:00:00")
