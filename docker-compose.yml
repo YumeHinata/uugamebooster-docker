@@ -49,6 +49,8 @@ services:
       - FIXED_SN=12345678900987654321
       # Debug: strace capture enabled
       - STRACE_DEBUG=1
+      # SSLKEYLOGFILE for Wireshark TLS decryption (MITM fallback)
+      - SSLKEYLOGFILE=/tmp/sslkeys.log
 
     # ── Log rotation ──
     logging:
