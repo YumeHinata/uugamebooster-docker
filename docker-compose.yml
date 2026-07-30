@@ -3,7 +3,7 @@ version: "3.8"
 services:
   uuplugin:
     build: .
-    container_name: uuplugin
+    container_name: UUgamebooster
     restart: unless-stopped
 
     # ── Network privileges (acceleration core requirements) ──
