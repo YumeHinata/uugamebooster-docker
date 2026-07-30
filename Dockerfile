@@ -25,6 +25,14 @@ COPY bin/xuplugin-guardian  /opt/uu/bin/xuplugin-guardian
 COPY scripts/start.sh       /opt/uu/scripts/start.sh
 COPY scripts/uuclearnat.sh  /opt/uu/scripts/uuclearnat.sh
 
+# ── Binary patch: replace hardcoded "openwrt" model strings ────────────────
+# Generic x86_64 uuplugin hardcodes "openwrt"/"OpenWrt" in login protobuf,
+# ignoring UU_MODEL env var. Patch to H3C NX30Pro identity (same byte length).
+RUN printf 'h3cnx30' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4089051 conv=notrunc && \
+    printf 'NX30Pro' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4106351 conv=notrunc && \
+    printf 'h3cnx30-x86_64' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091231 conv=notrunc && \
+    echo "[OK] uuplugin patched: openwrt → h3cnx30, OpenWrt → NX30Pro"
+
 # ── One-time setup ─────────────────────────────────────────────────────────
 RUN chmod +x \
         /opt/uu/bin/uuplugin \
