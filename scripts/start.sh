@@ -51,23 +51,25 @@ export UU_N_PR_H="${UU_N_PR_H:-0}"
 
 echo "[INFO] Identity: MODEL=$UU_MODEL VENDOR=$UU_VENDOR TYPE=$UU_DEVICE_TYPE"
 
-# ── DNS Hijack: rglg.uu.netease.com → h3crglg.uu.163.com ────────────────────
-# uuplugin hardcodes rglg.uu.netease.com as the registration server.
-# We redirect to H3C's endpoint for full feature activation.
-# IP is resolved dynamically at each container start — no stale IP risk.
+# ── DNS Hijack: Both registration domains → h3crglg.uu.163.com ────────────
+# Binary resolves rglg.uu.163.com (primary) and sometimes rglg.uu.netease.com.
+# Both must be hijacked to H3C endpoint for full feature activation.
 H3C_HOST="h3crglg.uu.163.com"
 H3C_PORT="16000"
 NETEASE_HOST="rglg.uu.netease.com"
+RGLG_163="rglg.uu.163.com"
 
-echo "[INFO] DNS hijack: $NETEASE_HOST → $H3C_HOST"
+echo "[INFO] DNS hijack: $NETEASE_HOST + $RGLG_163 → $H3C_HOST"
 H3C_IP=$(getent hosts "$H3C_HOST" 2>/dev/null | awk '{print $1; exit}')
 if [ -n "$H3C_IP" ]; then
-    sed -i "/$NETEASE_HOST/d" /etc/hosts 2>/dev/null
-    echo "$H3C_IP $NETEASE_HOST" >> /etc/hosts
-    echo "[OK] /etc/hosts: $H3C_IP → $NETEASE_HOST"
+    for DOMAIN in "$NETEASE_HOST" "$RGLG_163"; do
+        sed -i "/$DOMAIN/d" /etc/hosts 2>/dev/null
+        echo "$H3C_IP $DOMAIN" >> /etc/hosts
+    done
+    echo "[OK] /etc/hosts: $H3C_IP → $NETEASE_HOST + $RGLG_163"
 else
     echo "[WARN] Cannot resolve $H3C_HOST — DNS hijack disabled"
-    echo "[WARN] uuplugin will connect to real rglg.uu.netease.com (basic features only)"
+    echo "[WARN] uuplugin will connect to real registration servers (basic features only)"
 fi
 
 # ── iptables legacy mode ───────────────────────────────────────────────────
