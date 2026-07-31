@@ -131,12 +131,10 @@ chmod 755 /usr/sbin/uu
 # /usr/uufactory/factoryinfo = H3C hardware factory partition (simulated)
 # /var/tmp/uu/h3c_info        = copied by init.d script, read by uuplugin
 #
-# SN strategy: generate once, persist via Docker volume (/data/uu_sn).
-# First run → random SN → saved to /data/uu_sn (survives container rebuilds)
-# Subsequent runs → reuse persisted SN for consistent server identity.
-PERSIST_DIR="/data"
-PERSIST_SN="$PERSIST_DIR/uu_sn"
-mkdir -p "$PERSIST_DIR"
+# SN strategy: generate once, persist inside container.
+# First run → random SN → saved to /var/tmp/uu/uu_sn
+# uuplugin restarts reuse same SN; container rebuild resets.
+PERSIST_SN="/var/tmp/uu/uu_sn"
 
 if [ -f "$PERSIST_SN" ] && [ -s "$PERSIST_SN" ]; then
     SN=$(cat "$PERSIST_SN")

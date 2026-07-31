@@ -53,10 +53,6 @@ services:
       # SSLKEYLOGFILE for Wireshark TLS decryption (MITM fallback)
       - SSLKEYLOGFILE=/tmp/sslkeys.log
 
-    # ── Persistent data (SN, state) ──
-    volumes:
-      - ./data:/data
-
     # ── Log rotation ──
     logging:
       driver: json-file
