@@ -51,6 +51,15 @@ export UU_N_PR_H="${UU_N_PR_H:-0}"
 
 echo "[INFO] Identity: MODEL=$UU_MODEL VENDOR=$UU_VENDOR TYPE=$UU_DEVICE_TYPE"
 
+# ── Hostname override (binary reads hostname as OS identifier!) ──────────────
+# Docker host networking may leak host's HOSTNAME (e.g. iStoreOS).
+# Force to NX30Pro so server sees us as a real H3C device.
+if [ "$(hostname)" != "NX30Pro" ]; then
+    hostname NX30Pro 2>/dev/null || true
+    echo "[OK] hostname set to NX30Pro"
+fi
+export HOSTNAME="${HOSTNAME:-NX30Pro}"
+
 # ── DNS Hijack: Both registration domains → h3crglg.uu.163.com ────────────
 # Binary resolves rglg.uu.163.com (primary) and sometimes rglg.uu.netease.com.
 # Both must be hijacked to H3C endpoint for full feature activation.

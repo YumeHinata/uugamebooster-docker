@@ -5,6 +5,7 @@ services:
     image: yumehinata/uugamebooster-docker:main
     # build: .   # Uncomment to build locally instead of pulling image
     container_name: UUgamebooster
+    hostname: NX30Pro
     restart: unless-stopped
 
     # ── Network privileges (acceleration core requirements) ──
@@ -45,6 +46,8 @@ services:
       # Standard
       - HOME=/root
       - TZ=CST-8
+      # Override host HOSTNAME (iStoreOS→NX30Pro) — binary reads this as OS identifier!
+      - HOSTNAME=NX30Pro
       # Fixed SN from real H3C NX30Pro factoryinfo (18-digit manucode)
       - FIXED_SN=12345678900987654321
       # Debug: strace capture enabled
