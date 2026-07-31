@@ -31,8 +31,9 @@ export UU_MODEL="${UU_MODEL:-h3c-nx30pro}"
 export UU_VENDOR="${UU_VENDOR:-h3c}"
 export UU_DEVICE_TYPE="${UU_DEVICE_TYPE:-router}"
 export UU_FIRMWARE_VERSION="${UU_FIRMWARE_VERSION:-v14.3.0}"
-# UU_SN deliberately NOT exported — binary reads SN from /usr/sbin/uu/.sn file.
-# Env var forces from_file=0 → server rejects as non-genuine H3C device.
+# UU_SN set to null placeholder early — binary crashes if getenv("UU_SN") returns NULL.
+# Will be updated to real SN after generation. from_file=0 is a known limitation.
+export UU_SN=""
 export UU_PLUGIN_VESION="${UU_PLUGIN_VESION:-v14.3.0}"
 export UU_RANDOM="${UU_RANDOM:-$(cat /proc/sys/kernel/random/uuid 2>/dev/null || echo 'default')}"
 
@@ -183,10 +184,10 @@ fi
 cp /usr/uufactory/factoryinfo /var/tmp/uu/h3c_info
 echo "[INFO] h3c_info copied from factoryinfo"
 
-# UU_SN intentionally NOT exported — let binary read SN from /usr/sbin/uu/.sn file only.
-# Exporting UU_SN forces from_file=0, which makes server reject the device.
-# Real H3C devices get SN from factory partition (h3c_info), never from env var.
-echo "[INFO] SN (file-based): $SN"
+# Export UU_SN to prevent segfault (binary crashes on getenv NULL).
+# Tradeoff: this causes from_file=0, but crash is worse.
+export UU_SN="$SN"
+echo "[INFO] UU_SN=$SN"
 
 # /var/run/landevname.txt — H3C init.d writes bridge name here
 # Binary reads this to determine which interface to scan for LAN devices!
