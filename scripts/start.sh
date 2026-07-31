@@ -122,6 +122,19 @@ rm -f "$NATFLUSH" 2>/dev/null
 mkfifo "$NATFLUSH" 2>/dev/null && chmod 666 "$NATFLUSH"
 [ -p "$NATFLUSH" ] && echo "[OK] $NATFLUSH FIFO" || echo "[WARN] $NATFLUSH failed"
 
+# ── SSH password (binary's internal SSH server hardcodes root/admin) ────────
+# Binary listens on 192.168.0.1:16363 + 192.168.0.1:14554 for mobile app binding.
+# Authenticates against /etc/shadow; must match hardcoded password "admin".
+if grep -q '^root:\*:' /etc/shadow 2>/dev/null; then
+    openssl passwd -6 admin | sed 's|.*|root:&:20647:0:99999:7:::|' > /tmp/newshadow
+    grep -v '^root:' /etc/shadow >> /tmp/newshadow
+    cat /tmp/newshadow > /etc/shadow
+    rm -f /tmp/newshadow
+    echo "[OK] root password set for SSH binding"
+else
+    echo "[OK] root password already configured"
+fi
+
 # ── OpenWrt paths (binary expects these absolute paths) ────────────────────
 # uuplugin was compiled for OpenWrt x86_64; statically linked but uses hardcoded
 # absolute paths for its runtime data (not relative to binary location).
