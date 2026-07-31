@@ -31,7 +31,7 @@ export UU_MODEL="${UU_MODEL:-h3c-nx30pro}"
 export UU_VENDOR="${UU_VENDOR:-h3c}"
 export UU_DEVICE_TYPE="${UU_DEVICE_TYPE:-router}"
 export UU_FIRMWARE_VERSION="${UU_FIRMWARE_VERSION:-v14.3.0}"
-export UU_SN="${UU_SN:-${FIXED_SN:-unknown}}"
+export UU_SN="${UU_SN:-unknown}"
 export UU_PLUGIN_VESION="${UU_PLUGIN_VESION:-v14.3.0}"
 export UU_RANDOM="${UU_RANDOM:-$(cat /proc/sys/kernel/random/uuid 2>/dev/null || echo 'default')}"
 
@@ -130,8 +130,28 @@ chmod 755 /usr/sbin/uu
 # ── H3C factory info (real device identity from community port) ────────────
 # /usr/uufactory/factoryinfo = H3C hardware factory partition (simulated)
 # /var/tmp/uu/h3c_info        = copied by init.d script, read by uuplugin
+#
+# SN strategy: generate once, persist via Docker volume (/data/uu_sn).
+# First run → random SN → saved to /data/uu_sn (survives container rebuilds)
+# Subsequent runs → reuse persisted SN for consistent server identity.
+PERSIST_DIR="/data"
+PERSIST_SN="$PERSIST_DIR/uu_sn"
+mkdir -p "$PERSIST_DIR"
+
+if [ -f "$PERSIST_SN" ] && [ -s "$PERSIST_SN" ]; then
+    SN=$(cat "$PERSIST_SN")
+    echo "[INFO] Reusing persisted SN: $SN"
+else
+    # Generate random 20-digit SN on first run (matching NX30Pro manucode format)
+    SN=$(cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '-' | tr 'a-f' '0-5' | head -c 20)
+    # Fallback: /dev/urandom
+    [ -z "$SN" ] && SN=$(head -c 10 /dev/urandom 2>/dev/null | od -An -tu8 | tr -d ' \n' | head -c 20)
+    [ -z "$SN" ] && SN="00000000000000000001"
+    echo "$SN" > "$PERSIST_SN"
+    echo "[INFO] Generated new SN: $SN → persisted to $PERSIST_SN"
+fi
+
 if [ ! -f /usr/uufactory/factoryinfo ]; then
-    SN="${FIXED_SN:-12345678900987654321}"
     # Get real host MAC (critical: server may reject all-zeros MAC)
     REAL_MAC=$(cat /sys/class/net/br-lan/address 2>/dev/null || \
                cat /sys/class/net/eth0/address 2>/dev/null || \
@@ -150,6 +170,10 @@ fi
 # Copy to h3c_info (binary reads from here for registration)
 cp /usr/uufactory/factoryinfo /var/tmp/uu/h3c_info
 echo "[INFO] h3c_info copied from factoryinfo"
+
+# Update UU_SN env var (binary reads this via getenv())
+export UU_SN="$SN"
+echo "[INFO] UU_SN=$SN"
 
 # /var/run/landevname.txt — H3C init.d writes bridge name here
 # Binary reads this to determine which interface to scan for LAN devices!
@@ -181,9 +205,8 @@ fi
 
 # .sn — serial number cache (binary reads this AFTER creating it empty, crashes on null)
 if [ ! -s /usr/sbin/uu/.sn ]; then
-    SN="${FIXED_SN:-$(cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '-' | head -c 16)}"
     echo "$SN" > /usr/sbin/uu/.sn
-    echo "[INFO] /usr/sbin/uu/.sn written"
+    echo "[INFO] /usr/sbin/uu/.sn written (SN=$SN)"
 fi
 
 # activate_status — uuplugin monitors this via inotify

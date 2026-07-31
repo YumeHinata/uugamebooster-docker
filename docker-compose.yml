@@ -27,7 +27,7 @@ services:
       - UU_VENDOR=h3c
       - UU_DEVICE_TYPE=router
       - UU_FIRMWARE_VERSION=v14.3.0
-      - UU_SN=12345678900987654321
+      # SN is auto-generated & persisted via /data volume (see start.sh)
       - UU_PLUGIN_VESION=v14.3.0
       - UU_RANDOM=default
       # Network interfaces (populated at runtime but must be non-null)
@@ -48,12 +48,14 @@ services:
       - TZ=CST-8
       # Override host HOSTNAME (iStoreOS→NX30Pro) — binary reads this as OS identifier!
       - HOSTNAME=NX30Pro
-      # Fixed SN from real H3C NX30Pro factoryinfo (18-digit manucode)
-      - FIXED_SN=12345678900987654321
       # Debug: strace capture enabled
       - STRACE_DEBUG=1
       # SSLKEYLOGFILE for Wireshark TLS decryption (MITM fallback)
       - SSLKEYLOGFILE=/tmp/sslkeys.log
+
+    # ── Persistent data (SN, state) ──
+    volumes:
+      - ./data:/data
 
     # ── Log rotation ──
     logging:
