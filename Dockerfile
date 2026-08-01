@@ -26,18 +26,29 @@ COPY scripts/start.sh       /opt/uu/scripts/start.sh
 COPY scripts/uuclearnat.sh  /opt/uu/scripts/uuclearnat.sh
 
 # ── Binary patches: model identity + from_file fix ──────────────────────
-# Patch 1a: "openwrt" at 0x3E64DB → "h3cnx30" (7 bytes, no null issue)
-# Patch 1b: "OpenWrt" at 0x3EA86F → "NX30Pro" (7 bytes, no null issue)
-# Patch 1c: "openwrt-x86_64\0" at 0x3E6D5F → "h3c-nx30pro\0\0\0" (15 bytes)
-#   Write 12-char model first, then 2 null bytes to overwrite leftover "64"
-# Patch 2:  "UU_SN" at 0x3E6EEA → "XX_SN" (5 bytes)
-#   ** CORRECTED: previous offset 4095722 was off by 0x1000=4096 bytes!
+# Patch group 1: model strings (hardcoded in binary)
+#   "openwrt" at 0x3E64DB → "h3cnx30" (7 bytes)
+#   "OpenWrt" at 0x3EA86F → "NX30Pro" (7 bytes)
+#   "openwrt-x86_64\0" at 0x3E6D5F → "h3c-nx30pro\0\0\0" (12+2 nulls)
+#
+# Patch group 2: ALL UU_* env var names → XX_* (same-length, preserves null)
+#   Binary checks ANY UU_* env var existence → from_file=0 if found.
+#   Renaming all 8 strings prevents any getenv("UU_*") from matching.
+#   Offsets verified by hex dump of .rodata string table.
+#   NOTE: if network features break, restore UU_LAN_IP/UU_WAN_IP/UU_LAN_NAME.
 RUN printf 'h3cnx30' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4089051 conv=notrunc && \
     printf 'NX30Pro' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4106351 conv=notrunc && \
     printf 'h3c-nx30pro' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091231 conv=notrunc && \
     dd if=/dev/zero of=/opt/uu/bin/uuplugin bs=1 count=2 seek=4091243 conv=notrunc && \
+    printf 'XX_VENDOR' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091607 conv=notrunc && \
+    printf 'XX_MODEL' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091617 conv=notrunc && \
     printf 'XX_SN' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091626 conv=notrunc && \
-    echo "[OK] uuplugin patched: model→h3c-nx30pro, UU_SN→XX_SN (corrected offset)"
+    printf 'XX_PLUGIN_VESION' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091632 conv=notrunc && \
+    printf 'XX_FIRMWARE_VERSION' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091649 conv=notrunc && \
+    printf 'XX_LAN_NAME' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091669 conv=notrunc && \
+    printf 'XX_LAN_IP' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091681 conv=notrunc && \
+    printf 'XX_WAN_IP' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091691 conv=notrunc && \
+    echo "[OK] uuplugin patched: all UU_*→XX_*, model→h3c-nx30pro"
 
 # ── One-time setup ─────────────────────────────────────────────────────────
 RUN chmod +x \
