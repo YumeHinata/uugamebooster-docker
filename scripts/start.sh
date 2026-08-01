@@ -26,32 +26,33 @@ echo "========================================="
 export HOME="${HOME:-/root}"
 export TZ="${TZ:-CST-8}"
 
-# Device identity (user-configurable)
-export UU_MODEL="${UU_MODEL:-h3c-nx30pro}"
-export UU_VENDOR="${UU_VENDOR:-h3c}"
-export UU_DEVICE_TYPE="${UU_DEVICE_TYPE:-router}"
-export UU_FIRMWARE_VERSION="${UU_FIRMWARE_VERSION:-v14.3.0}"
-# UU_SN set to null placeholder early — binary crashes if getenv("UU_SN") returns NULL.
-# Will be updated to real SN after generation. from_file=0 is a known limitation.
-export UU_SN=""
-export UU_PLUGIN_VESION="${UU_PLUGIN_VESION:-v14.3.0}"
-export UU_RANDOM="${UU_RANDOM:-$(cat /proc/sys/kernel/random/uuid 2>/dev/null || echo 'default')}"
+# Device identity — NOT exported as UU_* env vars!
+# Binary likely scans environ for "UU_" prefix → from_file=0 if any found.
+# All identity data read from FILES: factoryinfo, h3c_info, .sn, /var/model.
+# .rodata strings patched: UU_VENDOR→XX_VENDOR, UU_MODEL→XX_MODEL, etc.
+# XX_* vars below match patched getenv() lookups for network config.
 
-# Network interface info (populated at runtime by binary, but needs non-null defaults)
-export UU_DEVICE_MAC="${UU_DEVICE_MAC:-00:00:00:00:00:00}"
-export UU_DEVICE_IP="${UU_DEVICE_IP:-127.0.0.1}"
-export UU_DEVICE_FWMARK="${UU_DEVICE_FWMARK:-0}"
-export UU_DEVICE_LINK_TYPE="${UU_DEVICE_LINK_TYPE:-ethernet}"
-export UU_LAN_IP="${UU_LAN_IP:-192.168.1.1}"
-export UU_LAN_NAME="${UU_LAN_NAME:-br-lan}"
-export UU_WAN_IP="${UU_WAN_IP:-0.0.0.0}"
-export UU_TUN_IP="${UU_TUN_IP:-10.0.0.1}"
-export UU_TUN_NAME="${UU_TUN_NAME:-tun163}"
-export UU_ROUTE_DEFAULT_TABLE="${UU_ROUTE_DEFAULT_TABLE:-main}"
-export UU_ROUTE_FWMARK_TABLE="${UU_ROUTE_FWMARK_TABLE:-163}"
-export UU_N_PR_H="${UU_N_PR_H:-0}"
+# Device type (no UU_ prefix: binary doesn't use getenv for this)
+export DEVICE_TYPE="${DEVICE_TYPE:-router}"
 
-echo "[INFO] Identity: MODEL=$UU_MODEL VENDOR=$UU_VENDOR TYPE=$UU_DEVICE_TYPE"
+# Network config — exported as XX_* to match .rodata patches
+export XX_LAN_IP="${XX_LAN_IP:-192.168.1.1}"
+export XX_LAN_NAME="${XX_LAN_NAME:-br-lan}"
+export XX_WAN_IP="${XX_WAN_IP:-0.0.0.0}"
+
+# Non-UU_* vars (binary doesn't look these up via getenv, safe to keep)
+export DEVICE_MAC="${DEVICE_MAC:-00:00:00:00:00:00}"
+export DEVICE_IP="${DEVICE_IP:-127.0.0.1}"
+export DEVICE_FWMARK="${DEVICE_FWMARK:-0}"
+export DEVICE_LINK_TYPE="${DEVICE_LINK_TYPE:-ethernet}"
+export TUN_IP="${TUN_IP:-10.0.0.1}"
+export TUN_NAME="${TUN_NAME:-tun163}"
+export ROUTE_DEFAULT_TABLE="${ROUTE_DEFAULT_TABLE:-main}"
+export ROUTE_FWMARK_TABLE="${ROUTE_FWMARK_TABLE:-163}"
+export N_PR_H="${N_PR_H:-0}"
+export RANDOM_UUID="${RANDOM_UUID:-$(cat /proc/sys/kernel/random/uuid 2>/dev/null || echo 'default')}"
+
+echo "[INFO] Identity: from_file=1 mode (files: factoryinfo/h3c_info/.sn)"
 
 # ── Hostname override (binary reads hostname as OS identifier!) ──────────────
 # Docker host networking may leak host's HOSTNAME (e.g. iStoreOS).
@@ -197,12 +198,10 @@ fi
 cp /usr/uufactory/factoryinfo /var/tmp/uu/h3c_info
 echo "[INFO] h3c_info copied from factoryinfo"
 
-# Export UU_SN for internal use (binary patched: ALL UU_* strings → XX_* in .rodata).
-# getenv("UU_SN") → NULL (binary now looks for "XX_SN") → falls to file path → from_file=1.
-# Same for UU_VENDOR, UU_MODEL, UU_PLUGIN_VESION, UU_FIRMWARE_VERSION,
-# UU_LAN_NAME, UU_LAN_IP, UU_WAN_IP — all patched to XX_*.
-export UU_SN="$SN"
-echo "[INFO] UU_SN=$SN (binary: all UU_*→XX_*, from_file=1 from factoryinfo/h3c_info)"
+# SN persistence: generated above, written to files only (NO UU_SN env export!).
+# Binary with from_file=1 reads SN from /usr/sbin/uu/.sn and factoryinfo/h3c_info.
+# NOT exporting UU_SN prevents environ scan from detecting UU_* prefix → from_file=1.
+echo "[INFO] SN=$SN (from_file=1 mode, binary reads from .sn / factoryinfo / h3c_info)"
 
 # /var/run/landevname.txt — H3C init.d writes bridge name here
 # Binary reads this to determine which interface to scan for LAN devices!

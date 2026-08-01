@@ -27,16 +27,16 @@ COPY scripts/uuclearnat.sh  /opt/uu/scripts/uuclearnat.sh
 
 # ── Binary patches: model identity + from_file fix ──────────────────────
 # Patch group 1: model strings (hardcoded in binary)
-#   "openwrt" at 0x3E64DB → "h3cnx30" (7 bytes)
+#   "openwrt" at 0x3E64DB → "h3c" + 4 nulls (7 bytes, matches NX30Pro's "h3c_")
 #   "OpenWrt" at 0x3EA86F → "NX30Pro" (7 bytes)
 #   "openwrt-x86_64\0" at 0x3E6D5F → "h3c-nx30pro\0\0\0" (12+2 nulls)
 #
-# Patch group 2: ALL UU_* env var names → XX_* (same-length, preserves null)
-#   Binary checks ANY UU_* env var existence → from_file=0 if found.
-#   Renaming all 8 strings prevents any getenv("UU_*") from matching.
-#   Offsets verified by hex dump of .rodata string table.
-#   NOTE: if network features break, restore UU_LAN_IP/UU_WAN_IP/UU_LAN_NAME.
-RUN printf 'h3cnx30' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4089051 conv=notrunc && \
+# Patch group 2: ALL UU_* env var names → XX_* (same-length, null preserved)
+#   Binary likely scans environ for "UU_" prefix → from_file=0.
+#   Renaming .rodata strings prevents getenv; start.sh uses XX_* exports instead.
+#   If network breaks, revert UU_LAN_IP/UU_WAN_IP/UU_LAN_NAME patches.
+RUN printf 'h3c' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4089051 conv=notrunc && \
+    dd if=/dev/zero of=/opt/uu/bin/uuplugin bs=1 count=4 seek=4089054 conv=notrunc && \
     printf 'NX30Pro' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4106351 conv=notrunc && \
     printf 'h3c-nx30pro' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091231 conv=notrunc && \
     dd if=/dev/zero of=/opt/uu/bin/uuplugin bs=1 count=2 seek=4091243 conv=notrunc && \
@@ -48,7 +48,7 @@ RUN printf 'h3cnx30' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4089051 conv=notrunc
     printf 'XX_LAN_NAME' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091669 conv=notrunc && \
     printf 'XX_LAN_IP' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091681 conv=notrunc && \
     printf 'XX_WAN_IP' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091691 conv=notrunc && \
-    echo "[OK] uuplugin patched: all UU_*→XX_*, model→h3c-nx30pro"
+    echo "[OK] uuplugin patched: model→h3c+h3c-nx30pro, all UU_*→XX_*"
 
 # ── One-time setup ─────────────────────────────────────────────────────────
 RUN chmod +x \
