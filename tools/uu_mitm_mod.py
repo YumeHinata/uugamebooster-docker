@@ -114,6 +114,41 @@ SUCCESS_FRAMES = [
 ]
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Post-registration activation messages (injected after RegisterResp success)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def make_activate_message():
+    """Simulate a server activation/auth response that might trigger activate_status write."""
+    pb = b''
+    pb += pb_int(1, 0)           # field 1: code = 0 (success)
+    pb += pb_str(2, "activated")  # field 2: status
+    pb += pb_int(3, 1)           # field 3: auth_pass = 1
+    return make_frame(0x30, pb)  # Use type 0x30 (AuthRes-like)
+
+def make_cert_message():
+    """Simulate a certificate/auth token delivery."""
+    pb = b''
+    pb += pb_int(1, 0)           # code
+    pb += pb_str(2, "OK")        # status
+    pb += pb_str(3, "token_placeholder_32bytes_")  # token
+    return make_frame(0x26, pb)
+
+def make_config_message():
+    """Simulate a device config push after registration."""
+    pb = b''
+    pb += pb_int(1, 1)           # enabled
+    pb += pb_str(2, "h3cnx30")   # model confirm
+    pb += pb_int(3, 1)           # features_enabled
+    return make_frame(0x06, pb)  # type 0x06 = Device
+
+# After each RegisterResp success injection, rotate through these follow-up messages
+ACTIVATION_MESSAGES = [
+    ("activate", make_activate_message()),
+    ("cert_token", make_cert_message()),
+    ("config", make_config_message()),
+]
+
+# ═══════════════════════════════════════════════════════════════════════════
 # MITM
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -171,6 +206,8 @@ class ModMITM:
         server_sock = None; cl_tls = None; srv_tls = None
         session_frames = []
         success_idx = 0  # Which success format to try
+        activate_idx = 0  # Which activation message to try
+        n_fatal_suppressed = 0
         
         try:
             client_sock.settimeout(10)
@@ -249,6 +286,15 @@ class ModMITM:
                         tname = type_names.get(msg_type, f'0x{msg_type:02x}')
                         print(f"  [{ts}] {direction} {tname}: {dict(list(parsed.items())[:3])}")
                         
+                        # Check if this is a CLIENT→SERVER FATAL log — suppress it
+                        skip_forward = False
+                        if is_client and msg_type == 0x0A and not self.dry_run:
+                            msg_content = str(parsed.get(2, ''))
+                            if 'unmatched sn' in msg_content or 'from_file' in msg_content:
+                                print(f"    >>> SUPPRESSED FATAL: 'unmatched sn' log hidden from server")
+                                n_fatal_suppressed += 1
+                                skip_forward = True  # Don't let server see this
+                        
                         # Check if this is a RegisterResp with "not found"
                         forward_data = raw
                         
@@ -262,16 +308,30 @@ class ModMITM:
                                 # Try current success format
                                 succ_name, succ_frame = SUCCESS_FRAMES[success_idx % len(SUCCESS_FRAMES)]
                                 forward_data = succ_frame
-                                print(f"    >>> Injected: {succ_name}")
+                                print(f"    >>> Injected RegisterResp: {succ_name}")
                                 print(f"    >>> Raw: {forward_data.hex()[:80]}")
                                 modified_this_session = True
                                 self.n_modified += 1
                                 
-                                # Next time try a different format
+                                # Also inject an activation follow-up message
+                                act_name, act_frame = ACTIVATION_MESSAGES[activate_idx % len(ACTIVATION_MESSAGES)]
+                                try:
+                                    dst.sendall(forward_data)  # Send success first
+                                    time.sleep(0.02)           # Small gap
+                                    dst.sendall(act_frame)     # Send activation
+                                    print(f"    >>> + Injected follow-up: {act_name}")
+                                except:
+                                    return
+                                activate_idx += 1
                                 success_idx += 1
+                                continue  # Already forwarded both, skip normal forward
                             else:
                                 print(f"    RESPONSE: code={code}, msg={msg}")
                                 self.n_passed += 1
+                        
+                        # Skip forwarding suppressed messages
+                        if skip_forward:
+                            continue
                         
                         # Forward (possibly modified)
                         try:
@@ -287,6 +347,8 @@ class ModMITM:
                 try: s.close()
                 except: pass
             print(f"  [*] Connection #{self.conn_id} closed")
+            if n_fatal_suppressed:
+                print(f"  [FILT] Suppressed {n_fatal_suppressed} FATAL 'unmatched sn' logs")
             if modified_this_session:
                 print(f"  [MOD] Registration responses were MODIFIED this session!")
             print(f"  [STATS] Total modified: {self.n_modified}, passed: {self.n_passed}")

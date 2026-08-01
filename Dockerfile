@@ -25,20 +25,11 @@ COPY bin/xuplugin-guardian  /opt/uu/bin/xuplugin-guardian
 COPY scripts/start.sh       /opt/uu/scripts/start.sh
 COPY scripts/uuclearnat.sh  /opt/uu/scripts/uuclearnat.sh
 
-# ── Binary patch: replace hardcoded "openwrt" model strings ────────────────
-# Generic x86_64 uuplugin hardcodes "openwrt"/"OpenWrt" in login protobuf,
-# ignoring UU_MODEL env var. Patch to H3C NX30Pro identity (same byte length).
-RUN printf 'h3cnx30' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4089051 conv=notrunc && \
-    printf 'NX30Pro' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4106351 conv=notrunc && \
-    printf 'h3cnx30-aarch64' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091231 conv=notrunc && \
-    echo "[OK] uuplugin patched: openwrt → h3cnx30, OpenWrt → NX30Pro, x86_64 → aarch64"
-
-# ── Binary patch: rename UU_SN → XX_SN to break from_file=0 logic ──────────
-# Binary calls getenv("UU_SN") via helper; if env exists → from_file=0 (non-genuine).
-# Renaming to XX_SN forces the helper to return NULL → falls through to file path
-# → from_file=1. Keep UU_SN="" in start.sh to prevent segfault on other code paths.
-RUN printf 'XX_SN' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4095722 conv=notrunc && \
-    echo "[OK] uuplugin patched: UU_SN → XX_SN (force from_file=1 via file path)"
+# ── Binary patches: model identity + from_file fix ──────────────────────
+# See scripts/patch_binary.py for details.
+COPY scripts/patch_binary.py  /tmp/patch_binary.py
+RUN python3 /tmp/patch_binary.py /opt/uu/bin/uuplugin && \
+    rm /tmp/patch_binary.py
 
 # ── One-time setup ─────────────────────────────────────────────────────────
 RUN chmod +x \
