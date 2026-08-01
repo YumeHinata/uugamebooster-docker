@@ -26,10 +26,18 @@ COPY scripts/start.sh       /opt/uu/scripts/start.sh
 COPY scripts/uuclearnat.sh  /opt/uu/scripts/uuclearnat.sh
 
 # ── Binary patches: model identity + from_file fix ──────────────────────
-# See scripts/patch_binary.py for details.
-COPY scripts/patch_binary.py  /tmp/patch_binary.py
-RUN python3 /tmp/patch_binary.py /opt/uu/bin/uuplugin && \
-    rm /tmp/patch_binary.py
+# Patch 1a: "openwrt" at 0x3E64DB → "h3cnx30" (7 bytes, no null issue)
+# Patch 1b: "OpenWrt" at 0x3EA86F → "NX30Pro" (7 bytes, no null issue)
+# Patch 1c: "openwrt-x86_64\0" at 0x3E6D5F → "h3c-nx30pro\0\0\0" (15 bytes)
+#   Write 12-char model first, then 2 null bytes to overwrite leftover "64"
+# Patch 2:  "UU_SN" at 0x3E6EEA → "XX_SN" (5 bytes)
+#   ** CORRECTED: previous offset 4095722 was off by 0x1000=4096 bytes!
+RUN printf 'h3cnx30' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4089051 conv=notrunc && \
+    printf 'NX30Pro' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4106351 conv=notrunc && \
+    printf 'h3c-nx30pro' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091231 conv=notrunc && \
+    dd if=/dev/zero of=/opt/uu/bin/uuplugin bs=1 count=2 seek=4091243 conv=notrunc && \
+    printf 'XX_SN' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091626 conv=notrunc && \
+    echo "[OK] uuplugin patched: model→h3c-nx30pro, UU_SN→XX_SN (corrected offset)"
 
 # ── One-time setup ─────────────────────────────────────────────────────────
 RUN chmod +x \
