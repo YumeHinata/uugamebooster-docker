@@ -33,6 +33,13 @@ RUN printf 'h3cnx30' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4089051 conv=notrunc
     printf 'h3cnx30-aarch64' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091231 conv=notrunc && \
     echo "[OK] uuplugin patched: openwrt → h3cnx30, OpenWrt → NX30Pro, x86_64 → aarch64"
 
+# ── Binary patch: rename UU_SN → XX_SN to break from_file=0 logic ──────────
+# Binary calls getenv("UU_SN") via helper; if env exists → from_file=0 (non-genuine).
+# Renaming to XX_SN forces the helper to return NULL → falls through to file path
+# → from_file=1. Keep UU_SN="" in start.sh to prevent segfault on other code paths.
+RUN printf 'XX_SN' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4095722 conv=notrunc && \
+    echo "[OK] uuplugin patched: UU_SN → XX_SN (force from_file=1 via file path)"
+
 # ── One-time setup ─────────────────────────────────────────────────────────
 RUN chmod +x \
         /opt/uu/bin/uuplugin \

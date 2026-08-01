@@ -22,6 +22,7 @@ import threading
 import argparse
 import json
 import select
+import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -155,27 +156,33 @@ class ModMITM:
                 break
     
     def handle(self, client_sock, addr):
-        print(f"\n[+] Connection #{self.conn_id} from {addr[0]}:{addr[1]}")
+        print(f"\n[+] Connection #{self.conn_id} from {addr[0]}:{addr[1]}", flush=True)
         
         server_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         server_ctx.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
         server_ctx.verify_mode = ssl.CERT_NONE; server_ctx.check_hostname = False
+        # Allow older TLS versions for compatibility
+        server_ctx.minimum_version = ssl.TLSVersion.TLSv1
         
         client_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         client_ctx.check_hostname = False; client_ctx.verify_mode = ssl.CERT_NONE
+        client_ctx.minimum_version = ssl.TLSVersion.TLSv1
         
         server_sock = None; cl_tls = None; srv_tls = None
         session_frames = []
         success_idx = 0  # Which success format to try
         
         try:
+            client_sock.settimeout(10)
+            print(f"  [TLS] Waiting for client TLS handshake...", flush=True)
             cl_tls = server_ctx.wrap_socket(client_sock, server_side=True)
-            print(f"  [TLS] Client connected: {cl_tls.version()}")
+            print(f"  [TLS] Client connected: {cl_tls.version()}, cipher: {cl_tls.cipher()[0]}", flush=True)
             
+            print(f"  [TCP] Connecting to upstream {self.target_addr[0]}:{self.target_addr[1]}...", flush=True)
             server_sock = socket.socket(); server_sock.settimeout(10)
             server_sock.connect(self.target_addr)
             srv_tls = client_ctx.wrap_socket(server_sock, server_hostname=self.target_addr[0])
-            print(f"  [TLS] Server connected: {srv_tls.version()}")
+            print(f"  [TLS] Server connected: {srv_tls.version()}, cipher: {srv_tls.cipher()[0]}", flush=True)
             
             cl_tls.setblocking(False)
             srv_tls.setblocking(False)

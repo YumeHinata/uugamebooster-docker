@@ -197,10 +197,10 @@ fi
 cp /usr/uufactory/factoryinfo /var/tmp/uu/h3c_info
 echo "[INFO] h3c_info copied from factoryinfo"
 
-# Export UU_SN to prevent segfault (binary crashes on getenv NULL).
-# Tradeoff: this causes from_file=0, but crash is worse.
+# Export UU_SN for internal use (binary patched: "UU_SN" → "XX_SN" in helper,
+# so the from_file check sees NULL → falls through to file path → from_file=1).
 export UU_SN="$SN"
-echo "[INFO] UU_SN=$SN"
+echo "[INFO] UU_SN=$SN (binary reads XX_SN→NULL→file path→from_file=1)"
 
 # /var/run/landevname.txt — H3C init.d writes bridge name here
 # Binary reads this to determine which interface to scan for LAN devices!
