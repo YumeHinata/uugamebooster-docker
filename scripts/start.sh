@@ -65,12 +65,25 @@ export HOSTNAME="${HOSTNAME:-NX30Pro}"
 # ── DNS Hijack: Both registration domains → h3crglg.uu.163.com ────────────
 # Binary resolves rglg.uu.163.com (primary) and sometimes rglg.uu.netease.com.
 # Both must be hijacked to H3C endpoint for full feature activation.
+#
+# If UU_MITM_HOST is set, ALL UU registration hostnames are redirected
+# to the MITM proxy (used for traffic analysis / response modification).
 H3C_HOST="h3crglg.uu.163.com"
 H3C_PORT="16000"
 NETEASE_HOST="rglg.uu.netease.com"
 RGLG_163="rglg.uu.163.com"
 
-if [ "${SKIP_DNS_HIJACK}" = "1" ]; then
+if [ -n "${UU_MITM_HOST}" ]; then
+    echo "[MITM] Redirecting ALL UU traffic to ${UU_MITM_HOST}:16000"
+    for DOMAIN in "$NETEASE_HOST" "$RGLG_163" "$H3C_HOST" \
+        "devrglg.uu.163.com" "gw.router.uu.163.com" \
+        "router.uu.163.com" "uurouter.gdl.netease.com" \
+        "log.uu.163.com"; do
+        sed -i "/$DOMAIN/d" /etc/hosts 2>/dev/null
+        echo "${UU_MITM_HOST} $DOMAIN" >> /etc/hosts
+    done
+    echo "[MITM] /etc/hosts updated with ${UU_MITM_HOST}"
+elif [ "${SKIP_DNS_HIJACK}" = "1" ]; then
     echo "[INFO] SKIP_DNS_HIJACK=1 — DNS hijack skipped, using existing /etc/hosts"
 else
     echo "[INFO] DNS hijack: $NETEASE_HOST + $RGLG_163 → $H3C_HOST"
