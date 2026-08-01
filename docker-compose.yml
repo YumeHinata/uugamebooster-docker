@@ -53,7 +53,7 @@ services:
       # SSLKEYLOGFILE for Wireshark TLS decryption (MITM fallback)
       - SSLKEYLOGFILE=/tmp/sslkeys.log
       # MITM proxy: set to Windows IP to intercept & modify server responses
-      # - UU_MITM_HOST=192.168.0.x
+      - UU_MITM_HOST=192.168.0.247
       # Skip start.sh DNS hijack when using MITM (set with UU_MITM_HOST)
       # - SKIP_DNS_HIJACK=1
 
