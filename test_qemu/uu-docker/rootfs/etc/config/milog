@@ -1,0 +1,185 @@
+config milog 'global'
+	option enable '0'
+
+config group 'g1'
+	list tag 'log_emerg'
+	list tag 'log_alert'
+	list tag 'log_crit'
+	list tag 'log_err'
+	list tag 'log_warning'
+	list tag 'log_notice'
+	list tag 'log_info'
+	list tag 'log_debug'
+
+config group 'g2'
+	list tag 'sec_risk_gw'
+	list tag 'sec_risk_web'
+	list tag 'sec_risk_flood'
+	list tag 'sec_risk_portscan'
+	list tag 'sec_risk_ipscan'
+	list tag 'sec_sys_restart'
+	list tag 'sec_sys_internet'
+	list tag 'sec_sys_addre'
+	list tag 'sec_sys_addap'
+	list tag 'sec_sys_wlanpwd'
+	list tag 'sec_nic_internet'
+	list tag 'sec_nic_connect'
+	list tag 'sec_nic_blacklist'
+	list tag 'sec_nic_whitelist'
+	list tag 'sec_lan_access'
+	list tag 'sec_lan_intercept'
+
+config tag 'log_emerg'
+	option class 's_log_emerg'
+
+config tag 'log_alert'
+	option class 's_log_alert'
+
+config tag 'log_crit'
+	option class 's_log_crit'
+
+config tag 'log_err'
+	option class 's_log_err'
+
+config tag 'log_warning'
+	option class 's_log_warning'
+
+config tag 'log_notice'
+	option class 's_log_notice'
+
+config tag 'log_info'
+	option class 's_log_info'
+
+config tag 'log_debug'
+	option class 's_log_debug'
+
+config class 's_log_emerg'
+	option type 'level'
+	option arg 'emerg'
+
+config class 's_log_alert'
+	option type 'level'
+	option arg 'alert'
+
+config class 's_log_crit'
+	option type 'level'
+	option arg 'crit'
+
+config class 's_log_err'
+	option type 'level'
+	option arg 'err'
+
+config class 's_log_warning'
+	option type 'level'
+	option arg 'warning'
+
+config class 's_log_notice'
+	option type 'level'
+	option arg 'notice'
+
+config class 's_log_info'
+	option type 'level'
+	option arg 'info'
+
+config class 's_log_debug'
+	option type 'level'
+	option arg 'debug'
+
+config tag 'sec_risk_gw'
+	option check 'k_risk_gw'
+
+config tag 'sec_risk_web'
+	option check 'k_risk_web'
+
+config tag 'sec_risk_flood'
+	option check 'k_risk_flood'
+
+config tag 'sec_risk_portscan'
+	option check 'k_mac_pair'
+
+config tag 'sec_risk_ipscan'
+	option check 'k_risk_ipscan'
+
+config tag 'sec_sys_restart'
+	option check 'k_sys_restart'
+
+config tag 'sec_sys_internet'
+	option check 'k_sys_internet'
+
+config tag 'sec_sys_addre'
+	option check 'k_sys_addre'
+
+config tag 'sec_sys_addap'
+	option check 'k_sys_addap'
+
+config tag 'sec_sys_wlanpwd'
+	option check 'k_sys_wlanpwd'
+
+config tag 'sec_nic_internet'
+	option check 'k_nic_internet'
+
+config tag 'sec_nic_connect'
+	option check 'k_nic_connect'
+
+config tag 'sec_nic_blacklist'
+	option check 'k_nic_blacklist'
+
+config tag 'sec_nic_whitelist'
+	option check 'k_nic_whitelist'
+
+config tag 'sec_lan_access'
+	option check 'k_mac_pair'
+
+config tag 'sec_lan_intercept'
+	option check 'k_mac_pair'
+
+config check 'k_risk_gw'
+	option mac 'String'
+	option type 'String'
+
+config check 'k_risk_web'
+	option mac 'String'
+	option url 'String'
+	option type 'String'
+
+config check 'k_risk_flood'
+	option mac 'String'
+	option dstmac 'String'
+
+config check 'k_mac_pair'
+	option mac 'String'
+	option dstmac 'String'
+
+config check 'k_risk_ipscan'
+	option mac 'String'
+
+config check 'k_sys_restart'
+
+config check 'k_sys_internet'
+	option connected 'Boolean'
+
+config check 'k_sys_addre'
+	option mac 'String'
+	option model 'String'
+
+config check 'k_sys_addap'
+	option mac 'String'
+	option model 'String'
+
+config check 'k_sys_wlanpwd'
+
+config check 'k_nic_internet'
+	option mac 'String'
+	option restricted 'Boolean'
+
+config check 'k_nic_connect'
+	option mac 'String'
+	option connected 'Boolean'
+
+config check 'k_nic_blacklist'
+	option mac 'String'
+	option enabled 'Boolean'
+
+config check 'k_nic_whitelist'
+	option mac 'String'
+	option enabled 'Boolean'

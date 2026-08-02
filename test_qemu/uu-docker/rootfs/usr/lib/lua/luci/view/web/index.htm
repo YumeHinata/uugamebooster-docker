@@ -1,0 +1,1842 @@
+<%
+    local XQVersion = require "xiaoqiang.XQVersion"
+    local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+    local XQWifiUtil = require "xiaoqiang.util.XQWifiUtil"
+    local xqlanwanutil = require "xiaoqiang.util.XQLanWanUtil"
+    local XQFunction = require "xiaoqiang.common.XQFunction"
+    local xqCountryCode = require "xiaoqiang.XQCountryCode"
+    local XQDeviceUtil = require("xiaoqiang.util.XQDeviceUtil")
+    local count, total = XQDeviceUtil.get2g5gDeviceCount()
+    local json = require("luci.json")
+    count = json.encode(count)
+    local ver = XQVersion.webVersion
+    local guestWifi = XQWifiUtil.getGuestWifi(1)
+    local wifiGuestStatus = 0
+    if guestWifi then
+        wifiGuestStatus = tonumber(guestWifi.status)
+    end
+    local macdefault = string.upper(xqlanwanutil.getDefaultMacAddress())
+    local router_name = XQFunction.getRouterName()
+    local hardware = string.lower( XQSysUtil.getHardware() )
+    local color = XQSysUtil.getColor()
+    local _hardware = hardware
+    if hardware == "r1cl" then
+        _hardware = "r1cm"
+    end
+    local routerSrc = "router_".._hardware.."_".. color..".png"
+    local routerSrcOn = "router_".._hardware.."_".. color.."_on.png"
+    local features = require("xiaoqiang.XQFeatures").FEATURES
+    local wifi50IsSupport = features["wifi"]["wifi50"]
+    local task = features["system"]["task"];
+    local ipv6_passthrough_relay = features["system"]["ipv6_passthrough_relay"]
+    local lang = XQSysUtil.getLang()
+    local langfolder = string.upper(string.gsub(lang, "zh_", ""));
+    local ccode = xqCountryCode.getBDataCountryCode()
+    local wifiInfo = XQWifiUtil.getAllWifiInfo()
+    wifiInfo = json.encode(wifiInfo)
+    local platform = XQSysUtil.getHardware()
+    local romVersion = XQSysUtil.getDisplayRomVersion()
+    local channel = XQSysUtil.getChannel()
+    local sn = XQSysUtil.getSN()
+    local wifi_count = XQWifiUtil.get_wlan_count()
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/qos.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/index.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div class="mod-netmap">
+        <div class="inner clearfix">
+            <div class="devices nav-tab">
+                <div class="img"></div>
+                <p><%:终端设备%></p>
+                <div class="status status-devices" id="statusDevices"><b class="devcountonline devcountonline1">--</b><%:台%></div>
+            </div>
+            <div id="devline" class="line line-scaning"></div>
+            <div class="router nav-tab active">
+                <div class="img">
+                    <img class="on" src="<%=resource%>/web/img/icons/<%=routerSrcOn%>">
+                    <img class="off" src="<%=resource%>/web/img/icons/<%=routerSrc%>">
+                </div>
+                <p><%=router_name%></p>
+                <table <%if wifi_count == 2 then%>class="status-wifi" <%else%>class="status-wifi status5g2-wifi"<%end%> id="statusWifi">
+                <%if wifi50IsSupport == "1" then%>
+                    <tr>
+                        <td class="l">
+                            <div class="status status5g2"><i id="ssid24status" class="ico ico-wifi-on"></i><span>2.4GHz: <em id="ssid24val">--</em></span></div>
+                        </td>
+                        <td class="c">|</td>
+                        <td class="r">
+                            <div class="status status50 status5g2"><i id="ssid50status" class="ico ico-wifi-on"></i><span class="wifi5gTit">5GHz:<em id="ssid50val">--</em></span></div>
+                        </td>
+                        <td class="c wifi5g2Status" <%if wifi_count == 2 then%>style="display: none;"<%end%>>|</td>
+                        <td class="r wifi5g2Status" <%if wifi_count == 2 then%>style="display: none;"<%end%>>
+                            <div class="status status5g2"><i id="ssid5g2status" class="ico ico-wifi-on"></i><span>5GHz-Game:<em id="ssid5g2val">--</em></span></div>
+                        </td>
+                    </tr>
+                <%else%>
+                    <tr>
+                        <td style="border-radius:24px;" colspan="3">
+                            <div class="status"><i id="ssid24status" class="ico ico-wifi-on"></i><span>Wi-Fi:</span><b id="ssid24val">--</b></div>
+                            <div class="status" style="display:none;"><i id="ssid50status" class="ico ico-wifi-on"></i><span>5G:</span><b id="ssid50val">--</b></div>
+                        </td>
+                    </tr>
+                <%end%>
+                </table>
+            </div>
+            <div>
+                <div id="singleLine" class="network single-network">
+                    <div class="netname"></div>
+                    <div id="netline" class="line line-scaning"></div>
+                </div>
+                <div id="multiLine" style="display: none;">
+                    <div class="network double-network">
+                        <div class="netname"></div>
+                        <div id="aboveline" class="line line-scaning line-double"></div>
+                    </div>
+                    <div class="network double-mobile-network">
+                        <div class="netname"></div>
+                        <div id="belowline" class="line line-scaning"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="internet nav-tab active">
+                <div class="img"></div>
+                <p><%:互联网%></p>
+                <div class="status status-internet" id="statusInternet"></div>
+            </div>
+        </div>
+    </div>
+    <div id="bd">
+        <div class="mod-devicestatus nav-tab-content" style="display:none;">
+            <div id="devicesTables"></div>
+        </div>
+        <div class="mod-routerstatus nav-tab-content clearfix">
+            <div class="routerinfo">
+                <div class="wifi_set">
+                    <div <%if wifi_count == 2 then%> class="wifi_2g" <%else%> class="wifi_2g wifi5g2On" <%end%>>
+                        <ul>
+                             <li> <b>2.4GHz</b><span>频段</span></li>
+                            <li class="wifi_2g_name">Wi-Fi名称</li>
+                            <li class="passwd_2g">Wi-Fi密码： 
+                                <input type="text" class="wifi_2g_pssswd wifi_2g_pssswd_txt" style="padding: 5px;" value="" readonly>
+                                <input type="password" class="wifi_2g_pssswd" value="" readonly> 
+                                 <span class="eye2"></span>
+                            </li>
+                            <li class="wifi_2g_online">连接设备数量 --</li>
+                        </ul>
+                        <a class="btn_wifi" href="<%=luci.dispatcher.build_url("web", "setting", "wifi")%>" >设置</a>
+                    </div>
+                   
+                    <div <%if wifi_count == 2 then%>class="wifi_5g"<%else%>class="wifi_5g wifi5g2On"<%end%>>
+                        <ul>
+                            <li> <b>5GHz</b><span>频段</span></li>
+                             <li class="wifi_5g_name">Wi-Fi名称</li>
+                            <li class="passwd_5g">Wi-Fi密码：
+                                <input type="text" class="wifi_5g_pssswd wifi_5g_pssswd_txt" style="padding: 5px;" value="" readonly>
+                                <input type="password" class="wifi_5g_pssswd" value="" readonly> 
+                                <span class="eye2"></span>
+                            </li>
+                            <li class="wifi_5g_online">连接设备数量 --</li>
+                        </ul>
+                        <a class="btn_wifi" href="<%=luci.dispatcher.build_url("web", "setting", "wifi")%>" >设置</a>
+                    </div>
+
+                    <div class="wifi_5g2" <%if wifi_count == 2 then%> style="display: none;" <%end%>>
+                        <ul>
+                            <li> <b>5GHz-Game</b><span>频段</span></li>
+                            <li class="wifi_5g2_name">Wi-Fi名称</li>
+                            <li class="passwd_5g2">Wi-Fi密码：
+                                <input type="text" class="wifi_5g2_pssswd wifi_5g2_pssswd_txt" style="padding: 5px;" value="" readonly>
+                                <input type="password" class="wifi_5g2_pssswd" value="" readonly> 
+                                <span class="eye2"></span>
+                            </li>
+                            <li class="wifi_5g2_online">连接设备数量 --</li>
+                        </ul>
+                        <a class="btn_wifi" href="<%=luci.dispatcher.build_url("web", "setting", "wifi")%>" >设置</a>
+                    </div>
+                </div>
+                <div class="bd">
+                    <table>
+                        <tr>
+                            <th><%:路由器型号%></th>
+                            <th><%:系统ROM版本%></th>
+                            <th><%:MAC地址%></th>
+                            <th><%:SN%></th>
+                        </tr>
+                        <tr>
+                            <td id="routermodel">--</td>
+                            <td id="routerversion">--</td>
+                            <td id="routermac">--</td>
+                            <td id="routersn">--</td>
+                        </tr>
+                        
+                    </table>
+                </div>
+            </div>
+          
+        </div>
+        <div class="mod-internetstatus nav-tab-content" style="display:none;">
+            <div id="wan1Status" style="display: none;">
+                <div class="internet-panel first">
+                    <div class="hd">
+                        <h3>WAN 1 <%:外网状态%></h3>
+                    </div>
+                    <div class="bd">
+                        <table id="wan1StatusContent"></table>
+                    </div>
+                </div>
+
+                <div class="internet-panel">
+                    <div class="hd">
+                        <h3>WAN 1 <%:外网带宽%></h3>
+                    </div>
+                    <div class="bd">
+                        <table>
+                            <tr class="first">
+                                <td>
+                                    <dl>
+                                        <dt><%:下载带宽%></dt>
+                                        <dd><span id="banddownload">--</span>Mbps</dd>
+                                    </dl>
+                                </td>
+                                <td>
+                                    <dl>
+                                        <dt><%:上传带宽%></dt>
+                                        <dd><span id="bandupload">--</span>Mbps</dd>
+                                    </dl>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">
+                                    <!-- <a id="btnSpeedTest" href="#" class="btn btn-primary btn-m"><span id="retestSpeed"><%:重新测速%></span></a> -->
+                                    <a id="btnBandset" href="#" class="btn btn-dft btn-primary btn-m"><span id="manualSetting1"><%:手工设置%></span></a>
+                                </td>
+                            </tr>
+                        </table>
+                        <div>
+                            <h3><%:双WAN模式下，不支持在此处设置外网带宽%></h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="hr"></div>
+            </div>
+            <div id="wan2Status" style="display: none;">
+                <div class="internet-panel first">
+                    <div class="hd">
+                        <h3>WAN 2 <%:外网状态%></h3>
+                    </div>
+                    <div class="bd">
+                        <table id="wan2StatusContent"></table>
+                    </div>
+                </div>
+    
+                <div class="internet-panel">
+                    <div class="hd">
+                        <h3>WAN 2 <%:外网带宽%></h3>
+                    </div>
+                    <div class="bd">
+                        <table>
+                            <tr class="first">
+                                <td>
+                                    <dl>
+                                        <dt><%:下载带宽%></dt>
+                                        <dd><span id="band2download">--</span>Mbps</dd>
+                                    </dl>
+                                </td>
+                                <td>
+                                    <dl>
+                                        <dt><%:上传带宽%></dt>
+                                        <dd><span id="band2upload">--</span>Mbps</dd>
+                                    </dl>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">
+                                    <!-- <a id="btnSpeedTest" href="#" class="btn btn-primary btn-m"><span id="retestSpeed"><%:重新测速%></span></a> -->
+                                    <a id="btn2Bandset" href="#" class="btn btn-dft btn-primary btn-m"><span id="manualSetting2"><%:手工设置%></span></a>
+                                </td>
+                            </tr>
+                        </table>
+                        <div>
+                            <h3><%:双WAN模式下，不支持在此处设置外网带宽%></h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="hr"></div>
+            </div>
+        </div>
+    </div>
+    <%include("web/inc/footer")%>
+    <div id="newguide" class="newguide" style="display:none;">
+        <div class="mask"></div>
+        <img src="<%=resource%>/web/img/<%=lang%>/newguide.png" />
+    </div>
+</div>
+<script type="text/tmpl" id="tmpldeviceswrap">
+<table class="mod-table-devices">
+    <thead>
+        <tr>
+            <th class="s0">{$devtype}</th>
+        {if($devlen > 0 )}
+            <th class="s1"><%:访问外网%></th>
+            {if($hasDisk)}
+            <th class="s2"><%:全盘访问%></th>
+            {/if}
+        {/if}
+        </tr>
+    </thead>
+    <tbody>
+    {$deviceslist}
+    </tbody>
+</table>
+</script>
+<script type="text/tmpl" id="tmpldevicesitem">
+<tr class="device-item">
+    <td>
+       <!--  <img class="dev-icon" width="60" src="{$devices_icon}" onerror="this.src='/img/device_list_error.png'"> -->
+        <div class="dev-info">
+            <div class="name">{$name} &nbsp;&nbsp;{if($isself)}<span class="muted">|&nbsp;<%:本机%></span>{/if}</div>
+            <ul class="devnetinfo clearfix">
+               <!--  <li><span class="k"><%:已连接%>:</span> <span class="v">{$online}</span></li> -->
+                <li>
+                    {for(var i=0, len=$ip.length; i<len; i++)}
+                    <p><span class="k"><%:IP地址%>:</span> <span class="v">{$ip[i]}</span></p>
+                    {/for}
+                </li>
+                <li><span class="k"><%:MAC地址%>:</span> <span class="v">{$mac}</span></li>
+            </ul>
+        </div>
+    </td>
+
+     {if($d_is_ap != 8)}
+    <td class="option">
+        {$option}
+    </td>
+    {/if}
+
+     {if($d_is_ap == 8)}
+     <td class="option_d01"></td>
+      {/if}
+
+    {if($hasDisk)}
+    <td class="option2">
+        {$option2}
+    </td>
+    {/if}
+</tr>
+</script>
+<script type="text/tmpl" id="tmplWaninfo_v2">
+<tbody>
+    <tr class="first">
+        <td>
+            <dl>
+                <dt><%:连接类型%></dt>
+                <dd>{$ipv4type} + {$ipv6type}</dd>
+            </dl>
+        </td>
+    </tr>
+    <tr class="first">
+        <td>
+            <dl>
+                <dt><%:IP地址%></dt>
+                <dd><%:WAN IPv4地址：%>{$ipv4}</dd>
+                <dd><%:WAN IPv6地址：%>{$ipv6}</dd>
+            </dl>
+        </td>
+    </tr>
+    <tr class="first">
+        <td>
+            <dl>
+                <dt><%:DNS%></dt>
+                <dd>IPv4 DNS: {$dnsv4}</dd>
+                <dd>IPv6 DNS: {$dnsv6}</dd>
+            </dl>
+        </td>
+    </tr>
+    <tr class="first">
+        <td>
+            <dl>
+                <dt><%:网关地址%></dt>
+                <dd><%:IPv4网关地址：%>{$gwv4}</dd>
+                <dd><%:IPv6网关地址：%>{$gwv6}</dd>
+            </dl>
+        </td>
+    </tr>
+</tbody>
+</script>
+<script type="text/tmpl" id="tmplWaninfo">
+<tr class="first">
+    <td>
+        <dl>
+            <dt><%:连接类型%></dt>
+            <dd>{$wantype}</dd>
+        </dl>
+    </td>
+    <td>
+        <dl>
+            <dt><%:IP地址%></dt>
+            <dd>{$ip}</dd>
+        </dl>
+    </td>
+</tr>
+<tr>
+    <td>
+        <dl>
+            <dt><%:DNS%></dt>
+            <dd>{$dns}</dd>
+        </dl>
+    </td>
+    <td>
+        <dl>
+            <dt><%:网关地址%></dt>
+            <dd>{$gateway}</dd>
+        </dl>
+    </td>
+</tr>
+</script>
+<script type="text/tmpl" id="tmpldevicesempty">
+<tr class="empty">
+    <td colspan="3"><%:暂无设备接入%></td>
+</tr>
+</script>
+<script type="text/tmpl" id="tmpldevices5gempty">
+<tr class="empty">
+    <td colspan="3">
+        <div class="devices5gempty">
+            <i class="ico-wifi-5g"></i>
+            <h4><%:当前未有5G连网设备%></h4>
+            <p><%:5G Wi-Fi是运行在5GHz以上的高频段的独立Wi-Fi比较2.4G Wi-Fi速度更快更稳定，适合电视、盒子包括距离路由器较近的设备%></p>
+            <%if ccode == "CN" then%>
+                <a href="http://www.mi.com" class="btn btn-dft btn-l" target="_blank"><span><%:去小米网购买5G智能设备%></span></a>
+            <%end%>
+        </div>
+    </td>
+</tr>
+</script>
+
+<script type="text/tmpl" id="tmpldevicesguestempty">
+<tr class="empty">
+    <td colspan="3">
+        <%if (wifiGuestStatus == 0) then%>
+        <div class="devicesguestempty">
+            <i class="ico-wifi-guest"></i>
+            <h4><%:当前未开启访客模式%></h4>
+            <p><%:开启后会自动生成一个独立的WiFi，这样在亲朋到好友到来时，独立的WiFi账号和家庭网络彼此隔离，也不用担心家庭网络中的任何隐私会泄露出去%></p>
+            <a href="<%=luci.dispatcher.build_url('web','setting','wifi')%>" class="btn btn-dft btn-l"><span><%:开启访客Wi-Fi%></span></a>
+        </div>
+        <%else%>
+        <div class="devicesguestempty">
+            <i class="ico-wifi-guest"></i>
+            <h4><%:当前没有访客设备连入%></h4>
+        </div>
+        <%end%>
+    </td>
+</tr>
+</script>
+<script type="text/tmpl" id="tmpl-task">
+<div class="task-list">
+    {if($appInfos.length > 0)}
+    <table class="table">
+        <tr class="{$order}">
+            <th><%:任务名称%></th>
+            <th><span class="orderbycpu">CPU</span></th>
+            <th><span class="orderbymem"><%:内存%></span></th>
+            <th width="80"><%:操作%></th>
+        </tr>
+        {for (var i = 0; i < $appInfos.length; i++)}
+        <tr>
+            <td>{$appInfos[i].name}</td>
+            <td>{$appInfos[i].cpu}%</td>
+            <td>{$appInfos[i].mem}%</td>
+            <td><a href="###" class="btn btn-dft btn-s killtask" data-status="{$appInfos[i].status}" data-id="{$appInfos[i].id}" data-pname="{$appInfos[i].name}"><span>
+            {if($appInfos[i].status == 5)}<%:结束%>{/if}
+            {if($appInfos[i].status == 7 || $appInfos[i].status == 6)}<%:开启%>{/if}
+            </span></a></td>
+        </tr>
+        {/for}
+    </table>
+    {else}
+    <p><%:没有运行中的任务%></p>
+    {/if}
+</div>
+</script>
+<script type="text/html" id="tmplVaslist">
+<li>
+    <p class="p1">{$title}</p>
+    <p class="p2" title="{$desc}">{$desc}</p>
+    <img src="/vas/{$icon}">
+    <input type="checkbox" name="vaskey" data-key="{$postkey}" checked="checked" />
+</li>
+</script>
+<%include("web/inc/g.js")%>
+<%include("web/inc/speedtest.js")%>
+<script src="<%=resource%>/web/js/class.linechart.js"></script>
+<script src="<%=resource%>/web/js/class.pie.js"></script>
+<script>
+// net diagnisis
+var hardware = '<%=hardware%>',aysyc;
+    if (hardware == 'r1cm' || hardware == 'r1cl' || hardware =='r3' || hardware =='r3a' || hardware =='r3l' || hardware =='r4c' || hardware =='r4cm' || hardware =='r4ac') {
+        aysyc = false;
+    }else {
+        aysyc = true;
+    }
+    
+    function netdiagnosis(multiwan, policy, currwan){
+    var apiNettb = '<%=luci.dispatcher.build_url("api", "xqnetdetect", "nettb2")%>';
+    var devline = document.getElementById('devline');
+    var netline = document.getElementById('netline');
+    var aboveline = document.getElementById('aboveline');
+    var belowline = document.getElementById('belowline');
+    var isWAN1Enable = false,
+        isWAN2Enable = false,
+        wan1Index = 0,
+        wan2Index = 0,
+        currtype = "";
+        $.ajax({
+            url: apiNettb,
+            type: 'GET',
+            datatype: 'json',
+            async: aysyc,
+            success: function( rsp ){
+            rsp = $.parseJSON(rsp);
+            // 未开启多wan，显示单线不显示网络名称
+            if (multiwan == 0) {
+                $("#singleLine").show().siblings("#multiLine").hide();
+                if (rsp.code == 0 && rsp.info) {
+                    $.each(rsp.info, function(index, item) {
+                        if (item.disabled == 0) {
+                            if (item.error == 0) {
+                                isWAN1Enable = true;
+                            }
+                            return false;
+                        }
+                    });
+                    if (isWAN1Enable) {
+                        devline.className = 'line line-ok';
+                        netline.className = 'line line-ok';
+                    } 
+                    else {
+                        devline.className = 'line line-ok';
+                        netline.className = 'line line-err';
+                        $(netline)
+                        .attr('title', '<%:点击进行网络检测%>')
+                        .click(function(){
+                            if (/;stok=/.test(location.href))
+                            {
+                                var token = location.href.match(/;stok=([^/]*)\//)[1];
+                                window.location.href = window.location.origin + '/cgi-bin/luci/;stok=' + token + '/diagnosis';
+                            }
+                            else
+                            {
+                                window.location.href = '<%=luci.dispatcher.build_url("diagnosis")%>';
+                            }
+                        });
+                    }
+                }
+            }
+            // 开启多wan
+            else {
+                // 开启负载均衡，显示双线及网络名称
+                if (policy == 0) {
+                    $("#multiLine").show().siblings("#singleLine").hide();
+                    if ( rsp.code == 0 && rsp.info) {
+                        // 遍历取出WAN口状态
+                        $.each(rsp.info, function(index, item) {
+                            if (item.name == 'wan') {
+                                wan1Index = index;
+                                if (item.disabled == 0 && item.error == 0) {
+                                    isWAN1Enable = true;
+                                }
+                            }
+                            else if (item.name == 'wan_2') {
+                                wan2Index = index;
+                                if (item.disabled == 0 && item.error == 0) {
+                                    isWAN2Enable = true;
+                                }
+                            }
+                        });
+
+                        devline.className = 'line line-ok';
+                        $("#aboveline").siblings("div").text("<%:WAN1%>");
+                        $("#belowline").siblings("div").text("<%:WAN2%>");
+                        if (isWAN1Enable) {
+                            aboveline.className = 'line line-ok';
+                        }
+                        else {
+                            aboveline.className = 'line line-err';
+                            $(aboveline)
+                            .attr('title', '<%:点击进行网络检测%>')
+                            .click(function(){
+                                if (/;stok=/.test(location.href))
+                                {
+                                    var token = location.href.match(/;stok=([^/]*)\//)[1];
+                                    window.location.href = window.location.origin + '/cgi-bin/luci/;stok=' + token + '/diagnosis?index=' + wan1Index;
+                                }
+                                else
+                                {
+                                    window.location.href = '<%=luci.dispatcher.build_url("diagnosis?index=' + wan1Index + '")%>';
+                                }
+                            });
+                        }
+                        if (isWAN2Enable) {
+                            belowline.className = 'line line-ok';
+                        }
+                        else {
+                            belowline.className = 'line line-err';
+                            $(belowline)
+                            .attr('title', '<%:点击进行网络检测%>')
+                            .click(function(){
+                                if (/;stok=/.test(location.href))
+                                {
+                                    var token = location.href.match(/;stok=([^/]*)\//)[1];
+                                    window.location.href = window.location.origin + '/cgi-bin/luci/;stok=' + token + '/diagnosis?index=' + wan2Index;
+                                }
+                                else
+                                {
+                                    window.location.href = '<%=luci.dispatcher.build_url("diagnosis?index=' + wan2Index + '")%>';
+                                }
+                            });
+                        }
+                    }
+                }
+                // 未开启负载均衡，显示单线及网络名称
+                else {
+                    if (rsp.code == 0 && rsp.info) {
+                        // 遍历取出WAN口状态
+                        $.each(rsp.info, function(index, item) {
+                            if (item.name == 'wan') {
+                                wan1Index = index;
+                                if (item.disabled == 0 && item.error == 0) {
+                                    isWAN1Enable = true;
+                                }
+                            }
+                            else if (item.name == 'wan_2') {
+                                wan2Index = index;
+                                if (item.disabled == 0 && item.error == 0) {
+                                    isWAN2Enable = true;
+                                }
+                            }
+                        });
+
+                        if (isWAN1Enable || isWAN2Enable) {
+                            $("#singleLine").show().siblings("#multiLine").hide();
+                            devline.className = 'line line-ok';
+                            netline.className = 'line line-ok';
+                            if (isWAN1Enable && isWAN2Enable) {
+                                if (currwan == 'wan') {
+                                    $("#netline").siblings("div").text("<%:WAN1%>");
+                                }
+                                else if(currwan == 'wan_2') {
+                                    $("#netline").siblings("div").text("<%:WAN2%>");
+                                }
+                            }
+                            else if (isWAN1Enable) {
+                                $("#netline").siblings("div").text("<%:WAN1%>");
+                            }
+                            else {
+                                $("#netline").siblings("div").text("<%:WAN2%>");
+                            }
+                        }
+                        // 未开启负载均衡，但双wan不通，显示两根红线
+                        else {
+                            if (rsp.info.length == 1) {
+                                $("#netline").siblings("div").text("");
+                                devline.className = 'line line-ok';
+                                netline.className = 'line line-err';
+                                $(netline)
+                                .attr('title', '<%:点击进行网络检测%>')
+                                .click(function(){
+                                    if (/;stok=/.test(location.href))
+                                    {
+                                        var token = location.href.match(/;stok=([^/]*)\//)[1];
+                                        window.location.href = window.location.origin + '/cgi-bin/luci/;stok=' + token + '/diagnosis';
+                                    }
+                                    else
+                                    {
+                                        window.location.href = '<%=luci.dispatcher.build_url("diagnosis")%>';
+                                    }
+                                });
+                            }
+                            else {
+                                $("#multiLine").show().siblings("#singleLine").hide();
+                                $("#aboveline").siblings("div").text("<%:WAN1%>");
+                                $("#belowline").siblings("div").text("<%:WAN2%>");
+                                devline.className = 'line line-ok';
+                                aboveline.className = 'line line-err';
+                                belowline.className = 'line line-err';
+                                $(aboveline)
+                                .attr('title', '<%:点击进行网络检测%>')
+                                .click(function(){
+                                    if (/;stok=/.test(location.href))
+                                    {
+                                        var token = location.href.match(/;stok=([^/]*)\//)[1];
+                                        window.location.href = window.location.origin + '/cgi-bin/luci/;stok=' + token + '/diagnosis?index=' + wan1Index;
+                                    }
+                                    else
+                                    {
+                                        window.location.href = '<%=luci.dispatcher.build_url("diagnosis?index=' + wan1Index + '")%>';
+                                    }
+                                });
+                                $(belowline)
+                                .attr('title', '<%:点击进行网络检测%>')
+                                .click(function(){
+                                    if (/;stok=/.test(location.href))
+                                    {
+                                        var token = location.href.match(/;stok=([^/]*)\//)[1];
+                                        window.location.href = window.location.origin + '/cgi-bin/luci/;stok=' + token + '/diagnosis?index=' + wan2Index;
+                                    }
+                                    else
+                                    {
+                                        window.location.href = '<%=luci.dispatcher.build_url("diagnosis?index=' + wan2Index + '")%>';
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            
+        }
+    });
+}
+
+$.sub('multiWanEvent', function() {
+    var currwan = "wan",
+        multiwan = 0,
+        policy = 0;
+    $.ajax({
+        url: '<%=luci.dispatcher.build_url("api", "misystem", "get_ps_service")%>',
+        type: 'GET',
+        datatype: 'json',
+        async: true,
+        data: {"service":'multiwan'},
+        success: function( rsp ){
+            rsp = $.parseJSON(rsp);
+            if (rsp.code == 0 && rsp.multiwan) {
+                multiwan = rsp.multiwan.enable;
+                policy = rsp.multiwan.policy.mode;
+                currwan = rsp.multiwan.policy.currwan;
+                netdiagnosis(multiwan, policy, currwan);
+                showWanStatus(multiwan, policy, currwan);
+            }
+        }
+    });
+});
+
+// get devices
+$.sub( 'devices:getlist', function( evt, data ){
+    var apiDevicesGet = '<%=luci.dispatcher.build_url("api", "misystem","devicelist")%>',
+        apiDevicesGetData = {"mlo":1},
+        macLocal,
+        tplItem = $( '#tmpldevicesitem' ).html(),
+        tplWaper = $('#tmpldeviceswrap').html(),
+        wraper = $('#devicesTables'),
+        devices,
+        deviceslistHtml = [],
+        listHtml = {
+            '0': [],
+            '1': [],
+            '2': [],
+            '3': [],
+            '4': [],
+            '5': [],
+            '6': [],
+            '7': [],
+            '8': [],
+            '9': []
+        },
+        typeDict = {
+            ["mesh"]    : 0,
+            ["wired"]   : 1,
+            ["2g"]      : 2,
+            ["5g"]      : 3,
+            ["5gGame"]  : 4,
+            ["5g2"]     : 5,
+            ["6g"]      : 6,
+            ["guest"]   : 7,
+            ["mlo"]     : 8,
+            ["iot"]     : 9
+        },
+        containerTitle = [
+            '<%:Mesh组网设备%>',
+            '<%:网线连网设备%>',
+            '<%:2.4G连网设备%>',
+            '<%:5G连网设备%>',
+            '<%:5G-Game连网设备%>',
+            '<%:5G-2连网设备%>',
+            '<%:6G连网设备%>',
+            '<%:访客连网设备%>',
+            '<%:MLO连网设备%>',
+            '<%:IoT连网设备%>',
+        ],
+        hasDisk = G_FEATURES['hardware']['disk'] === '1',
+        isWifi5G = G_FEATURES['wifi']['wifi50'] === '1';
+
+    $.ajax({
+        url: apiDevicesGet,
+        type: 'GET',
+        datatype: 'json',
+        data: apiDevicesGetData,
+        async: aysyc,
+        success: function( rsp ){
+            rsp = $.parseJSON(rsp);
+            if ( rsp.code === 0 ) {
+                devices = rsp.list;
+                macLocal = rsp.mac.toUpperCase();
+                if ( devices.length > 0 ) {
+                    for ( var i = 0 ; i < devices.length ; i++ ) {
+                        var d_mac, d_self, d_ip, d_type, d_option, d_signal_level, d_action, d_action2, d_online, d_download, d_dld_speed, d_wan, d_lan, type_html, type_detail, d_html, d_activets,pctlv2,
+                            d_devices_icon = '/img/device_list_unknow.png',
+                            d_type_id = 0,
+                            d_is_ap = 0,
+                            d_name,
+                            d_origin_name;
+                        d_mac = devices[i].mac.toUpperCase();
+
+                        if( $.isArray(devices[i].ip) ){
+                            d_ip = $(devices[i].ip).map(function(){
+                                return this.ip;
+                            }).get();
+                        } else {
+                            d_ip = [];
+                        }
+
+                        d_type_id = devices[i].type;
+                        d_name = devices[i].name;
+                        d_origin_name = devices[i].oname;
+
+                        d_wan = devices[i].authority.wan;
+                        d_lan = devices[i].authority.lan;
+
+                        d_is_ap = devices[i].isap;
+                        pctlv2 = devices[i].pctlv2;
+
+                        if ( devices[i].statistics ) {
+                            d_online = devices[i].statistics.online;
+                            d_download = devices[i].statistics.download;
+                            d_dld_speed = devices[i].statistics.downspeed;
+                        }
+                        if ( devices[i].icon && devices[i].icon !== "") {
+                            d_devices_icon = '/cn/' + devices[i].icon;
+                        }
+
+                        if ( macLocal == d_mac ) {
+                            d_self = true;
+                        } else {
+                            d_self = false;
+                        }
+                        //终端操作
+                        var tplDevAction = '<a data-self="{$d_self}" data-mac="{$d_mac}" data-type="{$d_type}" href="#" class="btn-switch btn-switch-{$status} {$cls}"></a>';
+                        if(pctlv2 == 1){
+                            tplDevAction = '<span>已纳入家人上网保护</span>'
+                            d_action = tplDevAction;
+                            d_action2 = tplDevAction;
+                        }else{
+                            if ( d_wan == 0) {
+                                d_action = tplDevAction.tmpl({
+                                    'd_self': d_self ? '1':'0',
+                                    'd_mac': d_mac,
+                                    'd_type': 'wan',
+                                    'cls': 'act-add-back',
+                                    'status': 'off'
+                                });
+                            } else {
+                                d_action = tplDevAction.tmpl({
+                                    'd_self': d_self ? '1':'0',
+                                    'd_mac': d_mac,
+                                    'd_type': 'wan',
+                                    'cls': 'act-kick-out',
+                                    'status': 'on'
+                                });
+                            }
+                            if ( d_lan == 0 ) {
+                                d_action2 = tplDevAction.tmpl({
+                                    'd_self': d_self ? '1':'0',
+                                    'd_mac': d_mac,
+                                    'd_type': 'lan',
+                                    'cls': 'act-add-back',
+                                    'status': 'off'
+                                });
+                            } else {
+                                d_action2 = tplDevAction.tmpl({
+                                    'd_self': d_self ? '1':'0',
+                                    'd_mac': d_mac,
+                                    'd_type': 'lan',
+                                    'cls': 'act-kick-out',
+                                    'status': 'on'
+                                });
+                            }
+                            if ( d_type_id == typeDict["guest"] ) {
+                                d_action2 = '';
+                            }
+                        }
+                        d_html = tplItem.tmpl( {
+                            'name' : StringH.encode4HtmlValue(d_name),
+                            'origin_name' : d_origin_name,
+                            'mac' : d_mac,
+                            'devices_icon' : d_devices_icon,
+                            'download' : byteFormat(d_download, 100),
+                            'speed' : byteFormat(d_dld_speed, 100),
+                            'online' : $.secondToDate(d_online),
+                            'option' : d_action,
+                            'option2' : d_action2,
+                            'ip': d_ip,
+                            'isself': d_self,
+                            'd_type_id':d_type_id,
+                            'd_is_ap':d_is_ap,
+                            'hasDisk': hasDisk
+                        } );
+                        // RE设备
+                        if(d_is_ap == 8){
+                            d_type_id = typeDict["mesh"]
+                        }
+                        listHtml[d_type_id].push( d_html );
+                    }
+
+                    var containerList = [];
+                    console.log(listHtml);
+                    for (var key in listHtml) {
+                        var devlen = listHtml[key].length,
+                            devtype = containerTitle[key];
+                        if ( devlen > 0 ) {
+                            containerList.push(
+                                tplWaper.tmpl({
+                                    devlen: devlen,
+                                    devtype: devtype,
+                                    deviceslist: listHtml[key].join(''),
+                                    hasDisk: hasDisk
+                                })
+                            );
+                        }
+                    }
+                    wraper.html( containerList.join('') );
+                    // mesh组网设备 屏蔽访问外网
+                    if($('#devicesTables .mod-table-devices').siblings().length > 0){
+                        if($('#devicesTables .mod-table-devices').siblings().first().find('.s0').text() == '<%:Mesh组网设备%>'){
+                            $('#devicesTables .mod-table-devices').siblings().first().find('.s1').html('');
+                        }
+                    }else{
+                        if($('#devicesTables .mod-table-devices').find('.s0').text() == '<%:Mesh组网设备%>'){
+                            $('#devicesTables .mod-table-devices').find('.s1').html('');
+                        }
+                    }
+
+                }
+            }
+        }
+    } );
+} );
+
+//禁止上网
+$.sub( 'devices:kick_out', function( evt, data ){
+    var requestData = {};
+    requestData['mac'] = data.mac;
+    requestData[data.type] = 0;
+    $.pub( 'loading:start' );
+    $.ajax({
+            url: '<%=luci.dispatcher.build_url("api", "xqsystem", "set_mac_filter")%>',
+            type: 'GET',
+            datatype: 'json',
+            data: requestData,
+            async: aysyc,
+            success: function( rsp ){
+        $.pub( 'loading:stop' );
+        rsp =  $.parseJSON(rsp);  
+        if( rsp.code === 0 ){
+
+            $.pub( 'devices:getlist'  );
+        } else {
+            $.alert( rsp.msg );
+        }
+    }
+    } );
+} );
+
+//允许上网
+$.sub( 'devices:add_back', function( evt, data ){
+    var requestData = {};
+    requestData['mac'] = data.mac;
+    requestData[data.type] = 1;
+    $.pub( 'loading:start' );
+     $.ajax({
+            url: '<%=luci.dispatcher.build_url("api", "xqsystem", "set_mac_filter")%>',
+            type: 'GET',
+            datatype: 'json',
+            data: requestData,
+            async: aysyc,
+            success: function( rsp ){
+                $.pub( 'loading:stop' );
+                rsp =  $.parseJSON(rsp);  
+                if( rsp.code === 0 ){
+                    $.pub( 'devices:getlist'  );
+                } else {
+                    $.alert( rsp.msg );
+                }
+    }
+    } );
+});
+// devices event
+$.sub('devices:addevent', function(){
+    //禁止
+    var actKickOut = $.debounce(function( e ){
+        e.preventDefault();
+        var mac = $(this).attr('data-mac');
+        var type = $(this).attr('data-type');
+        var self = $(this).attr('data-self') === '1';
+        if ( self ) {
+            var cfm = window.confirm('<%:你确认要关闭自己？%>');
+            if ( cfm ) {
+                $(this).removeClass('btn-switch-on').addClass('btn-switch-off');
+                $.pub( 'devices:kick_out', {'mac' : mac, 'type': type} );
+                
+            }
+        } else {
+            $.pub( 'devices:kick_out', {'mac' : mac, 'type': type} );
+        }
+    } , 300, true );
+    $( 'body' ).delegate( '.act-kick-out', 'click', actKickOut);
+
+    //允许
+    var actKickBack = $.debounce(function( e ){
+        e.preventDefault();
+        var mac = $(this).attr('data-mac');
+        var type = $(this).attr('data-type');
+        $.pub( 'devices:add_back', {'mac' : mac, 'type': type} );
+    } , 300, true );
+    $( 'body' ).delegate( '.act-add-back', 'click', actKickBack);
+
+
+
+    //eye click
+    $( 'body' ).delegate( '.wifi_set ul li .eye2', 'click', function(){
+        if( $(this).hasClass("show") ){
+            $(this).removeClass("show");
+            $(this).siblings('input[type=password]').show();
+            $(this).siblings('input[type=text]').hide();
+        }else{
+            $(this).addClass("show");
+            $(this).siblings('input[type=text]').show();
+            $(this).siblings('input[type=password]').hide();
+        }
+    });
+
+});
+
+$.sub( 'wifi:get', function( evt, data ){
+    var count = <%=count%>;
+    var wifiInfo = <%=wifiInfo%>;
+    var wifiCount = <%=wifi_count%>;
+    var wifi24status = wifiInfo[0].status;
+    var wifi50status = wifiInfo[1] ? wifiInfo[1].status : -1;
+    var wifi5g2status = wifiInfo[2] ? wifiInfo[2].status : -1;
+    var wifiarr = ["2g", "5g", "5g2"];
+    var wifi24ssid = wifiInfo[0].ssid;
+    var wifi50ssid = wifiInfo[1] && wifiInfo[1].ssid;
+    var wifi5g2ssid = wifiInfo[2] && wifiInfo[2].ssid;
+    $('#ssid24status')[0].className = wifi24status == 0 ? 'ico ico-wifi-off' : 'ico ico-wifi-on';
+    $('#ssid50status')[0].className = wifi50status == 0 ? 'ico ico-wifi-off' : 'ico ico-wifi-on';
+    $('#ssid5g2status')[0].className = wifi5g2status == 0 ? 'ico ico-wifi-off' : 'ico ico-wifi-on';
+    $('#ssid24val').html(wifi24ssid);
+    $('#ssid50val').html(wifi50ssid);
+    $('#ssid5g2val').html(wifi5g2ssid);
+    if (wifiCount == 2) {
+        if (wifi50status == -1) {
+            $(".wifi_5g").hide();
+            $(".wifi_5g2").show();
+            $(".wifi5g2Status").show();
+        }
+        else if (wifi5g2status == -1) {
+            $(".wifi_5g").show();
+            $(".wifi_5g2").hide();
+            $(".wifi5g2Status").hide();
+        }
+        if (wifi50status == -1 || wifi5g2status == -1) {
+            $(".wifi_2g").removeClass("wifi5g2On");
+            $(".wifi_5g").removeClass("wifi5g2On");
+            $("#statusWifi").removeClass("status5g2-wifi");
+        }
+    }
+    else {
+        $(".wifi_5g").show();
+        $(".wifi_5g2").show();
+        $(".wifi5g2Status").show();
+        $(".wifi_2g").addClass("wifi5g2On");
+        $(".wifi_5g").addClass("wifi5g2On");
+        $("#statusWifi").addClass("status5g2-wifi");
+    }
+
+    for (var i = 0; i < wifiInfo.length; i++) {
+        $('.wifi_' + wifiarr[i] + '_name').html('Wi-Fi名称：'+ wifiInfo[i].ssid);
+        if(wifiInfo[i].password){
+            $('.wifi_' + wifiarr[i] + '_pssswd').val(wifiInfo[i].password);
+        }else{
+            $('.passwd_' + wifiarr[i]).html('Wi-Fi密码: 未设置');
+        }
+        $('.wifi_' + wifiarr[i] + '_online').html('连接设备数量：'+count[i]);
+    }
+} );
+
+// 新加的 替换旧的status接口
+$.sub('status:newget', function(){
+
+    var mapChannel, mapModel;
+    mapChannel = {
+        'current': '<%:内测版%>',
+        'release': '<%:稳定版%>',
+        'stable': '<%:开发版%>'
+    },
+    mapModel = {
+        'R1D': '<%:小米路由器%>',
+        'R2D': '<%:小米路由器2%>',
+        'R3D': '<%:小米路由器HD%>',
+        'R1CM': '<%:小米路由器MINI%>',
+        'R1CL': '<%:小米路由器青春版%>',
+        'R3': '<%:小米路由器3%>',
+        'R3L': '<%:小米路由器3C%>',
+        'R3P': '<%:小米路由器3 Pro%>',
+        'R3A': '<%:小米路由器3A%>',
+        'R3G': '<%:小米路由器3G%>',
+        'R4': '<%:小米路由器4%>',
+        'R4C': '<%:小米路由器4Q%>',
+        'R4CM': '<%:小米路由器4C%>',
+        'D01': '<%:小米路由器Mesh%>',
+        'R4AC': '<%:小米路由器4A%>',
+        'R4A': '<%:小米路由器4 v2%>',
+        'R3Gv2': '<%:小米路由器3G%>',
+        'R2600': '<%:小米路由器2600%>',
+        'R2100': '<%:小米路由器AC2100%>',
+        'R1500': '<%:小米路由器1500%>',
+        'R3600': '<%:小米AIoT路由器 AX3600%>',
+        'R1800': '<%:小米AIoT路由器 AX1800%>',
+        'RA72': '<%:小米路由器 AX6000%>',
+		'RA80': '<%:小米路由器 AX3000%>',
+		'RA81': '<%:Redmi路由器 AX3000%>',
+        'RB08': '<%:Xiaomi HomeWiFi%>',
+        'RC01': '<%:Xiaomi万兆路由器%>',
+        'RC06': '<%:Xiaomi路由器BE7000%>',
+		'RD02': '<%:Redmi路由器 AX3000%>',
+		'RD08': '<%:Xiaomi路由器BE6500 Pro%>'
+    };
+
+    $('#routermodel').text(mapModel['<%=platform%>']);
+
+    $('#routerversion').text('MiWiFi ' + mapChannel['<%=channel%>'] + ' ' + '<%=romVersion%>');
+    $('#routermac').text('<%=macdefault%>');
+    $('#routersn').text('<%=sn%>');
+    $('.devcountonline1').text('<%=total%>');
+});
+
+$.sub('status:get', function(){
+    var apiSysstatus = '<%=luci.dispatcher.build_url("api","misystem","status")%>',
+        apiSysstatusData = {};
+
+    function getCpu( data ){
+        $('#cpuused').text( (data.load * 100).toFixed(2) + '%' );
+        $('#cpucore').text( data.core );
+        $('#cpuhz').text( data.hz );
+    }
+    function getMem( data ){
+        $('#memused').text( (data.usage * 100).toFixed(2) + '%' );
+        $('#memtotal').text( data.total );
+        $('#memhz').text( data.hz );
+        $('#memtype').text( data.type );
+    }
+    function getDev(data){
+        if(hardware=='d01'){
+            //console.log(data)
+            //累计终端
+            $('#devcountall').text(data.all_without_mesh);
+            //终端设备 当前终端
+            $('.devcountonline1').text(data.devcountonline);
+            $('.devcountonline2').text(data.online_without_mesh);
+        }else{
+            $('#devcountall').text(data.devcountall);
+            $('.devcountonline').text(data.devcountonline);
+        }
+    }
+    function getWan(data){
+        $('.currentspeed').text( byteFormat( data.downspeed, 100) + '/S');
+        $('.currentupspeed').text( byteFormat( data.upspeed, 100) + '/S')
+        $('#maxdownloadspeed').text( byteFormat( data.maxdownloadspeed , 100) + '/S' );
+        $('#downloadcount').text( byteFormat( data.download, 100 ) );
+        $('#uploadcount').text( byteFormat( data.upload, 100 ) );
+    }
+    function getHardware(data){
+
+        
+
+        var mapChannel, mapModel;
+        mapChannel = {
+            'current': '<%:内测版%>',
+            'release': '<%:稳定版%>',
+            'stable': '<%:开发版%>'
+        },
+        mapModel = {
+            'R1D': '<%:小米路由器%>',
+            'R2D': '<%:小米路由器2%>',
+            'R3D': '<%:小米路由器HD%>',
+            'R1CM': '<%:小米路由器MINI%>',
+            'R1CL': '<%:小米路由器青春版%>',
+            'R3': '<%:小米路由器3%>',
+            'R3L': '<%:小米路由器3C%>',
+            'R3P': '<%:小米路由器3 Pro%>',
+            'R3A': '<%:小米路由器3A%>',
+            'R3G': '<%:小米路由器3G%>',
+            'R4': '<%:小米路由器4%>',
+            'R4C': '<%:小米路由器4Q%>',
+            'R4CM': '<%:小米路由器4C%>',
+            'D01': '<%:小米路由器Mesh%>',
+            'R4AC': '<%:小米路由器4A%>',
+            'R4A': '<%:小米路由器4 v2%>',
+            'R3Gv2': '<%:小米路由器3G%>',
+            'R2600': '<%:小米路由器2600%>',
+            'R2100': '<%:小米路由器2100%>',
+            'R1500': '<%:小米路由器1500%>',
+            'R3600': '<%:小米AIoT路由器 AX3600%>',
+            'R1800': '<%:小米AIoT路由器 AX1800%>',
+            'RA72': '<%:小米路由器 AX6000%>',
+			'RA80': '<%:小米路由器 AX3000%>',
+			'RA81': '<%:Redmi路由器 AX3000%>',
+            'RB08':'<%:Xiaomi HomeWiFi%>',
+            'RC01':'<%:小米Wi-Fi 7 路由器%>',
+            'RC06': '<%:Xiaomi路由器BE7000%>',
+			'RD02': '<%:Redmi路由器 AX3000%>',
+			'RD08': '<%:Xiaomi路由器BE6500 Pro%>'
+        };
+
+        $('#routermodel').text(mapModel[data.platform]);
+        $('#routerversion').text('MiWiFi ' + mapChannel[data.channel] + ' ' + '<%=romVersion%>');
+        $('#routermac').text(data.mac);
+        $('#routersn').text(data.sn);
+    }
+    $.ajax({
+            url: apiSysstatus,
+            type: 'GET',
+            datatype: 'json',
+            data: apiSysstatusData,
+            success: function( rsp ){
+                rsp = JSON.parse(rsp);
+                if ( rsp.code == 0 ) {
+
+                    for(var i=0;i<rsp.dev.length;i++){
+                        if(rsp.dev[i].isap == 8){
+                            rsp.dev.splice(i,1);
+                            i--;
+                        }       
+                    }
+
+                    getCpu(rsp.cpu);
+                    getMem(rsp.mem);
+                    getDev({
+                        devcountall: rsp.count.all,
+                        devcountonline: rsp.count.online,
+                        online_without_mesh:rsp.count.online_without_mash,
+                        all_without_mesh:rsp.count.all_without_mash
+                    });
+                    getWan(rsp.wan);
+                    getHardware(rsp.hardware)
+                    //饼图
+                    $.pub('chart:pie_update', {devStatistics: rsp.dev});
+                    $.pub('chart:speedUpdate', rsp.wan);
+                    $.pub('chart:cpuUpdate', rsp.cpu);
+                    $.pub('chart:memUpdate', rsp.mem);
+                }
+            }
+        });
+});
+
+function showWanStatus(multiwan, policy, currwan) {
+    if (multiwan == 1) {
+        if (policy == 0) {
+            $('#wan1Status').show().siblings('#wan2Status').show();
+            $('.internet-panel .bd').addClass('multiwan');
+            if ('<%=features["system"]["ipv6_wired_v2"]%>' == "1") {
+                $.pub('getWanStatus');
+            } else {
+                $.pub('pppoeStatus', {'wanname':'WAN1'});
+            }
+            $.pub('pppoeStatus', {'wanname':'WAN2'});
+        }
+        else if (policy == 1 || policy == 2) {
+            if (currwan == "wan") {
+                $('#wan1Status').show().siblings('#wan2Status').hide();
+                $('#wan1Status .internet-panel .bd').addClass('multiwan');
+                if ('<%=features["system"]["ipv6_wired_v2"]%>' == "1") {
+                    $.pub('getWanStatus');
+                } else {
+                    $.pub('pppoeStatus', {'wanname':'WAN1'});
+                }
+            }
+            else if (currwan == "wan_2") {
+                $('#wan2Status').show().siblings('#wan1Status').hide();
+                $('#wan2Status .internet-panel .bd').addClass('multiwan');
+                $.pub('pppoeStatus', {'wanname':'WAN2'});
+            }
+            else if (currwan === "") {
+                $('#wan1Status').show().siblings('#wan2Status').show();
+                $('.internet-panel .bd').addClass('multiwan');
+                if ('<%=features["system"]["ipv6_wired_v2"]%>' == "1") {
+                    $.pub('getWanStatus');
+                } else {
+                    $.pub('pppoeStatus', {'wanname':'WAN1'});
+                }
+                $.pub('pppoeStatus', {'wanname':'WAN2'});
+            }
+        }
+        else if (policy == 3 || policy == 4) {
+            if (policy == 3) {
+                $('#wan1Status').show().siblings('#wan2Status').hide();
+                $('#wan1Status .internet-panel .bd').addClass('multiwan');
+                if ('<%=features["system"]["ipv6_wired_v2"]%>' == "1") {
+                    $.pub('getWanStatus');
+                } else {
+                    $.pub('pppoeStatus', {'wanname':'WAN1'});
+                }
+            }
+            else if (policy == 4) {
+                $('#wan2Status').show().siblings('#wan1Status').hide();
+                $('#wan2Status .internet-panel .bd').addClass('multiwan');
+                $.pub('pppoeStatus', {'wanname':'WAN2'});
+            }
+        }
+    }
+    else{
+        $('#wan1Status').show().siblings('#wan2Status').hide();
+        $('#wan1Status .internet-panel .bd').removeClass('multiwan');
+        if ('<%=features["system"]["ipv6_wired_v2"]%>' == "1") {
+            $.pub('getWanStatus');
+        } else {
+            $.pub('pppoeStatus', {'wanname':'WAN1'});
+        }
+    }
+}
+
+//PPPoE checkstatus
+$.sub('pppoeStatus', function(evt, data){
+    var time = data ? data.time : 5 * 1000;
+    var wanname = data && data.wanname? data.wanname : "WAN1";
+    var timer = null;
+    clearTimeout(timer);
+    function ask(){
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api","xqnetwork","pppoe_status")%>',
+            type: "GET",
+            dataType: "json",
+            data: {'wan_name': wanname},
+            async: aysyc,
+            success : function(rsp){
+                var msg,
+                    ip = '-.-.-.-',
+                    mask =  '-.-.-.-',
+                    gateway =  '-.-.-.-',
+                    dns = [],
+                    action = '',
+                    statusHTML = null;
+                if(rsp.proto == 'pppoe'){
+                    switch(rsp.status){
+                        case 1 :
+                            msg = '<%:正在拨号...%>';
+                            timer = setTimeout(ask, 2000);
+                            break;
+                        case 2 :
+                            msg = '拨号成功';
+                            ip = rsp.ip && rsp.ip['address'] ? rsp.ip['address'] : '';
+                            mask = rsp.ip && rsp.ip['mask'] ? rsp.ip['mask'] : '';
+                            gateway = rsp.gw ? rsp.gw : '';
+                            dns = rsp.dns ? rsp.dns : [];
+                            action = '<a id="pppoeStop" href="#">断开</a>';
+                            break;
+                        case 3 :
+                            msg = rsp.msg || '<%:拨号失败%>';
+                            msg = msg + '<%:，正在尝试特殊拨号模式...%>';
+                            timer = setTimeout(ask, 2000);
+                            break;
+                        case 4 :
+                            msg = '<%:已断开%>';
+                            action = '<a id="pppoeStart" href="#"><%:立即连接%></a>';
+                            // 断开后重新连接查询3次，防止拿不到底层新数据
+                            if ( askcount < 4 ) {
+                                timer = setTimeout(ask, 2000);
+                            }
+                            askcount ++;
+                            break;
+                        default:
+                            break;
+                    }
+                    if ( $.isArray(dns)) {
+                        dns = dns.join('<br>');
+                    }
+                    statusHTML = StringH.tmpl( $('#tmplWaninfo').html(), {
+                        wantype: 'PPPoE',
+                        status: msg,
+                        ip: ip,
+                        mask: mask,
+                        gateway: gateway,
+                        dns: dns,
+                        username: rsp.pppoename,
+                        action: action
+                    });
+                } else {
+                    if ( rsp.proto == 'dhcp') {
+                        ip = rsp.ip && rsp.ip['address'] ? rsp.ip['address'] : '';
+                        mask = rsp.ip && rsp.ip['mask'] ? rsp.ip['mask'] : '';
+                        gateway = rsp.gw ? rsp.gw : '';
+                        dns = rsp.dns ? rsp.dns : [];
+                        if ( $.isArray(dns)) {
+                            dns = dns.join('<br>');
+                        }
+                        if ( ip == '' ) {
+                            timer = setTimeout(ask, 2000);
+                        } else {
+                            clearTimeout( timer );
+                        }
+                        statusHTML = StringH.tmpl( $('#tmplWaninfo').html(), {
+                            wantype: 'DHCP',
+                            ip: ip,
+                            mask: mask,
+                            gateway: gateway,
+                            dns: dns
+                        });
+                    } else {
+                        ip = rsp.ip && rsp.ip['address'] ? rsp.ip['address'] : '';
+                        mask = rsp.ip && rsp.ip['mask'] ? rsp.ip['mask'] : '';
+                        gateway = rsp.gw ? rsp.gw : '';
+                        dns = rsp.dns ? rsp.dns : [];
+                        if ( $.isArray(dns)) {
+                            dns = dns.join('<br>');
+                        }
+                        statusHTML = StringH.tmpl( $('#tmplWaninfo').html(), {
+                            wantype: '<%:静态IP%>',
+                            ip: ip,
+                            mask: mask,
+                            gateway: gateway,
+                            dns: dns
+                        });
+                    }
+                }
+                if (wanname == "WAN1") {
+                    $( '#wan1StatusContent' ).html( statusHTML );
+                }
+                else if (wanname == "WAN2") {
+                    $( '#wan2StatusContent' ).html( statusHTML );
+                }
+            }
+        });
+    }
+    setTimeout(ask, time);
+});
+//wan checkstatus
+$.sub('getWanStatus', function(){
+    $.ajax({
+        url: '<%=luci.dispatcher.build_url("api","xqnetwork","get_wan_status")%>',
+        type: "GET",
+        dataType: "json",
+        async: aysyc,
+        success : function(rsp){
+            if (rsp.code == 0) {
+                var typev4 = {
+                    "pppoe":    'PPPoE',
+                    "dhcp":     'DHCP',
+                    "static":   '<%:静态IP%>'
+                };
+                var typev6 = {
+                    "off":          '<%:未开启%>',
+                    "native":       '<%:自动配置%>',
+                    "dhcpv6":       'DHCPv6',
+                    "pppoev6":      'PPPoEv6',
+                    "static":       '<%:静态IPv6%>',
+                    "passthrough":  'Passthrough',
+                    "pi_relay":     'PI_Relay',
+                    "6to4":         'Tunnel 6to4',
+                    "6rd":          'Tunnel 6rd',
+                    "6in4":         'Tunnel 6in4'
+                };
+
+                if ("<%=ipv6_passthrough_relay%>" === "1" ) {
+                    typev6["pi_relay"] = "passthrough";
+                }
+
+                var ipv4type = 'IPv4（）',
+                    ipv6type = 'IPv6（）',
+                    ipv4 = '',
+                    ipv6 = [],
+                    dnsv4 = [],
+                    dnsv6 = [],
+                    gwv4 = '',
+                    gwv6 = '';
+
+                if (rsp.ipv4 && rsp.ipv4.code == 0) {
+                    ipv4type = rsp.ipv4.proto ? 'IPv4（' + typev4[rsp.ipv4.proto] + '）' : ipv4type;
+                    ipv4 = rsp.ipv4.ip && rsp.ipv4.ip['address'] ? rsp.ipv4.ip['address'] : '';
+                    dnsv4 = rsp.ipv4.dns ? rsp.ipv4.dns : [];
+                    gwv4 = rsp.ipv4.gw ? rsp.ipv4.gw : '';
+
+                    if ( $.isArray(dnsv4)) {
+                        dnsv4 = dnsv4.join('<br>');
+                    }
+                }
+
+                if (rsp.ipv6 && rsp.ipv6.code == 0 && rsp.ipv6.wan6_info) {
+                    ipv6type = rsp.ipv6.wan6_info.ipv6_mode ? 'IPv6（' + typev6[rsp.ipv6.wan6_info.ipv6_mode] + '）' : ipv6type;
+
+                    if (rsp.ipv6.wan6_info.ipv6_mode != 'off') {
+                        ipv6 = rsp.ipv6.wan6_info.ip6addr ? rsp.ipv6.wan6_info.ip6addr : [];
+                        dnsv6 = rsp.ipv6.wan6_info.dns ? rsp.ipv6.wan6_info.dns : [];
+                        gwv6 = rsp.ipv6.wan6_info.ip6gw ? rsp.ipv6.wan6_info.ip6gw : '';
+
+                        if ( $.isArray(ipv6)) {
+                            ipv6 = ipv6.join('<br>');
+                        }
+                        if ( $.isArray(dnsv6)) {
+                            dnsv6 = dnsv6.join('<br>');
+                        }
+                    }
+                }
+
+                var statusHTML = StringH.tmpl( $('#tmplWaninfo_v2').html(), {
+                    ipv4type: ipv4type,
+                    ipv4: ipv4,
+                    dnsv4: dnsv4,
+                    gwv4: gwv4,
+                    ipv6type: ipv6type,
+                    ipv6: ipv6,
+                    dnsv6: dnsv6,
+                    gwv6: gwv6,
+                });
+                $( '#wan1StatusContent' ).html( statusHTML );
+            }
+        }
+    });
+});
+
+$.sub('switchEvent', function(){
+    var timer = null;
+    var statusListener = function(){
+        //去掉轮寻 因为去掉饼图一些列了 提升性能
+        // timer = window.setInterval(function(){
+        //     $.pub('status:get');
+        // }, 10000);
+    };
+    var statusStop = function(){
+        window.clearInterval(timer);
+    }
+    var switchTo = function(idx){
+        var $tab = $('.nav-tab');
+        var $content = $('.nav-tab-content');
+
+        $tab.removeClass('active');
+        $tab.eq(idx).addClass('active');
+
+        $content.hide();
+        $content.eq(idx).show();
+
+        if ( idx == 1 ) {
+            statusListener();
+            location.hash = 'router';
+        } else {
+            statusStop();
+        }
+        if ( idx == 0 ) {
+            $.pub('devices:getlist');
+            location.hash = 'devices';
+        }
+        if ( idx == 2 ) {
+            location.hash = 'internet';
+        }
+        // 更新导航tab数据(不需要上来就请求)
+        //$.pub('status:get');
+    };
+    $('.nav-tab').click(function(){
+        var idx = $('.nav-tab').index(this);
+        if ( $(this).hasClass('active') ) {
+            return;
+        }
+        switchTo(idx);
+    });
+
+    var hash = location.hash;
+    if ( hash == '') {
+        switchTo(1);
+    }else{
+        if (/devices/.test(hash)) {
+            switchTo(0);
+        }
+        if (/router/.test(hash)) {
+            switchTo(1);
+        }
+        if (/internet/.test(hash)) {
+            switchTo(2);
+        }
+    }
+
+});
+
+$.sub('speedTestAuto', function(){
+    if ( G_FEATURES.apps.qos === '1') {
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api", "misystem", "active")%>',
+            type: 'GET',
+            datatype: 'json',
+            async: aysyc,
+            success: function( rsp ){
+                rsp =  $.parseJSON(rsp);  
+            if ( rsp.code !== 0 ) {
+                alert( rsp.msg );
+            } else {
+                $.pub('speed:history');
+            }
+        }
+        });
+    }
+});
+
+$.sub('newguide', function(){
+    var needGuide = $.cookie('needguide'),
+        ht = $( document ).height();
+    if ( needGuide === '1' ) {
+        $('#newguide').css('height', ht).show();
+    }
+    $('#newguide').click(function( e ){
+        e.preventDefault();
+        $( this ).hide();
+        $.removeCookie('needguide', {
+            path: '/'
+        });
+    });
+});
+
+
+
+
+$.sub( 'taskquery', function(){
+
+    var ajaxqueen = new AjaxQueue;
+    // 开始查询系统资源使用情况
+    ajaxqueen.addToQueue(taskcollect);
+    // 获取查询系统资源使用情况的结果
+    ajaxqueen.addToQueue(taskquery);
+
+    function taskcollect(){
+        var countryCode = 'cn',
+            edata = edata || {callback: function(){}},
+            api = '<%=luci.dispatcher.build_url("api", "xqdatacenter", "request")%>',
+            data = {payload: '{"api":642,"sleeptime":2,"country":"'+ countryCode +'"}'},
+            success = function(rsp){
+                rsp =  $.parseJSON(rsp);  
+                if (rsp.code === 0) {
+                    ajaxqueen.next();
+                } else {
+                    ajaxqueen.retry(3);
+                }
+            };
+
+         $.ajax({
+            url: api,
+            type: 'GET',
+            datatype: 'json',
+            async: aysyc,
+            data: data,
+            success: success
+        });
+    }
+
+    function taskquery(){
+        var api = '<%=luci.dispatcher.build_url("api", "xqdatacenter", "request")%>',
+            data = {payload: '{"api":643, "QueryCategory":1}'},
+            tplTask = $('#tmpl-task').html(),
+            appInfos = [],
+            success = function(rsp){
+                rsp =  $.parseJSON(rsp);  
+                if (rsp.code === 0 && rsp.hasQueried === 1) {
+
+                    appInfos = rsp.appInfos;
+                    appInfos.sort(function(a, b){
+                        return b.cpu - a.cpu;
+                    });
+
+                    if (!$.dialogTask) {
+                        $.dialogTask = $.dialog({
+                            title: '<%:任务管理器%>',
+                            content: tplTask.tmpl({appInfos: appInfos, order: 'orderbycpu-up'}),
+                            lock: true,
+                            beforeunload: function(){
+                                console.log('$.dialogTask close');
+                                $.dialogTask = null;
+                            }
+                        });
+                    } else {
+                        $.dialogTask.content( tplTask.tmpl({appInfos: appInfos, order: 'orderbycpu-up'}) );
+                    }
+
+                    $.Cache.set('appInfos', appInfos);
+
+                    $.pub( 'loading:stop' );
+                } else {
+                    setTimeout(function(){
+                        ajaxqueen.retry(10);
+                    }, 1000);
+                }
+            };
+        $.ajax({
+            url: api,
+            type: 'GET',
+            datatype: 'json',
+            data: data,
+            async: aysyc,
+            success: success
+        });
+    }
+
+} );
+
+$.sub( 'taskinit', function(){
+
+    var tplTask = $('#tmpl-task').html();
+
+    // 激活关闭插件
+    function taskkill(appid, status){
+        var api = '<%=luci.dispatcher.build_url("api", "xqdatacenter", "request")%>',
+            data = {payload: '{"api":606,"pluginID": "'+ appid +'","status":' + status + '}'},
+            success = function(rsp){
+                rsp =  $.parseJSON(rsp);  
+                if (rsp.code === 0) {
+                    $.pub('taskquery');
+                } else {
+                    alert(rsp.msg);
+                }
+            };
+            $.ajax({
+                url: api,
+                type: 'GET',
+                datatype: 'json',
+                data: data,
+                async: aysyc,
+                success: success
+            });
+        $.pub( 'loading:start' );
+    }
+
+    // add event
+    var $body = $(document.body);
+    $body.delegate('.gettasklist', 'click', function(e){
+        e.preventDefault();
+        $.pub( 'loading:start' );
+        $.pub('taskquery');
+    });
+
+    $body.delegate('.killtask', 'click', function(e){
+        e.preventDefault();
+        var self = this,
+            appid = $(self).attr('data-id'),
+            status = $(self).attr('data-status'),
+            pname = $(self).attr('data-pname');
+        if (status === '5') {
+            if (appid !== 'xunlei') {
+                $.confirm('<%:结束 {$pname} 后，相关功能将无法使用。如要再次使用，你需要在当前界面开启该任务。 你确认要结束 {$pname} 吗？%>'.tmpl({pname: pname}), function(){
+                    taskkill(appid, 7);
+                });
+            } else {
+                $.dialogTaskXunlei = $.dialog({
+                    width: 400,
+                    title: '<%:提示%>',
+                    content: '<p style="text-align:left;"><%:如果因为下载导致路由器卡慢，建议你点击 “暂停所有下载” 来解决。若使用结束任务，路由下载功能将被停用，下次使用时你需要在当前界面再次开启%></p><div style="padding:30px 0;"><button type="button" class="btn btn-dft btn-l" id="stopdowntask"><span><%:暂停所有下载%></span></button><button type="button" class="btn btn-dft btn-l" id="killxunlei" data-id="'+appid+'" style="margin-top:15px;"><span><%:结束任务%></span></button></div>'
+                });
+            }
+        }
+        if (status === '7' || status === '6') {
+            taskkill(appid, 5);
+        }
+
+    });
+
+    $body.delegate('#stopdowntask', 'click', function(e){
+        e.preventDefault();
+        var api = '<%=luci.dispatcher.build_url("api", "xqdatacenter", "request")%>',
+            data = {payload: '{"api":516}'};
+            $.ajax({
+            url: api,
+            type: 'GET',
+            datatype: 'json',
+            data: data,
+            async: aysyc,
+            success: function(rsp){
+                rsp =  $.parseJSON(rsp);  
+            if (rsp.code === 0) {
+                $.dialogTaskXunlei.close();
+            } else {
+                $.alert(rsp.msg);
+            }
+        }
+        });
+
+    });
+
+    $body.delegate('#killxunlei', 'click', function(e){
+        e.preventDefault();
+        var appid = $(this).attr('data-id');
+        $.dialogTaskXunlei.close();
+        taskkill(appid, 7);
+    });
+
+    $body.delegate('.orderbycpu', 'click', function(e){
+        e.preventDefault();
+        var sortfn ,cls , tr = this.parentNode.parentNode,
+            appInfos = $.Cache.get('appInfos');
+        if ($(tr).hasClass('orderbycpu-up')) {
+            sortfn = function(a, b){
+                return a.cpu - b.cpu;
+            };
+            cls = 'orderbycpu-down';
+        } else {
+            sortfn = function(a, b){
+                return b.cpu - a.cpu;
+            };
+            cls = 'orderbycpu-up';
+        }
+        appInfos.sort(sortfn);
+        $.dialogTask.content(tplTask.tmpl({appInfos: appInfos, order: cls}));
+    })
+    .delegate('.orderbymem', 'click', function(e){
+        e.preventDefault();
+        var sortfn ,cls, tr = this.parentNode.parentNode,
+            appInfos = $.Cache.get('appInfos');
+        if ($(tr).hasClass('orderbymem-up')) {
+            sortfn = function(a, b){
+                return a.mem - b.mem;
+            };
+            cls = 'orderbymem-down';
+        } else {
+            sortfn = function(a, b){
+                return b.mem - a.mem;
+            };
+            cls = 'orderbymem-up';
+
+        }
+        appInfos.sort(sortfn);
+        $.dialogTask.content(tplTask.tmpl({appInfos: appInfos, order: cls}));
+    });
+});
+
+
+
+$(function(){
+    $.pub('multiWanEvent');
+    $.pub('wifi:get');
+    $.pub('speed:history');
+    //$.pub('status:get');
+    $.pub('status:newget');
+    $.pub('devices:addevent');
+    $.pub('switchEvent');
+    $.pub('newguide');
+    $.pub('taskinit');
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,731 @@
+#!/usr/bin/env lua
+local uci = require("uci")
+local posix = require("posix")
+local sys = require("luci.sys")
+local json = require("luci.json")
+local ubus = require("ubus")
+local uci = require("luci.model.uci").cursor()
+local ipv6_support =uci:get("ipv6", "globals", "enabled")
+BLACK='blacklist'
+WHITE='whitelist'
+DEBUG=0
+
+--[[
+config mode
+    option wan 'blacklist'
+    option admin 'blacklist'
+    option pridisk 'whitelist'
+    option lan 'blacklist'
+
+config lanports
+    option tcp '8200'
+    option udp '51470,1900'
+
+config adminports
+    option tcp '80,443,23,22'
+
+config mac
+    option mac 'c6:2e:b7:18:42:a3'
+    option admin 'yes'
+    option pridisk 'no'
+    option lan 'yes'
+    option wan 'no'
+--]]
+
+function logger(loglevel, fmt, ...)
+    --[[
+         0       Emergency: system is unusable
+         1       Alert: action must be taken immediately
+         2       Critical: critical conditions
+         3       Error: error conditions
+         4       Warning: warning conditions
+         5       Notice: normal but significant condition
+         6       Informational: informational messages
+         7       Debug: debug-level messages
+  --]]
+  local logstr = string.format(fmt, unpack(arg))
+  posix.syslog(loglevel-2, logstr)
+  if DEBUG == 1 then print(logstr) end
+end
+
+local ci = require("luci.model.uci")
+local state = ci.cursor_state()
+state:load("macfilter")
+
+function getConfType(conf,type)
+   local curs=uci.cursor()
+   local ifce={}
+   curs:foreach(conf,type,function(s) ifce[s[".index"]]=s end)
+   return ifce
+ end
+
+function get_ip(ifname)
+  local uconn = ubus.connect()
+  local lan_st = uconn:call('network.interface', 'status', {interface=ifname})
+  if lan_st and lan_st['ipv4-address'] then
+    local addr = lan_st['ipv4-address'][1]['address']
+    if addr then return addr end
+  end
+
+  -- or from uci if ubus is done :(
+  local curs = ci.cursor()
+  local addr = curs:get("network", ifname, "ipaddr")
+  return addr
+end
+
+function getLanInfo()
+  return get_ip('lan')
+end
+
+function getWanIP()
+  return get_ip('wan')
+end
+
+function list_ip_by_mac(mac)
+   local uconn = ubus.connect()
+   result = uconn:call("trafficd", "hw", {hw=mac})
+   uconn:close()
+   if not result then return nil end
+   local i = 0
+   local ip_list = result['ip_list']
+   if not ip_list or type(ip_list) ~= "table" then return nil end
+   local n = table.getn(ip_list)
+   return function()
+	     i = i + 1
+	     if i <= n then return ip_list[i]["ip"] end
+	  end
+end
+
+function clearConntrackSession(mac)
+  local XQFunction = require("xiaoqiang.common.XQFunction")
+  if mac then
+    local ip_count = 0
+    local ip_list = list_ip_by_mac(mac)
+    local curs = ci.cursor()
+    local netmask = curs:get("network", "lan", "netmask")
+    if ip_list then
+      for src_ip in ip_list do
+        ip_count = ip_count + 1
+        XQFunction.forkExec("echo " .. src_ip .. " > /proc/net/nf_conntrack 2>/dev/null")
+		XQFunction.forkExec("/sbin/accelctrl conntrack clean ".. src_ip .. " " .. netmask)
+        logger(5,"clear session with "..src_ip)
+      end -- for src_ip
+      if ip_count == 0 then
+        logger(5,"Not found "..mac.." conntrack session!")
+      end
+    end -- if ip_list
+  else
+	XQFunction.forkExec("/sbin/accelctrl conntrack clean")	
+  end -- if mac
+end
+
+function exec(inittable,delmark,nolog)
+  local status = ""
+  -- MUST BE ipairs since command sequence is essential
+  for _,v in ipairs(inittable) do
+    status = os.execute(v .." 2>/dev/null")
+    if status ~= 0 then
+      if not nolog then
+        logger(5,""..v.." failed!")
+      end -- if not nolog
+      if not delmark then
+        for i=10,1,-1 do
+          status = os.execute(v .." 2>/dev/null")
+          if status == 0 then
+            break
+          end -- if status
+        end -- for i
+      end -- if not delmark
+    end -- if status
+  end -- for
+end
+
+--inner loop
+function iterInnerTable(conftab,okey,ot)
+    local oo = {}
+    for ikey,ivalue in pairs(conftab) do
+        if type(ivalue) == "table" then
+            iterInnerTable(ivalue,ikey,ot)
+        else
+            if type(ikey) ~= "number" and string.match(ikey,"^%.") == nil then
+                oo[ikey]=ivalue
+            elseif type(okey) ~= "number" and string.match(okey,"^%.") == nil then
+                oo[okey]=ivalue
+            end
+        end
+    end
+    ot[#ot+1]=oo
+end
+
+--outer loop
+function iterOutTable(conf,section)
+    local it = {}
+    for okey,ovalue in pairs(getConfType(conf,section)) do
+        if type(ovalue) == "table" then
+            iterInnerTable(ovalue,okey,it)
+        end
+    end
+        return it or {}
+end
+
+function get_protocol_ports(config, section)
+  local tb = {}
+  local ports_table = iterOutTable(config, section)[1]
+  local tcp_ports,udp_ports,icmp = "","",""
+  if ports_table and type(ports_table) == "table" then
+    for protocal,ports in pairs(ports_table) do
+      if protocal == "tcp" then
+        tcp_ports = ports
+      elseif protocal == "udp" then
+        udp_ports = ports
+      elseif protocal == "icmp" then
+        icmp = ports
+      end -- if protocol
+    end -- for
+  end -- if ports_table
+  return {tcp=tcp_ports, udp=udp_ports, icmp=icmp}
+end
+
+function initV6(getmode)
+  local clearcommands = {
+    --clear all macfilterctl  content
+    "ip6tables -t filter -F macfilter_wan",
+    "ip6tables -t filter -D forwarding_rule -j macfilter_wan",
+    "ip6tables -t filter -X macfilter_wan",
+  }
+  exec(clearcommands,"norepeat","nolog")
+
+  local initcommands = {
+    --wan init
+    "ip6tables -t filter -N macfilter_wan",
+    "ip6tables -t filter -I forwarding_rule -j macfilter_wan",
+  }
+
+  if getmode and type(getmode) == "table" then
+    if getmode["wan"] == BLACK then
+      logger(4,"wan: black")
+    else
+      table.insert(initcommands,
+                   "ip6tables -t filter -A macfilter_wan -j REJECT")
+      logger(4,"wan: white")
+    end
+  end -- if getmode
+  exec(initcommands)
+end
+--[[
+--@initable type table
+]]
+function init(getmode)
+  --lan ports
+  local tb = get_protocol_ports("macfilter","lanports")
+  local lantcpports = tb['tcp']
+  local lanudpports = tb['udp']
+  local lanicmp = tb['icmp']
+
+  -- admin ports
+  tb = get_protocol_ports("macfilter","adminports")
+  local admintcpports = tb['tcp']
+  local adminudpports = tb['udp']
+  local adminicmp = tb['icmp']
+
+  local lannet = getLanInfo() or "192.168.31.1"
+  logger(5,"get lan ip as "..lannet)
+  local clearcommands = {
+    --clear all macfilterctl  content
+    "iptables -t filter -F macfilter_wan",
+    "iptables -t filter -D forwarding_rule -j macfilter_wan",
+    "iptables -t filter -X macfilter_wan",
+
+  }
+  exec(clearcommands,"norepeat","nolog")
+
+  local initcommands = {
+    --wan init
+    "iptables -t filter -N macfilter_wan",
+    "iptables -t filter -I forwarding_rule -j macfilter_wan",
+  }
+  if getmode and type(getmode) == "table" then
+    if getmode["wan"] == BLACK then
+      logger(4,"wan: black")
+    else
+      table.insert(initcommands,
+                   "iptables -t filter -A macfilter_wan -j REJECT")
+      logger(4,"wan: white")
+    end
+    --[[ disable lan filter
+    if getmode["lan"] == BLACK then
+      logger(4,"lan black")
+    else
+      table.insert(initcommands,
+                   "iptables -t filter -A macfilter_lan -j REJECT")
+      logger(4,"lan white")
+    end
+    --]]
+  end -- if getmode
+
+  --lan
+  --[[ disabled
+  table.insert(initcommands,
+               "iptables -t filter -N macfilter_lan")
+  if lantcpports and lantcpports ~= "" then
+    table.insert(initcommands,
+                 "iptables -t filter -A input_rule -p tcp -d "
+                   ..lannet.." -m multiport --dports "
+                   ..lantcpports.." -j macfilter_lan")
+  end
+  if lanudpports and lanudpports ~= "" then
+    table.insert(initcommands,
+                 "iptables -t filter -A input_rule -p udp -d "
+                   ..lannet.." -m multiport --dports "
+                   ..lanudpports.." -j macfilter_lan")
+  end
+  --]]
+  exec(initcommands)
+  if ipv6_support == "1" then
+    initV6()
+  end
+end
+
+function setRuleV6(mode_table, setmac)
+  local mactable ={}
+  if not setmac then
+      mactable = iterOutTable("macfilter","mac")
+      local flushcommands = {
+      "ip6tables -t filter -F macfilter_wan",
+      }
+      exec(flushcommands)
+  end
+  if setmac and type(setmac) == "table" then
+      mactable = setmac
+  end
+  if mactable and type(mactable) == "table" then
+      local wanstatus,lanstatus,adminstatus = 0,0,0
+      local iptrules = io.popen("ip6tables-save 2>/dev/null")
+
+      for _,v in pairs(mactable) do
+          if type(v) == "table" then
+              if setmac then
+                  local mymacrule = ""
+                  local existmacrules = {}
+                  v["mac"]=string.upper(v["mac"])
+                  remove_rule = function(ruleset, rn)
+                                 mr = string.match(ruleset, rn .. ".* %-m mac %-%-mac%-source "..v["mac"]..".*")
+                                 if mr and mr ~= "" then
+                                   return "ip6tables -D " .. mr
+                                 else
+                                   return nil
+                                 end
+                               end
+
+                  for line in iptrules:lines() do
+                    if v["wan"] then
+                      table.insert(existmacrules, remove_rule(line, "macfilter_wan"))
+                    end
+                  end
+                  iptrules:close()
+
+                  exec(existmacrules,"norepeat")
+              end
+              --wan filter
+              if v["wan"] == "no" and mode_table['wan'] == BLACK then
+                cmdt = {
+                  string.format("ip6tables -I %s -m mac --mac-source %s -j REJECT", "macfilter_wan", v["mac"]),
+                }
+                exec(cmdt, "norepeat")
+                --暂时不支持连接跟踪的清除
+                --clearConntrackSession(v["mac"])
+              elseif v["wan"] == "yes" and mode_table['wan'] == WHITE then
+                wanstatus = os.execute("ip6tables -t filter -I macfilter_wan -m mac --mac-source "..v["mac"].." -j ACCEPT")
+              elseif v["wan"] == nil then
+                  wanstatus = 0
+                  v["wan"] = ""
+              else
+                  logger(5,"Ignore permission "..v["mac"].." wan "..v["wan"])
+              end
+
+              local logmessage = "set mac:"
+              if v["mac"] ~= nil and v["mac"] ~= "" then
+                  logmessage = logmessage..v["mac"]
+              end
+              if v["wan"] ~= nil and v["wan"] ~= "" then
+                  logmessage = logmessage.." wan:"..v["wan"]
+              end
+              if v["lan"] ~= nil and v["lan"] ~= "" then
+                  logmessage = logmessage.." lan:"..v["lan"]
+              end
+              if v["admin"] ~= nil and v["admin"] ~= "" then
+                  logmessage = logmessage.." admin:"..v["admin"]
+              end
+          end
+      end
+  else
+      logger(5,"Config mac type error!")
+  end
+end
+--[[
+--@setmac type table
+{{mac='00:00:00:00:00:00',wan='no',admin='no',lan='yes'}}
+--]]
+function setRule(mode_table, setmac)
+    local mactable ={}
+    if not setmac then
+        mactable = iterOutTable("macfilter","mac")
+        local flushcommands = {
+        -- lan disable
+          "iptables -t filter -F macfilter_wan",
+        }
+        exec(flushcommands)
+    end
+    if setmac and type(setmac) == "table" then
+        mactable = setmac
+    end
+    if mactable and type(mactable) == "table" then
+        local wanstatus,lanstatus,adminstatus = 0,0,0
+        local iptrules = io.popen("iptables-save 2>/dev/null")
+        for _,v in pairs(mactable) do
+            if type(v) == "table" then
+                if setmac then
+                    local mymacrule = ""
+                    local existmacrules = {}
+                    v["mac"]=string.upper(v["mac"])
+                    remove_rule = function(ruleset, rn)
+                                   mr = string.match(ruleset, rn .. ".* %-m mac %-%-mac%-source "..v["mac"]..".*")
+                                   if mr and mr ~= "" then
+                                     return "iptables -D " .. mr
+                                   else
+                                     return nil
+                                   end
+                                 end
+                    for line in iptrules:lines() do
+                      if v["wan"] then
+                        table.insert(existmacrules, remove_rule(line, "macfilter_wan"))
+                      end
+                      --[[ lan disable
+                      if v["lan"] ~= nil then
+                        table.insert(existmacrules, remove_rule("macfilter_lan"))
+                      end
+                      --]]
+                    end
+                    iptrules:close()
+                    exec(existmacrules,"norepeat")
+                end
+                --wan filter
+                if v["wan"] == "no" and mode_table['wan'] == BLACK then
+                  cmdt = {
+                    string.format("iptables -I %s -m mac --mac-source %s -j REJECT", "macfilter_wan", v["mac"]),
+                  }
+                  exec(cmdt, "norepeat")
+
+                  clearConntrackSession(v["mac"])
+                elseif v["wan"] == "yes" and mode_table['wan'] == WHITE then
+		              wanstatus = os.execute("iptables -t filter -I macfilter_wan -m mac --mac-source "..v["mac"].." -j ACCEPT")
+                elseif v["wan"] == nil then
+                    wanstatus = 0
+                    v["wan"] = ""
+                else
+                    logger(5,"Ignore permission "..v["mac"].." wan "..v["wan"])
+                end
+                --lan filter is deprecated by samba
+                --[[
+                if state:get("macfilter","lanports","tcp") ~= nil or state:get("macfilter","lanports","udp") ~= nil then
+                    if v["lan"] == "no" then
+                        lanstatus = os.execute("iptables -t filter -I macfilter_lan -m mac --mac-source "..v["mac"].." -j REJECT")
+                        clearConntrackSession(v["mac"])
+                    elseif v["lan"] == "yes" then
+                        lanstatus = os.execute("iptables -t filter -I macfilter_lan -m mac --mac-source "..v["mac"].." -j ACCEPT")
+                    elseif v["lan"] == nil then
+                        lanstatus = 0
+                        v["lan"]=""
+                    else
+                        logger(5,"Config permission error on "..v["mac"].." lan "..v["lan"])
+                    end
+                  end
+                  --]]
+
+                local logmessage = "set mac:"
+                if v["mac"] ~= nil and v["mac"] ~= "" then
+                    logmessage = logmessage..v["mac"]
+                end
+                if v["wan"] ~= nil and v["wan"] ~= "" then
+                    logmessage = logmessage.." wan:"..v["wan"]
+                end
+                if v["lan"] ~= nil and v["lan"] ~= "" then
+                    logmessage = logmessage.." lan:"..v["lan"]
+                end
+                if v["admin"] ~= nil and v["admin"] ~= "" then
+                    logmessage = logmessage.." admin:"..v["admin"]
+                end
+                if wanstatus == 0 and lanstatus == 0 and adminstatus == 0 then
+                    logger(5,logmessage.." succeeded!")
+                else
+                    logger(5,logmessage.." failed!")
+                end
+            end
+        end
+    else
+        logger(5,"Config mac type error!")
+    end
+    if ipv6_support == "1" then
+      setRuleV6(mode_table, setmac)
+    end
+end
+
+--compatible with ipv6
+function deleteRuleV6(delmac)
+  if delmac == nil  or delmac == "" then
+      local flushcommands = {
+        "ip6tables -t filter -F macfilter_wan",
+      }
+      exec(flushcommands)
+  else
+      local mymacrule = ""
+      local iptrules ,delcommands = {},{}
+      delmac=string.upper(delmac)
+      iptrules = io.popen("ip6tables-save 2>/dev/null")
+      remove_rule = function(ruleset, rn)
+                      mr = string.match(ruleset, rn .. " %-m mac %-%-mac%-source "..delmac.." %-j %u+ ?.*")
+                      if mr and mr ~= "" then
+                        return "ip6tables -D " .. mr
+                      else
+                        return nil
+                      end
+                    end
+      for line in iptrules:lines() do
+        table.insert(delcommands, remove_rule(line, "macfilter_wan"))
+      end
+      iptrules:close()
+      exec(delcommands,"norepeat")
+  end
+end
+--[[
+macfilterctl  del "mac='00:00:00:00:00:00',wan='no',lan='yes',admin='no'"
+-]]
+function deleteRule(delmac)
+    if delmac == nil  or delmac == "" then
+        local flushcommands = {
+          "iptables -t filter -F macfilter_wan",
+        }
+        exec(flushcommands)
+    else
+        local mymacrule = ""
+        local iptrules ,delcommands = {},{}
+        delmac=string.upper(delmac)
+        iptrules = io.popen("iptables-save 2>/dev/null")
+        remove_rule = function(ruleset, rn)
+                        mr = string.match(ruleset, rn .. " %-m mac %-%-mac%-source "..delmac.." %-j %u+ ?.*")
+                        if mr and mr ~= "" then
+                          return "iptables -D " .. mr
+                        else
+                          return nil
+                        end
+                      end
+        for line in iptrules:lines() do
+          table.insert(delcommands, remove_rule(line, "macfilter_wan"))
+        end
+        iptrules:close()
+        exec(delcommands,"norepeat")
+    end
+    if ipv6_support == "1" then
+      deleteRuleV6(delmac)
+    end
+end
+
+function setModeV6(setmodetable)
+  local existrulestatus,myrule = "",""
+  local last = 0
+  local ruletable={}
+  existrulestatus = io.popen("ip6tables-save 2>/dev/null")
+  for line in existrulestatus:lines() do
+    if line then
+      myrule = string.match(line,"macfilter_wan %-j REJECT %-%-reject%-with icmp%-port%-unreachable")
+      if  myrule then
+        ruletable["wan"]=myrule
+      end
+    end
+  end
+  existrulestatus:close()
+  -- wan w  to b
+  if setmodetable["wan"] == BLACK and ruletable["wan"] ~= nil then
+    last = os.execute("ip6tables -D "..ruletable["wan"])
+    logger(4, "wan: white => black %s",
+           last == 0 and 'done' or 'fail')
+  end
+  --wan b to b
+  if setmodetable["wan"] == BLACK and ruletable["wan"] == nil then
+    logger(4, "wan: black")
+  end
+  --[[ don't allow change wan to whitelist --]]
+  -- wan b to w
+  if setmodetable["wan"] == WHITE and ruletable["wan"] == nil then
+    last = os.execute("ip6tables -t filter -A macfilter_wan -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT")
+    last = os.execute("ip6tables -t filter -A macfilter_wan -j REJECT")
+    clearConntrackSession()
+    logger(4, "wan: black => white %s",
+           last == 0 and 'done' or 'fail')
+  end
+  --wan w to w
+  if setmodetable["wan"] == WHITE and ruletable["wan"] ~= nil then
+    logger(4,"wan: white")
+  end
+end
+
+--[[
+--@setmodetable type table
+{{wan='blacklist',lan='whitelist',admin='blacklist'}}
+--]]
+function setMode(setmodetable)
+  local existrulestatus,myrule = "",""
+  local last = 0
+  local ruletable={}
+  existrulestatus = io.popen("iptables-save 2>/dev/null")
+  for line in existrulestatus:lines() do
+    if line then
+      myrule = string.match(line,"macfilter_wan %-j REJECT %-%-reject%-with icmp%-port%-unreachable")
+      if  myrule then
+        ruletable["wan"]=myrule
+      end
+      --[[
+      myrule = string.match(line,"macfilter_lan %-j REJECT %-%-reject%-with icmp%-port%-unreachable")
+      if myrule ~= nil then
+        ruletable["lan"]=myrule
+      end
+      --]]
+    end
+  end
+  existrulestatus:close()
+  -- wan w  to b
+  if setmodetable["wan"] == BLACK and ruletable["wan"] ~= nil then
+    last = os.execute("iptables -D "..ruletable["wan"])
+    logger(4, "wan: white => black %s",
+           last == 0 and 'done' or 'fail')
+  end
+  --wan b to b
+  if setmodetable["wan"] == BLACK and ruletable["wan"] == nil then
+    logger(4, "wan: black")
+  end
+  --[[ don't allow change wan to whitelist --]]
+  -- wan b to w
+  if setmodetable["wan"] == WHITE and ruletable["wan"] == nil then
+    last = os.execute("iptables -t filter -A macfilter_wan -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT")
+    last = os.execute("iptables -t filter -A macfilter_wan -j REJECT")
+    clearConntrackSession()
+    logger(4, "wan: black => white %s",
+           last == 0 and 'done' or 'fail')
+  end
+  --wan w to w
+  if setmodetable["wan"] == WHITE and ruletable["wan"] ~= nil then
+    logger(4,"wan: white")
+  end
+
+  if ipv6_support == "1" then
+    setModeV6(setmodetable)
+  end
+  --[[ disable all lan
+  -- lan w to b
+  if setmodetable["lan"] == BLACK and ruletable["lan"] ~= nil then
+    last = os.execute("iptables -D "..ruletable["lan"])
+    if last == 0 then
+      logger(5,"Change lan mode from whitelist to blacklist succeeded!")
+      logger(5,"lan working in blacklist mode!")
+    else
+      logger(5,"Change lan mode from whitelist to blacklist failed!")
+      logger(5,"lan working in whitelist mode!")
+    end
+  end
+  --lan b to b
+  if setmodetable["lan"] == BLACK and ruletable["lan"] == nil then
+    logger(5,"lan working in blacklist mode!")
+  end
+  -- lan b to w
+  if setmodetable["lan"] == WHITE and ruletable["lan"] == nil then
+    last = os.execute("iptables -t filter -A macfilter_lan -j REJECT")
+    clearConntrackSession()
+    if last == 0 then
+      logger(5,"Change lan mode from blacklist to whitelist succeeded!")
+      logger(5,"lan working in whitelist mode!")
+    else
+      logger(5,"Change lan mode from blacklist to whitelist failed!")
+      logger(5,"lan working in blacklist mode!")
+    end
+  end
+  -- lan w to w
+  if setmodetable["lan"] == WHITE and ruletable["lan"] then
+    logger(5,"lan working in whitelist mode!")
+  end
+  --]]
+end
+
+function clearRulesV6()
+  local clearcommands = {
+    --clear all macfilterctl  content
+    "ip6tables -t filter -F macfilter_wan",
+    "ip6tables -t filter -D forwarding_rule -j macfilter_wan",
+    "ip6tables -t filter -X macfilter_wan",
+    }
+  exec(clearcommands,"norepeat","nolog")
+end
+
+function clearRules()
+  local clearcommands = {
+    --clear all macfilterctl  content
+    "iptables -t filter -F macfilter_wan",
+    "iptables -t filter -D forwarding_rule -j macfilter_wan",
+    "iptables -t filter -X macfilter_wan",
+    }
+  exec(clearcommands,"norepeat","nolog")
+  if ipv6_support == "1" then
+    clearRulesV6()
+  end
+end
+--[[
+lua macfilterctl init
+lua macfilterctl mode
+lua macfilterctl set "{mac='00:00:00:00:00:00',wan='no',admin='no',lan='yes'}"
+lua macfilterctl del "{mac='00:00:00:00:00:00',wan='no',admin='no',lan='yes'}"
+--]]
+function main()
+  local mt = iterOutTable("macfilter","mode")[1]
+  local nt = iterOutTable("firewall","defaults")[1]
+  if arg[1] == '-v' then
+    DEBUG=1
+    table.remove(arg, 1)
+  end
+
+  if mt["wanenable"] == '0' or nt["fw_enable"] == '0' then
+    clearRules(mt)
+    os.exit(0)
+  end
+
+  if arg[1] == "init" then
+    init(mt)
+    setRule(mt)
+    setMode(mt)
+    os.exit(0)
+  end
+
+  if arg[1] == "mode" then
+    setRule(mt)
+    setMode(mt)
+    os.exit(0)
+  end
+
+  if arg[1] == "set" then
+    local tmparg = arg[2]
+    if tmparg and tmparg ~= "" then
+      local macpermission= {}
+      macpermission[1]=assert(loadstring("return "..tmparg))()
+      setRule(mt, macpermission)
+      os.exit(0)
+    else
+      setRule(mt)
+      setMode(mt)
+      os.exit(0)
+    end
+  end
+
+  if arg [1] == "del" and arg[2] ~= nil and arg[2] ~= "" then
+    deleteRule(arg[2])
+    os.exit(0)
+  end
+end
+main()

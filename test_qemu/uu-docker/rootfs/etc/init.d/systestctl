@@ -1,0 +1,42 @@
+#!/bin/sh /etc/rc.common
+#
+# This script is used for ddr memtester
+#
+
+START=49
+
+start() {
+	ft_mode=$(cat /proc/xiaoqiang/ft_mode)
+	[ "$ft_mode" = "1" ] && {
+		/usr/sbin/memtestctl.helper &
+		/usr/sbin/flashtestctl.sh 100000 100000 &
+	}
+	return 0
+}
+
+
+stop() {
+	ft_mode=$(cat /proc/xiaoqiang/ft_mode)
+	[ "$ft_mode" != "1" ] && return
+
+	xqled sys_ok
+
+	pidof memtestctl.helper >/dev/null && killall memtestctl.helper
+	pidof memtester >/dev/null && killall memtester
+	pidof flashtestctl.sh >/dev/null && killall flashtestctl.sh
+
+	return 0
+}
+
+restart() {
+	ft_mode=$(cat /proc/xiaoqiang/ft_mode)
+	[ "$ft_mode" != "1" ] && return
+
+	xqled sys_ok
+
+	pidof memtestctl.helper >/dev/null && killall -9 memtestctl.helper
+	pidof memtester >/dev/null && killall -9 memtester
+	pidof flashtestctl.sh >/dev/null && killall flashtestctl.sh
+	sleep 1
+	start
+}

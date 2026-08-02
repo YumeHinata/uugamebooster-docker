@@ -1,0 +1,25 @@
+logger -p notice -t "hotplug.d" "block-00-storage: run because of $DEVICE $ACTION"
+
+. /lib/functions.sh
+. /lib/miwifi/storage/storage.sh
+
+[ "$ACTION" == "add" -o "$ACTION" == "remove" ] || exit 1
+[ -n "$DEVNAME" ] || exit 2
+[ "${DEVNAME:0:2}" = "sd" ] || exit 3
+
+main_dev=$(storage_get_main_device "$DEVNAME")
+
+case "$ACTION" in
+add)
+	[ "$main_dev" = "$DEVNAME" ] && storage_add_device $DEVNAME
+	;;
+remove)
+	[ "$main_dev" = "$DEVNAME" ] && storage_del_device $DEVNAME
+	storage_del_device_partition $DEVNAME
+	;;
+*)
+	log "unknown ACTION $ACTION"
+	;;
+esac
+
+exit 0

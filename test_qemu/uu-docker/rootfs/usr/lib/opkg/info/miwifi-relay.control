@@ -1,0 +1,8 @@
+Package: miwifi-relay
+Version: 1.0-a
+Depends: libc, libjson-c, libiw, libmbedtls, libuci, libpthread
+Source: package/miwifi/miwifi-relay
+Section: net
+Architecture: all
+Installed-Size: 24304
+Description:  A script to do iot onboarding relay.

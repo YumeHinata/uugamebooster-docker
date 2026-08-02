@@ -79,38 +79,35 @@ def make_frame(msg_type, protobuf):
 # Success response generator
 # ═══════════════════════════════════════════════════════════════════════════
 
-def make_success_response():
-    """Build a RegisterResp that says router was found."""
-    # Try different formats:
-    # Format 1: code=1, msg="router found"
-    # Format 2: code=200, msg="success"  
-    # Format 3: just msg="router found", code=0 (server might use code=0 for success)
-    
+def make_nx30pro_register_resp():
+    """Exact NX30Pro RegisterResp captured from real aarch64 binary.
+    Protocol: code=0 + "router not bound" → triggers FullRegister flow.
+    Raw[46]: 0000002a000000250a10...10001a10726f75746572206e6f7420626f756e64
+    """
     pb = b''
-    pb += pb_int(2, 1)           # field 2: code = 1 (success)
-    pb += pb_str(3, "router found")  # field 3: message
-    
+    pb += pb_str(1, "0000000000000000")      # field 1: router_id (echoed)
+    pb += pb_int(2, 0)                        # field 2: code = 0 (not-bound, proceed)
+    pb += pb_str(3, "router not bound")       # field 3: message
+    return make_frame(0x25, pb)
+
+def make_success_response():
+    """Fallback: code=1, msg="router found" (legacy format)."""
+    pb = b''
+    pb += pb_int(2, 1)
+    pb += pb_str(3, "router found")
     return make_frame(0x25, pb)
 
 def make_success_response_v2():
-    """Alternative: code=0 might mean success in their protocol."""
+    """Fallback: code=0 might mean success in their protocol."""
     pb = b''
     pb += pb_int(2, 0)
     pb += pb_str(3, "success")
     return make_frame(0x25, pb)
 
-def make_success_response_v3():
-    """Try with router_id field."""
-    pb = b''
-    pb += pb_str(1, "0000000000000001")  # field 1: router_id
-    pb += pb_int(2, 1)                    # field 2: code
-    pb += pb_str(3, "success")            # field 3: msg
-    return make_frame(0x25, pb)
-
 SUCCESS_FRAMES = [
+    ("NX30Pro:code=0+not_bound", make_nx30pro_register_resp()),
     ("code=1+found", make_success_response()),
     ("code=0+success", make_success_response_v2()),
-    ("rid+code=1+success", make_success_response_v3()),
 ]
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -149,6 +146,95 @@ ACTIVATION_MESSAGES = [
 ]
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Register message field injection: add H3C NX30Pro identity fields
+# ═══════════════════════════════════════════════════════════════════════════
+
+def fix_field2_binary_to_string(raw_pb):
+    """
+    x86 binary sends f2 as 8-byte binary "h3c\0\0\0\0\0" (tag 0x12, len 0x08).
+    NX30Pro sends f2 as 3-byte string "h3c" (tag 0x12, len 0x03).
+    Fix the raw protobuf bytes in-place.
+    """
+    # Find field 2: tag byte 0x12 followed by length 0x08 and "h3c"
+    idx = raw_pb.find(b'\x12\x08h3c')
+    if idx >= 0:
+        # Replace tag+len+data: \x12\x08 h3c 00 00 00 00 00 (10 bytes)
+        # With:                \x12\x03 h3c                   (5 bytes)
+        before = raw_pb[:idx]
+        after = raw_pb[idx + 10:]  # skip 10 bytes (tag + len1 + 8 data bytes)
+        return before + pb_str(2, b'h3c') + after
+    return raw_pb  # no change needed
+
+
+def enhance_register(original_pb, mac_override=None):
+    """
+    Take the x86 binary's Register protobuf and inject NX30Pro-specific
+    fields that were discovered from the real aarch64 binary:
+    
+    Real NX30Pro Register: {f1=rid, f2='h3c', f3=SN, f4='NX30Pro', f6='v14.4.20'}
+    x86 Register:          {f1=rid, f2='h3c\0\0\0\0\0'(8B), f3=SN}
+    
+    Returns: (modified_pb_bytes, fields_added_list)
+    """
+    # Step 1: Fix f2 (binary 8B → string 3B)
+    pb_data = fix_field2_binary_to_string(original_pb)
+    
+    parsed = pb_parse(pb_data)
+    added = []
+    existing_fields = set(parsed.keys())
+    pb = bytearray(pb_data)
+    
+    # Step 2: Add f4 = product name (confirmed from real NX30Pro)
+    if 4 not in existing_fields:
+        pb += pb_str(4, "NX30Pro")
+        added.append("f4:product=NX30Pro")
+    
+    # Step 3: Add f6 = firmware version (confirmed from real NX30Pro)
+    if 6 not in existing_fields:
+        pb += pb_str(6, "v14.4.20")
+        added.append("f6:version=v14.4.20")
+    
+    # Note: NX30Pro does NOT send f5(MAC)/f8(bootver)/f9(firmware).
+    # Those are only needed if server rejects without them.
+    
+    return bytes(pb), added
+
+
+def enhance_register_v2(original_pb, mac_override=None):
+    """Alternative: add f5(MAC) + f8(bootver) for testing if v1 is rejected."""
+    pb_data = fix_field2_binary_to_string(original_pb)
+    parsed = pb_parse(pb_data)
+    existing_fields = set(parsed.keys())
+    pb = bytearray(pb_data)
+    added = []
+    
+    # Same base fields as v1
+    if 4 not in existing_fields:
+        pb += pb_str(4, "NX30Pro")
+        added.append("f4:product=NX30Pro")
+    if 6 not in existing_fields:
+        pb += pb_str(6, "v14.4.20")
+        added.append("f6:version=v14.4.20")
+    
+    # Optional: try adding MAC + bootver in case server needs them
+    if 5 not in existing_fields:
+        mac = mac_override or "00:11:22:33:44:55"
+        pb += pb_str(5, mac)
+        added.append(f"f5:mac={mac}")
+    if 8 not in existing_fields:
+        pb += pb_int(8, 100)
+        added.append("f8:bootver=100")
+    
+    return bytes(pb), added
+
+
+# Rotate through different enhancement strategies
+REGISTER_ENHANCERS = [
+    ("v1_f4f6", enhance_register),
+    ("v2_f4f6+f5f8", enhance_register_v2),
+]
+
+# ═══════════════════════════════════════════════════════════════════════════
 # MITM
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -176,8 +262,7 @@ class ModMITM:
         print(f"  UU REGISTRATION MITM — Response Modifier")
         print(f"  Listen:  {self.listen_addr[0]}:{self.listen_addr[1]}")
         print(f"  Upstream: {self.target_addr[0]}:{self.target_addr[1]}")
-        print(f"  Mode: {'DRY RUN (no modification)' if self.dry_run else 'MODIFYING RESPONSES'}")
-        print(f"  Success formats to try: {[f[0] for f in SUCCESS_FRAMES]}")
+        print(f"  Mode: {'DRY RUN (no modification)' if self.dry_run else 'NX30Pro Register injection + register-resp fix'}")
         print(f"{'='*60}\n")
         
         while True:
@@ -196,8 +281,9 @@ class ModMITM:
         server_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         server_ctx.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
         server_ctx.verify_mode = ssl.CERT_NONE; server_ctx.check_hostname = False
-        # Allow older TLS versions for compatibility
+        # Allow older TLS versions + RSA ciphers NX30Pro binary uses
         server_ctx.minimum_version = ssl.TLSVersion.TLSv1
+        server_ctx.set_ciphers('ALL:@SECLEVEL=0')
         
         client_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         client_ctx.check_hostname = False; client_ctx.verify_mode = ssl.CERT_NONE
@@ -205,9 +291,9 @@ class ModMITM:
         
         server_sock = None; cl_tls = None; srv_tls = None
         session_frames = []
-        success_idx = 0  # Which success format to try
-        activate_idx = 0  # Which activation message to try
+        success_idx = 0  # Which Register enhancer to try (v1/v2)
         n_fatal_suppressed = 0
+        modified_this_session = False
         
         try:
             client_sock.settimeout(10)
@@ -284,7 +370,12 @@ class ModMITM:
                                       0x02:'FullRegister',0x0A:'Log',0x06:'Device',0x10:'ConnectReq',
                                       0x11:'ConnectReply'}
                         tname = type_names.get(msg_type, f'0x{msg_type:02x}')
-                        print(f"  [{ts}] {direction} {tname}: {dict(list(parsed.items())[:3])}")
+                        # Show ALL fields (not just first 3) and raw hex for key messages
+                        if tname in ('Register', 'RegisterResp', 'Log'):
+                            print(f"  [{ts}] {direction} {tname}: {parsed}")
+                            print(f"    Raw[{len(raw)}]: {raw.hex()}")
+                        else:
+                            print(f"  [{ts}] {direction} {tname}: {dict(list(parsed.items())[:3])}")
                         
                         # Check if this is a CLIENT→SERVER FATAL log — suppress it
                         skip_forward = False
@@ -295,36 +386,42 @@ class ModMITM:
                                 n_fatal_suppressed += 1
                                 skip_forward = True  # Don't let server see this
                         
-                        # Check if this is a RegisterResp with "not found"
+                        # Check if this is a CLIENT→SERVER Register — inject H3C fields
                         forward_data = raw
+                        
+                        if is_client and msg_type == 0x24 and not self.dry_run:
+                            enh_name, enh_func = REGISTER_ENHANCERS[success_idx % len(REGISTER_ENHANCERS)]
+                            enhanced_pb, added_fields = enh_func(protobuf)
+                            forward_data = raw[:8] + enhanced_pb  # keep header, replace PB
+                            # Update total length in header
+                            # Protocol: [4B total_remaining] [4B msg_type] [protobuf]
+                            # total_remaining = 4 + len(protobuf)
+                            new_total = 4 + len(enhanced_pb)
+                            forward_data = struct.pack(">I", new_total) + forward_data[4:]
+                            print(f"    >>> INJECTED Register fields [{enh_name}]: {added_fields}")
+                            print(f"    >>> Enhanced Raw[{len(forward_data)}]: {forward_data.hex()}")
+                            modified_this_session = True
                         
                         if not is_client and msg_type == 0x25 and not self.dry_run:
                             msg = parsed.get(3, '')
                             code = parsed.get(2, 0)
                             
                             if isinstance(msg, str) and 'not found' in msg.lower():
-                                print(f"    >>> DETECTED 'router not found' — injecting success response!")
-                                
-                                # Try current success format
-                                succ_name, succ_frame = SUCCESS_FRAMES[success_idx % len(SUCCESS_FRAMES)]
+                                # Server doesn't recognize device → inject NX30Pro RegisterResp
+                                # Real NX30Pro gets: code=0, "router not bound" → FullRegister → success
+                                print(f"    >>> DETECTED 'router not found' — injecting NX30Pro RegisterResp!")
+                                succ_name, succ_frame = SUCCESS_FRAMES[0]  # Always NX30Pro format
                                 forward_data = succ_frame
                                 print(f"    >>> Injected RegisterResp: {succ_name}")
-                                print(f"    >>> Raw: {forward_data.hex()[:80]}")
+                                print(f"    >>> Raw: {forward_data.hex()}")
                                 modified_this_session = True
                                 self.n_modified += 1
-                                
-                                # Also inject an activation follow-up message
-                                act_name, act_frame = ACTIVATION_MESSAGES[activate_idx % len(ACTIVATION_MESSAGES)]
-                                try:
-                                    dst.sendall(forward_data)  # Send success first
-                                    time.sleep(0.02)           # Small gap
-                                    dst.sendall(act_frame)     # Send activation
-                                    print(f"    >>> + Injected follow-up: {act_name}")
-                                except:
-                                    return
-                                activate_idx += 1
-                                success_idx += 1
-                                continue  # Already forwarded both, skip normal forward
+                                # Don't inject follow-ups — binary naturally sends FullRegister
+                                # after receiving "router not bound" (same as real NX30Pro flow)
+                            elif isinstance(msg, str) and 'not bound' in msg.lower():
+                                # Correct NX30Pro response was received — binary will FullRegister
+                                print(f"    >>> RegisterResp OK: code={code}, msg='{msg}' — expecting FullRegister")
+                                self.n_passed += 1
                             else:
                                 print(f"    RESPONSE: code={code}, msg={msg}")
                                 self.n_passed += 1

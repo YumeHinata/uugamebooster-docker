@@ -1,0 +1,8 @@
+Package: diag-info
+Version: 1.0-1.0
+Depends: libc, base-files
+Source: package/miwifi/system/diag-info
+Section: data
+Architecture: all
+Installed-Size: 4047
+Description:  Tool to collect diagnose informations

@@ -1,0 +1,3 @@
+/etc/config/minidump
+/usr/sbin/minidump
+/etc/hotplug.d/minidump/00-minidump

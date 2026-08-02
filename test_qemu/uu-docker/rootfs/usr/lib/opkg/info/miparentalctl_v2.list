@@ -1,0 +1,8 @@
+/etc/nginx/conf.d/8099.conf
+/usr/sbin/mipctl_upg_ucfg
+/etc/config/mipctl_user
+/etc/init.d/mipctld
+/usr/sbin/mipctl_upg.sh
+/usr/sbin/mipctld
+/lib/config_pre_ota/mipctl_dpi_ota.sh
+/etc/config/mipctl_app

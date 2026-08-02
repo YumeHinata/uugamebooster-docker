@@ -1,0 +1,17 @@
+#!/bin/sh /etc/rc.common
+#
+# This script is used for internal application traffic control
+#
+
+START=90
+STOP=89
+
+start() {
+	milog.sh -m '{"tag":"sec_sys_restart"}'
+}
+
+stop() {
+	/usr/sbin/syslog_sync.sh
+
+	return 0
+}

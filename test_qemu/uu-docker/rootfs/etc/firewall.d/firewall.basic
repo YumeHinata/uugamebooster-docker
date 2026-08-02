@@ -1,0 +1,96 @@
+#!/bin/sh
+
+alg_pptp=$(uci -q get firewall.basicset.alg_pptp)
+alg_l2tp=$(uci -q get firewall.basicset.alg_l2tp)
+alg_ipsec=$(uci -q get firewall.basicset.alg_ipsec)
+alg_rtsp=$(uci -q get firewall.basicset.alg_rtsp)
+alg_sip=$(uci -q get firewall.basicset.alg_sip)
+alg_h323=$(uci -q get firewall.basicset.alg_h323)
+alg_ftp=$(uci -q get firewall.basicset.alg_ftp)
+alg_tftp=$(uci -q get firewall.basicset.alg_tftp)
+#alg_pppoe_relay=$(uci -q get firewall.basicset.alg_pppoe_relay)
+
+kernelVersion=$(cat /proc/version | cut -d " " -f 3)
+
+iptables -w -t filter -D forwarding_rule -j alg_forward 2>/dev/null 1>&2
+iptables -w -t filter -F alg_forward 2>/dev/null 1>&2
+iptables -w -t filter -X alg_forward 2>/dev/null 1>&2
+
+#create alg_forward main chain
+iptables -w -t filter -N alg_forward 2>/dev/null 1>&2
+
+#insert alg_forward main chain to forwarding_rule chain
+iptables -w -t filter -I forwarding_rule -j alg_forward 2>/dev/null 1>&2
+
+if [ $alg_pptp = '0' ]; then
+    rmmod nf_nat_pptp.ko 2>/dev/null 1>&2
+    rmmod nf_conntrack_pptp.ko 2>/dev/null 1>&2
+    iptables -t filter -I alg_forward -p udp --dport  1723 -j DROP 2>/dev/null 1>&2
+    iptables -t filter -I alg_forward -p 47 -j DROP 2>/dev/null 1>&2
+else
+    insmod /lib/modules/$kernelVersion/nf_conntrack_pptp.ko 2>/dev/null 1>&2
+    insmod /lib/modules/$kernelVersion/nf_nat_pptp.ko 2>/dev/null 1>&2
+fi
+
+if [ $alg_l2tp = '0' ]; then
+    iptables -t filter -I alg_forward -p udp --dport  1701 -j DROP 2>/dev/null 1>&2
+fi
+
+if [ $alg_ipsec = '0' ]; then
+    iptables -t filter -I alg_forward -p udp --dport  4500 -j DROP 2>/dev/null 1>&2
+    iptables -t filter -I alg_forward -p udp --dport  500 -j DROP 2>/dev/null 1>&2
+    iptables -t filter -I alg_forward -p 50 -j DROP 2>/dev/null 1>&2
+    iptables -t filter -I alg_forward -p 51 -j DROP 2>/dev/null 1>&2
+fi
+
+if [ $alg_rtsp = '0' ]; then
+    rmmod nf_nat_rtsp.ko 2>/dev/null 1>&2
+    rmmod nf_conntrack_rtsp.ko 2>/dev/null 1>&2
+    iptables -t filter -I alg_forward -p udp --dport 554 -j DROP 2>/dev/null 1>&2
+    iptables -t filter -I alg_forward -p tcp --dport 554 -j DROP 2>/dev/null 1>&2
+else
+    insmod /lib/modules/$kernelVersion/nf_conntrack_rtsp.ko 2>/dev/null 1>&2
+    insmod /lib/modules/$kernelVersion/nf_nat_rtsp.ko 2>/dev/null 1>&2
+fi
+
+if [ $alg_sip = '0' ]; then
+    rmmod nf_nat_sip.ko 2>/dev/null 1>&2
+    rmmod nf_conntrack_sip.ko 2>/dev/null 1>&2
+else
+    insmod /lib/modules/$kernelVersion/nf_conntrack_sip.ko 2>/dev/null 1>&2
+    insmod /lib/modules/$kernelVersion/nf_nat_sip.ko 2>/dev/null 1>&2
+fi
+
+if [ $alg_h323 = '0' ]; then
+    rmmod nf_nat_h323.ko 2>/dev/null 1>&2
+    rmmod nf_conntrack_h323.ko 2>/dev/null 1>&2
+else
+    insmod /lib/modules/$kernelVersion/nf_conntrack_h323.ko 2>/dev/null 1>&2
+    insmod /lib/modules/$kernelVersion/nf_nat_h323.ko 2>/dev/null 1>&2
+fi
+
+if [ $alg_ftp = '0' ]; then
+    rmmod nf_nat_ftp.ko 2>/dev/null 1>&2
+    rmmod nf_conntrack_ftp.ko 2>/dev/null 1>&2
+else
+    insmod /lib/modules/$kernelVersion/nf_conntrack_ftp.ko 2>/dev/null 1>&2
+    insmod /lib/modules/$kernelVersion/nf_nat_ftp.ko 2>/dev/null 1>&2
+fi
+
+if [ $alg_tftp = '0' ]; then
+    rmmod nf_nat_tftp.ko 2>/dev/null 1>&2
+    rmmod nf_conntrack_tftp.ko 2>/dev/null 1>&2
+else
+    insmod /lib/modules/$kernelVersion/nf_conntrack_tftp.ko 2>/dev/null 1>&2
+    insmod /lib/modules/$kernelVersion/nf_nat_tftp.ko 2>/dev/null 1>&2
+fi
+
+exit 0
+
+
+#if [ $alg_pppoe_relay = '0' ]
+#then
+#    killall pppoe-relay
+#else
+#    /usr/sbin/pppoe-relay -C br-lan -S eth1 -F
+#fi

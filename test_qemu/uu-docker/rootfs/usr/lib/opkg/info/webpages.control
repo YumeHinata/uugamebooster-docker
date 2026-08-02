@@ -1,0 +1,8 @@
+Package: webpages
+Version: 1.0-a
+Depends: libc, luci
+Source: package/miwifi/webpages
+Section: util
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 736117
+Description:  webinit src code.

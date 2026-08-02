@@ -1,0 +1,15 @@
+/usr/share/udhcpc/mesh_dhcp.script
+/usr/lib/lua/miwifi_mesh.so
+/usr/share/mesh/hostapd-template.conf
+/usr/sbin/meshd
+/lib/config_post_ota/mesh_cfg_update.sh
+/usr/sbin/mesh_connect.sh
+/usr/sbin/calcbssid
+/etc/init.d/meshd
+/lib/mimesh/mimesh_init.sh
+/usr/sbin/mesh_bh_enable
+/etc/init.d/cab_meshd
+/usr/sbin/parse_json
+/etc/taskdaemon.d/linkstatus/03-mesh_cable_dog.sh
+/usr/sbin/set_mesh_info.lua
+/usr/sbin/cab_meshd

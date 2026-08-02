@@ -1,0 +1,10 @@
+config filter 'wan'
+    option enable '1'
+    option mode 'black'
+    option blacknum '0'
+    option whitenum '0'
+    option maxrulenum '64'
+
+config filter 'admin'
+    option enable '0'
+    option mode 'white'

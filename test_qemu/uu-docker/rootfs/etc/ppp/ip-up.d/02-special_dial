@@ -1,0 +1,8 @@
+#!/bin/sh
+
+for file in $(ls /tmp/state/pppoe_special* 2>/dev/null); do
+	specdial=$(cat "$file")
+	iface=${file##*/pppoe_special}
+	[ -n "$iface" ] && iface=${iface#*_} || iface="wan"
+	logger stat_points_none "iface=$iface specdial=no_$specdial"
+done

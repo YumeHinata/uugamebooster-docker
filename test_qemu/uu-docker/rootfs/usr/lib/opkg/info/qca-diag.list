@@ -1,0 +1,7 @@
+/usr/sbin/diag_mdlog
+/usr/lib/libdiag.so
+/usr/bin/qdss_setup.sh
+/usr/sbin/diag_stress_app
+/usr/sbin/qld_server
+/usr/sbin/registerReboot
+/usr/sbin/diag_socket_app

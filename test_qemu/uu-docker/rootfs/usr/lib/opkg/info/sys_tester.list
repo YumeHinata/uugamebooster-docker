@@ -1,0 +1,4 @@
+/usr/sbin/memtester
+/etc/init.d/systestctl
+/usr/sbin/flashtestctl.sh
+/usr/sbin/memtestctl.helper

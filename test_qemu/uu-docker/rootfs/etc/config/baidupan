@@ -1,0 +1,7 @@
+config user 'user'
+	option 'name'			''
+	option 'localdir'			''
+	list 'upload'		''
+	list 'download'	''
+	list 'webget'		''
+

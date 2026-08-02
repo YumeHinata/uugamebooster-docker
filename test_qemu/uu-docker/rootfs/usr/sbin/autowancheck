@@ -1,0 +1,117 @@
+#!/bin/sh
+set -x
+
+set_switch_on="uci set autowan.settings.enabled=1"
+set_switch_commit="uci commit autowan"
+
+usage(){
+	echo "USAGE: $0 [timeout] [pppoe dhcp|pppoe|dhcp]"
+}
+
+autowan_check_log()
+{
+    logger -p warn -t autowan "$1"
+}
+
+#root@XiaoQiang:/tmp# ubus call autowan status
+#{
+#        "wan_ok": 1,
+#        "wan_type": 1
+#}
+parse_json(){
+    echo "$1" |awk -F "$2" '{print $2}'|awk -F "" '{print $4}' |sed '/^$/d' 
+}
+
+# eheck eth link status
+eth_link_detect() {
+    # check eth RUNNING flag
+    eth0_link=$(ifconfig eth0 |grep RUNNING)
+    if  [ "$eth0_link" != "" ]; then
+        return 1
+    fi
+    eth1_link=$(ifconfig eth1 |grep RUNNING)
+    if  [ "$eth1_link" != "" ]; then
+        return 1
+    fi    
+    eth2_link=$(ifconfig eth2 |grep RUNNING)
+    if  [ "$eth2_link" != "" ]; then
+        return 1
+    fi
+    return 0
+}
+
+# use ubus call autowan status to test autowan alive
+check_autowan_alive() {
+    local test=$(ubus call autowan debug)
+    local test_ok=$(echo "$test" |grep "log enable")  
+    if [ "$test_ok" == "" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# main
+timeout="$1"
+test -z "$timeout" && timeout=5
+let timeout=$timeout+1-1 2>/dev/null
+test $? -ne 0 -a "$timeout" != '0' && timeout=5
+test $timeout -le 0 && timeout=5
+
+mesh_mode=$(uci -q get xiaoqiang.common.NETMODE)
+echo $mesh_mode
+if  [ "$mesh_mode" != "" ] && [ "$mesh_mode" != "whc_cap" ]; then
+    autowan_check_log "autowan do not check on mesh child."
+    return 0
+fi
+
+# check eth link status
+eth_link_detect
+if [ $? -eq 1 ]; then
+    nicres="LINK=YES"
+else
+    nicres="LINK=NO"
+fi
+echo "$nicres"
+
+# check autowan alive status
+check_autowan_alive
+if [ $? -eq 0 ]; then
+    # set autowan enable
+    $set_switch_on >/dev/null 2>&1
+    $set_switch_commit >/dev/null 2>&1
+
+    # clean nvram set first, as this just call by APP.
+    nvram set nv_wan_type=null
+    nvram commit
+    # start autowan
+    /etc/init.d/autowan start
+    autowan_check_log " first start, and do all port check."
+    autowan_check_log " sleep $timeout"
+    sleep 8
+else
+    local detect_start=$(ubus call autowan detect)
+    local result=$(parse_json "$detect_start" "ret")
+    autowan_check_log " do detect, cmd ret:$result"
+    autowan_check_log " sleep $timeout"
+    sleep $timeout
+fi
+
+# get detect result
+local detect_ret=$(ubus call autowan status)
+local wan_ok=$(parse_json "$detect_ret" "wan_ok")
+local wan_type=$(parse_json "$detect_ret" "wan_type")
+autowan_check_log "autowan detect_ret wan_ok: $wan_ok"
+autowan_check_log "autowan detect_ret wan_type: $wan_type"
+
+# 0-null/1-dhcp/2-pppoe/3-static
+if [ "$wan_type" == "1" ]; then
+    echo "DHCP=YES"
+elif [ "$wan_type" == "2" ]; then
+    echo "PPPOE=YES"
+else
+    echo "UNKNOW"
+fi
+
+exit 0
+#

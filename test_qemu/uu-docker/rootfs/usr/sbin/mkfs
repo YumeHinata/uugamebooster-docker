@@ -1,0 +1,98 @@
+#!/bin/sh
+
+DEVICE=""
+TYPE=""
+LABEL=""
+SECTORS_NUM=""
+
+MKFS_BIN=""
+OPTIONS=""
+
+usage(){
+    cat <<-EOF
+
+		Usage:mkfs [options] -t type -d device
+
+		Basic options:
+			-l STRING		Set the volume label
+			-n NUM			Number of sectors
+			-d DEVICE		Device to be format
+			-t TYPE			File system type, support ntfs|exfat|hfs|hfsplus|ext2|ext3|ext4
+	EOF
+    return
+}
+
+log() {
+	echo "[mkfs] $@" >/dev/console
+}
+
+while getopts 't:d:l:n' OPT; do
+	case "$OPT" in
+	t)
+		TYPE="$OPTARG"
+		;;
+	d)
+		DEVICE="$OPTARG"
+		;;
+	l)
+		LABEL="$OPTARG"
+		;;
+	n)
+		SECTORS_NUM="$OPTARG"
+		;;
+	*)
+		log "unknow opt $OPT!"
+		usage
+		exit 1
+		;;
+	esac
+done
+
+[ -z "$DEVICE" -o -z "$TYPE" ] && {
+	log "device or type is not defined!"
+	usage
+	exit 2
+}
+
+# real mkfs bin
+MKFS_BIN=mkfs."$TYPE"
+[ -x "/sbin/$MKFS_BIN" -o -x "/usr/sbin/$MKFS_BIN" ] || {
+	log "$MKFS_BIN is not found!"
+	usage
+	exit 3
+}
+
+# default label
+[ -n "$LABEL" ] || LABEL="untitled"
+
+# options
+case "$TYPE" in
+exfat)
+	[ -n "$LABEL" ] && OPTIONS="-l $LABEL"
+	;;
+
+ntfs)
+	OPTIONS="-f"
+	[ -n "$LABEL" ] && OPTIONS="${OPTIONS} -L $LABEL"
+	[ -n "$SECTORS_NUM" ] && OPTIONS="${OPTIONS} $SECTORS_NUM"
+	;;
+
+hfs|hfsplus)
+	[ -n "$LABEL" ] && OPTIONS="-v $LABEL"
+	;;
+
+ext2|ext3|ext4)
+	OPTIONS="-q"
+	[ -n "$LABEL" ] && OPTIONS="${OPTIONS} -L $LABEL"
+	;;
+*)
+	log "unknow type $TYPE!"
+	usage
+	exit 1
+	;;
+esac
+
+log "$MKFS_BIN ${OPTIONS} /dev/$DEVICE"
+$MKFS_BIN ${OPTIONS} /dev/"$DEVICE"
+
+exit 0

@@ -1,0 +1,5 @@
+/usr/sbin/wrapd
+/etc/ath/wrap-vma-wifi0.conf
+/etc/ath/wrap-vma-wifi1.conf
+/etc/ath/wrap-vma-wifi2.conf
+/lib/wifi/qwrap.sh

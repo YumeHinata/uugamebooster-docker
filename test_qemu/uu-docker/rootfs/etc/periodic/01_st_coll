@@ -1,0 +1,48 @@
+#!/bin/ash
+
+readonly COLLS_DIR="/etc/sp_lib/colls"
+readonly REGEX_TYPE="^(1min|10min|hourly|daily)$"
+readonly LIB_COLLS=/lib/miwifi/lib_sp_colls.sh
+
+[ -f "$LIB_COLLS" ] && . "$LIB_COLLS"
+
+check_type() {
+	echo "$1" | grep -qsE "$REGEX_TYPE"
+}
+
+coll_info() {
+	local _file=$1
+	local _name=${_file##*/}
+	local _key=
+	local _func=
+
+	# Get key from file name
+	_key=${_name%%_*}
+
+	# Get func from key, a.b.c.d -> a_b_c_d
+	_func=${_key//./_}
+
+	if type "$_func" | grep -qsw 'function'; then
+		# Call function if exist
+		"$_func" | xargs -r -n 1 sp_log_info.sh -p -k "$_key" -m
+	else
+		# Run script
+		sh "$_file" | xargs -r -n 1 sp_log_info.sh -p -k "$_key" -m
+	fi
+}
+
+find_colls() {
+	local _type=$1
+	local _file=
+
+	find "$COLLS_DIR" -type f -name "*_${_type}.sh" |
+		while read -r _file; do
+			coll_info "$_file"
+		done
+}
+
+if ! check_type "$1"; then
+	exit 0
+fi
+
+find_colls "$1"

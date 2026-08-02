@@ -1,0 +1,120 @@
+<%
+local features = require("xiaoqiang.XQFeatures").FEATURES
+if features["apps"] and features["apps"]["LED_control"] and tonumber(features["apps"]["LED_control"]) > 0 then
+local uci = require("luci.model.uci").cursor()
+local statusLedEnabled = tonumber(uci:get("xiaoqiang", "common", "BLUE_LED") or "1") == 1
+local ethLedEnabled = tonumber(uci:get("xiaoqiang", "common", "ETHLED") or "1") == 1
+local xLedEnabled = tonumber(uci:get("xiaoqiang", "common", "XLED") or "1") == 1
+local allLedEnabled = statusLedEnabled or ethLedEnabled or xLedEnabled
+%>
+<div class="mod-set">
+  <div class="hd">
+    <%if tonumber(features["apps"]["LED_control"]) > 1 then%>
+    <div class="help" id="led_help_open">
+      <span class="info"><%:如何自定义及定时控制路由器灯效%></span>
+      <span class="ico"></span>
+      <span class="arrow-wrap" id="helpArrow">
+        <span class="arrow1"></span>
+        <span class="arrow2"></span>
+      </span>
+    </div>
+    <%end%>
+    <h3><%:灯效控制%></h3>
+    <!-- 所有灯总开关，目前需求页面不需要，先关掉 -->
+    <%if false then%>
+    <div class="switch">
+      <a
+      <%if allLedEnabled then%>
+        href="#"
+        id="allswitch"
+        class="btn-switch btn-switch-on"
+        data-on="1"
+      <%else%>
+        href="#"
+        id="allswitch"
+        class="btn-switch btn-switch-off"
+        data-on="0"
+      <%end%>
+      ></a>
+    </div>
+    <%end%>
+  </div>
+  <div class="bd">
+    <div class="section section-help" id="helpSection">
+      <div class="help-cont">
+        <span class="help-close" id="led_help_close"></span>
+        <div class="qa">
+          <p>
+            <%:此页面仅支持对路由器灯效进行简单管理，如需自定义或定时控制灯效请使用米家App绑定此路由器后进行管理%>
+          </p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <%if features.apps and require("bit").band(features.apps.LED_control, 1) ~= 0 then%>
+      <div class="ledItem">
+        <h3><%:状态指示灯%></h3>
+        <div class="switch">
+          <a
+          <%if statusLedEnabled then%>
+            href="#"
+            id="ledswitch"
+            class="btn-switch btn-switch-on"
+            data-on="1"
+          <%else%>
+            href="#"
+            id="ledswitch"
+            class="btn-switch btn-switch-off"
+            data-on="0"
+          <%end%>
+          ></a>
+        </div>
+      </div>
+      <p><%:开启或关闭此路由器的网络和系统状态指示灯%></p>
+      <%end
+      if features.apps and require("bit").band(features.apps.LED_control, 4) ~= 0 then%>
+      <div class="ledItem">
+        <h3><%:氛围灯%></h3>
+        <div class="switch">
+          <a
+          <%if xLedEnabled then%>
+            href="#"
+            id="effectswitch"
+            class="btn-switch btn-switch-on"
+            data-on="1"
+          <%else%>
+            href="#"
+            id="effectswitch"
+            class="btn-switch btn-switch-off"
+            data-on="0"
+          <%end%>
+          ></a>
+        </div>
+      </div>
+      <p><%:开启及关闭此路由器的氛围灯%></p>
+      <%end
+      if features.apps and require("bit").band(features.apps.LED_control, 2) ~= 0 then%>
+      <div class="ledItem">
+        <h3><%:网口灯%></h3>
+        <div class="switch">
+          <a
+          <%if ethLedEnabled then%>
+            href="#"
+            id="ethledswitch"
+            class="btn-switch btn-switch-on"
+            data-on="1"
+          <%else%>
+            href="#"
+            id="ethledswitch"
+            class="btn-switch btn-switch-off"
+            data-on="0"
+          <%end%>
+          ></a>
+        </div>
+      </div>
+      <p><%:开启及关闭此路由器的网口灯%></p>
+      <%end%>
+    </div>
+  </div>
+</div>
+<%end%>

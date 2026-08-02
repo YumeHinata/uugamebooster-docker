@@ -1,0 +1,111 @@
+#!/bin/sh
+# Copyright (C) 2006-2010 OpenWrt.org
+# Copyright (C) 2016 Xiaomi
+
+ubi_docker_devn=26
+ubi_docker_vold_id=0
+
+ubi_central_devn=25
+ubi_central_vold_id=0
+
+ubi_other_devn=28
+ubi_other_vold_id=0
+
+readonly OTHER_DBG_INFO="/tmp/sec_other/dbginfo.txt"
+
+mount_other_log_console() {
+	echo "$*" |tee /dev/console >/dev/null
+	mkdir -p "${OTHER_DBG_INFO%/*}"
+	echo "[sec_dbg] $@" >> "$OTHER_DBG_INFO"
+}
+
+find_mount_ubi_mtd() {
+	local name="$1"
+	local devn="$2"
+	local vid="$3"
+	local maj=""
+	local min=""
+	local mtd_dev=$(grep \"${name}\" /proc/mtd | awk -F: '{print substr($1,4)}')
+
+	ubiattach /dev/ubi_ctrl --devn=$devn --mtdn=$mtd_dev
+
+	[ -c /dev/ubi${devn} ] || {
+		maj=$(cat /sys/class/ubi/ubi${devn}/dev | awk -F':' '{print $1}')
+		min=$(cat /sys/class/ubi/ubi${devn}/dev | awk -F':' '{print $2}')
+		mknod /dev/ubi${devn} c "${maj}" "${min}"
+	}
+
+	[ -c /dev/ubi${devn}_${vid} ] || {
+		maj=$(cat /sys/class/ubi/ubi${devn}_${vid}/dev | awk -F':' '{print $1}')
+		min=$(cat /sys/class/ubi/ubi${devn}_${vid}/dev | awk -F':' '{print $2}')
+		mknod /dev/ubi${devn}_${vid} c "${maj}" "${min}"
+	}
+
+	ubiblock -c /dev/ubi${devn}_${vid}
+	[ -b /dev/ubiblock${devn}_${vid} ] || {
+		maj=$(cat /sys/class/block/ubiblock${devn}_${vid}/dev | awk -F':' '{print $1}')
+		min=$(cat /sys/class/block/ubiblock${devn}_${vid}/dev | awk -F':' '{print $2}')
+		mknod /dev/ubiblock${devn}_${vid} b "${maj}" "${min}"
+	}
+
+	mkdir -p /data/$name
+	mount -o ro -t squashfs /dev/ubiblock${devn}_${vid} /data/$name
+	[ "$?" = "0" ] ||  {
+		echo "FATAL: $name mount fail."
+	}
+}
+
+find_init_mount_ubi_mtd() {
+	local name="$1"
+	local devn="$2"
+	local vid="$3"
+	local maj=""
+	local min=""
+	local mtd_dev=$(grep \"${name}\" /proc/mtd | awk -F: '{print substr($1,4)}')
+
+	# format mtd
+	nanddump --bb=skipbad --omitoob --length=2048 -f /tmp/ubi_data_firstpage.bin /dev/mtd$mtd_dev > /dev/null 2>&1
+	local overlay_magic=$(hexdump -C -n 4 /tmp/ubi_data_firstpage.bin | awk 'NR<2 {print $2$3$4$5}')
+	if [ "$overlay_magic" = "ffffffff" ]; then
+		[ -c /dev/ubi$devn ] && ubidetach --devn=$devn
+		ubiformat /dev/mtd$mtd_dev --sub-page-size=2048 --yes
+	fi
+	rm /tmp/ubi_data_firstpage.bin
+
+	# attach mtd
+	ubiattach /dev/ubi_ctrl --devn=$devn --mtdn=$mtd_dev -b 10
+	maj=`cat /sys/class/ubi/ubi$devn/dev|awk -F':' '{print $1}'`
+	min=`cat /sys/class/ubi/ubi$devn/dev|awk -F':' '{print $2}'`
+	[ -c /dev/ubi${devn} ] || mknod /dev/ubi${devn} c $maj $min
+	ubinfo -d "${devn}" -N "data" >/dev/null 2>&1 || {
+		ubimkvol "/dev/ubi$devn" --vol_id="$vid" --name="data" --maxavsize
+	}
+
+	# mount mtd
+	mkdir -p /data/"${name}_vol"
+	mount ubi${devn}_${vid} -t ubifs /data/"${name}_vol"
+	[ "$?" = "0" ] ||  {
+		echo "FATAL: $name mount fail."
+	}
+}
+
+do_mount_extra_mtds() {
+	find_mount_ubi_mtd "docker" "$ubi_docker_devn" "$ubi_docker_vold_id"
+	find_mount_ubi_mtd "central" "$ubi_central_devn" "$ubi_central_vold_id"
+	local other_format_count=$(nvram get other_format_count)
+	[ -z "$other_format_count" ] && other_format_count=0
+
+	mount_other_log_console "Attempt to format other partition count:$other_format_count"
+	[ "$other_format_count" -gt 0 ] && [ "$other_format_count" -le 3 ] && {
+		mount_other_log_console "FATAL: other need format, mtd erase other."
+		mtd erase other
+		[ "$other_format_count" = "3" ] && {
+			nvram set other_format_count=$((other_format_count + 1))
+			nvram commit
+		}
+		sp_log_info.sh -i -k sys.other.format -m "1"
+	}
+	find_init_mount_ubi_mtd "other" "$ubi_other_devn" "$ubi_other_vold_id"
+}
+
+boot_hook_add preinit_mount_root do_mount_extra_mtds

@@ -1,0 +1,28 @@
+#!/bin/sh /etc/rc.common
+
+START=51
+
+USE_PROCD=1
+NAME=anti_attack
+
+disable_rules() {
+    ubus call uci set '{"config": "firewall_cpp", "section": "anti_attack", "values": {"disable": "1"}}'
+    ubus call uci commit '{"config": "firewall_cpp"}'
+}
+
+enable_rules() {
+    ubus call uci set '{"config": "firewall_cpp", "section": "anti_attack", "values": {"disable": "0"}}'
+    ubus call uci commit '{"config": "firewall_cpp"}'
+}
+
+start_service() {
+    if [ $(uci -q get xiaoqiang.common.NETMODE) = whc_cap ]; then
+        enable_rules
+        return
+    fi
+    disable_rules
+}
+
+service_triggers() {
+    procd_add_reload_trigger xiaoqiang
+}

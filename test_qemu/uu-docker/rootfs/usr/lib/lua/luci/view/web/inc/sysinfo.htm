@@ -1,0 +1,267 @@
+<%
+local XQSysUtil = require("xiaoqiang.util.XQSysUtil")
+local romChannel = XQSysUtil.getChannel()
+local uci = require("luci.model.uci").cursor()
+local features = require("xiaoqiang.XQFeatures").FEATURES
+local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+local hardware = string.lower( XQSysUtil.getHardware() )
+
+
+local XQFunction = require("xiaoqiang.common.XQFunction")
+local netmod = 0
+local netmod = XQFunction.getnetmode()
+--2 有线中继
+--1 无线中继
+--4 mesh主设备  whc_cap
+--3 mesh从设备  whc_re
+--0 router
+
+local meshcap = XQFunction.isMeshCap()
+local isMesh = (netmod == 3 or netmod == 4) and true  or  false
+%>
+<div class="mod-upgrade" data="<%=netmod%>">
+    <div class="hd"><h3><%:升级检测%></h3></div>
+<!--    暂时不做判断mesh都显示 下面的普通路由器的功能-->
+<!--    < isMesh >-->
+<!--    <div class="bd bd-01" id="meshUpgrade">-->
+<!--         <div class="one div1 clearfix">-->
+<!--            <div class="left">-->
+<!--                 <img class="icon-d01" src="/xiaoqiang/web/img/icons/router_d01_101_on.png">-->
+<!--                 <img class="icon-internet" src="/xiaoqiang/web/img/icons/icon_internet_on.png">-->
+<!--            </div>-->
+<!--            <div class="left left-item">-->
+<!--                <p id="blue">&#45;&#45;</p>-->
+<!--                 <p class="upgradeinfo"></p>-->
+<!--                  <a href="<%=luci.dispatcher.build_url("web", "syslock")%>?flashtype=download" class="btnUpgread btn btn-primary btn-l left">-->
+<!--                     <span><%:立即升级%></span>-->
+<!--                  </a>-->
+<!--                <a href="#" class="btnUpload btn btn-dft btn-l right">-->
+<!--                    <span><%:手动升级%></span>-->
+<!--                 </a>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+<!--     <else>-->
+    <div class="bd">
+            <h4><%:系统版本%></h4>
+            <p id="upgradeinfo"></p>
+            <p class="hasnewver" style="display:none;"><a href="<%=luci.dispatcher.build_url("web", "syslock")%>?flashtype=download" class="btn btn-primary btn-l" id="btnUpgread"><span><%:立即升级%></span></a></p>
+            <p><a href="#" id="btnUpload" class="btn btn-dft btn-l"><span><%:手动升级%></span></a></p>
+            <div class="logs" style="display:none;">
+                <h4><%:更新日志%></h4>
+                <div id="changelog" style="display:none;">
+                    <iframe name="setting" id="changelogUrl" style="width:100%; border:0;background:none;" src="about:blank" frameborder="0" height="500" scrolling="yes"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+<!--    <end>-->
+
+<div class="mod-uploadlog">
+    <div class="hd">
+        <%if features["system"]["downloadlogs"] == "1" then%>
+            <h3><%:日志管理%></h3>
+        <%else%>
+            <h3><%:上传日志%></h3>
+        <%end%>
+    </div>
+    <div class="bd">
+        <div style="margin-bottom:15px;"><button type="button" id="btnUploadlog" class="btn btn-primary btn-l"><span><%:上传日志%></span></button></div>
+        <%if features["system"]["downloadlogs"] == "1" then%>
+        <div><button type="button" id="btnDownloadlog" class="btn btn-primary btn-l"><span><%:下载日志%></span></button></div>
+        <%end%>
+    </div>
+</div>
+
+<div class="mod-uploadlog">
+    <div class="hd">
+        <h3><%:恢复出厂设置%></h3>
+    </div>
+    <div class="bd">
+        <button type="button" id="btnReset" class="btn btn-primary btn-l"><span><%:立即恢复%></span></button>
+    </div>
+</div>
+
+ <%if (netmod ~= 1 and netmod ~= 2 and netmod ~= 3) then%>
+<div class="mod-set mod-backupconfig">
+    <div class="hd">
+        <h3><%:备份与恢复%></h3>
+    </div>
+    <div class="bd">
+        <p><%:备份路由器的配置，重新刷机或重置路由器后可以用来恢复。%></p>
+        <div class="btns">
+            <a href="#" id="btnBackupconfig" class="btn btn-dft btn-m"
+            ><span><%:新建备份%></span></a>
+            <a href="#" id="btnUploadconfig" class="btn btn-dft btn-m"><span><%:立即恢复%></span></a>
+        </div>
+    </div>
+</div>
+<%end%>
+
+<%if features["system"]["TimeToReboot"] == "1" then%>
+<div class="mod-set mod-systime">
+    <div class="hd">
+        <h3><%:定时重启%></h3>
+    </div>
+    <div class="bd">
+        <div class="cqTable">
+            <div class="title">
+                <%:定时重启时间列表：%>
+            </div>
+            <table class="table">
+                <thead>
+                <tr>
+                    <th width="350px"><%:重启规则%></th>
+                    <th><%:时间设置%></th>
+                    <th><%:状态%></th>
+                    <th><%:操作%></th>
+                </tr>
+                </thead>
+                <tbody id="timeList">
+                <tr>
+                    <td colspan="4" style="text-align:center"><%:正在查询中...%></td>
+                </tr>
+                </tbody>
+            </table>
+            <button type="button" id="btnAddCqTime" class="btn btn-dft btn-m btn-primary"><span><%:添加%></span></button>
+        </div>
+    </div>
+</div>
+<%end%>
+
+<%if romChannel == "release" and features["system"]["i18n"] == "1"  then%>
+<div class="mod-uploadlog">
+    <div class="hd">
+        <h3><%:设置系统语言%></h3>
+    </div>
+    <div class="bd">
+        <div class="clearfix">
+            <div class="form-item-select">
+                <label class="k"><%:系统语言%></label>
+                <span class="v"><select name="lang" id="lang" class="beautify"></select></span>
+            </div>
+        </div>
+    </div>
+</div>
+<%end%>
+
+<%if (netmod == 0 or netmod == 4) and features["system"]["isp"] ~= "1" and features["system"]["plugin_install"] ~= "0" then%>
+<div class="mod-upgrade" data="<%=netmod%>">
+    <div class="hd"><h3><%:插件安装%></h3></div>
+<div class="bd">
+    <p id="installPlgInfo"></p>
+    <p><a href="#" id="btnUpload_plug" class="btn btn-dft btn-l"><span><%:手动安装%></span></a></p>
+</div>
+</div>
+<%end%>
+
+<div class="mod-set mod-systime">
+    <div class="hd">
+        <%if features["system"]["change_time"] == "1" then%>
+        <h3><%:地区与时间%></h3>
+        <%else%>
+        <h3><%:时区设置%></h3>
+        <%end%>
+    </div>
+
+    <%if meshcap then%>
+     <!-- 主mesh -->
+    <div class="bd" id="zhumesh"  style="display:none">
+        <%if features["system"]["change_time"] == "1" then%>
+            <div class="group">
+                <p>当前系统时间：<span id="datetiemval"></span></p>
+                <button type="button" id="btnDatetime" class="btn btn-dft btn-m"><span><%:更改时间%></span></button>
+            </div>
+        <%else%>
+            <div class="group" >
+                当前系统时间：<span id="datetiemval"></span>
+            </div>
+        <%end%>
+        <div class="group">
+            <p id="timezoneval"></p>
+            <button type="button" id="btnTimezone" class="btn btn-dft btn-m"><span><%:更改时区%></span></button>
+        </div>
+
+    </div>
+    <%elseif netmod == 3 then%>
+    <div class="bd" id="zimesh" style="display:none">
+        <div class="group">
+            <p>当前系统时间：<span id="datetiemval2"></span></p>
+            <p>当前系统时区：<span id="timezoneval2"></span></p>
+            <%if features["system"]["change_time"] ~= "1" then%>
+            <p>*如需修改时区，请切换到主Mesh路由进行修改，会自动同步到子Mesh路由</p>
+            <%end%>
+        </div>
+
+    </div>
+
+    <%else%>
+    <div class="bd">
+        <%if features["system"]["change_time"] == "1" then%>
+            <div class="group">
+                <p>当前系统时间：<span id="datetiemval"></span></p>
+                <button type="button" id="btnDatetime" class="btn btn-dft btn-m"><span><%:更改时间%></span></button>
+            </div>
+        <%else%>
+            <div class="group">
+                当前系统时间：<span id="datetiemval"></span>
+            </div>
+        <%end%>
+        <div class="group">
+            <p id="timezoneval"></p>
+            <button type="button" id="btnTimezone" class="btn btn-dft btn-m"><span><%:更改时区%></span></button>
+        </div>
+    </div>
+
+    <%end%>
+
+
+</div>
+<%if features["apps"]["nfc"] == "1"  then%>
+<div class="mod-set mod-wifi">
+    <div class="hd">
+        <h3><%:碰碰连%></h3>
+        <div class="switch">
+            <a href="#nfcswitch" id="nfcSwitch" class="btn-switch btn-switch-on" data-on="1"></a>
+        </div>
+    </div>
+    <div class="bd">
+        <p style="color:#D92719;display:none" class="wpa3_only">当前Wi-Fi的加密方式为超强加密（WPA3），在该模式下部分型号手机可能存在兼容性问题</p>
+        <p><%:该功能可为支持NFC的设备提供一碰入网服务。当前仅支持安卓手机，在使用前请确认：%></p>
+        <p>1. NFC功能开启</p>
+        <p>2. 屏幕处于亮屏解锁的状态</p>
+    </div>
+</div>
+<%end%>
+
+<%if features["system"]["web_acc_log"] == "1" then %>
+<div class="mod-set mod-accesslog">
+    <div class="hd">
+        <h3><%:访问日志%></h3>
+    </div>
+    <div class="bd">
+        <p class="protocolText-tit"><%:可在此模块中了解访问配置页面的时间和人员。最多可记录 10 个最近的访问日志。%></p>
+        <div class="section" style="padding: 24px 0;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th><%:编号%></th>
+                        <th><%:日期%></th>
+                        <th><%:时间%></th>
+                        <th><%:设备IP%></th>
+                        <th><%:设备MAC地址%></th>
+                    </tr>
+                </thead>
+                <tbody id="accessloglist">
+                </tbody>
+            </table>
+            <div style="padding: 24px 0;">
+                <a id="btnListClear" href="#" class="btn btn-dft btn-m"><span><%:清除所有访问日志%></span></a>
+                <span id="tipsAccessLogsEmpty" class="hidden" style="display: inline-block; margin-left: 10px; color: #999;">
+                    <p><%:没有可清除的日志。%></p>
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+<%end%>

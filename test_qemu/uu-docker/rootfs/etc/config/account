@@ -1,0 +1,6 @@
+config core 'common'
+    option 'admin' '73a1d6d01003067844cd148b1502a24bb8a305c93dfef55f983da80fa8cdfa24'
+
+config core 'legacy'
+    option 'admin' 'b3a4190199d9ee7fe73ef9a4942a69fece39a771'
+

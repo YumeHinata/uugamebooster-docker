@@ -1,0 +1,12 @@
+Package: tc-full
+Version: 5.11.0-3
+Depends: libc, kmod-sched-core, libxtables, tc-mod-iptables, libbpf
+Provides: tc
+Alternatives: 300:/sbin/tc:/usr/libexec/tc-full
+Source: package/network/utils/iproute2
+License: GPL-2.0
+Section: net
+Maintainer: Russell Senior <russell@personaltelco.net>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 174677
+Description:  Traffic control utility (full)

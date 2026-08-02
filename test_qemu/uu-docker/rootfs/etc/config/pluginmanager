@@ -1,0 +1,5 @@
+config global 'main'
+	option supported_rom 'miwifi_rom_2'
+	option sdk_level '5'
+	option log_mode '2'
+	option log_level '4'

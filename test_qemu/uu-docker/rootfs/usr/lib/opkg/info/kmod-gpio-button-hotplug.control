@@ -1,0 +1,8 @@
+Package: kmod-gpio-button-hotplug
+Version: 5.4.213-1
+Depends: kernel (=5.4.213-1-b03fef75f247f6a85b8c8530633d37c5)
+Source: package/kernel/gpio-button-hotplug
+Section: kernel
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 6263
+Description:  Simple GPIO Button Hotplug driver

@@ -1,0 +1,18 @@
+#!/bin/sh
+
+[ -f /usr/sbin/sp_check.sh ] && {
+	/usr/sbin/sp_check.sh -f
+	exit 0
+}
+
+[ -f /usr/sbin/StatPoints ] && {
+	/usr/sbin/StatPoints
+	exit 0
+}
+
+pid=$(pidof statpoints)
+[ -n "$pid" ] && {
+	kill -SIGUSR1 $pid
+	exit 0
+}
+

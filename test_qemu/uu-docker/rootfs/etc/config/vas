@@ -1,0 +1,20 @@
+config settings 'services'
+    option auto_upgrade '-1'
+
+config rule 'countrycode'
+    option auto_upgrade 'CN'
+
+config service 'invalid_page'
+    option on 'matool --method setKV --params invalid_page_status on; /etc/init.d/http_status_stat on'
+    option off 'matool --method setKV --params invalid_page_status off; /etc/init.d/http_status_stat off'
+    option status 'uci get http_status_stat.settings.enabled 2>/dev/null'
+
+config service 'security_page'
+    option on 'matool --method setKV --params security_page_status on;uci set security.common.malicious_url_firewall=1;uci commit security;touch /etc/config/securitypage/enable.tag; /etc/init.d/securitypage restart'
+    option off 'matool --method setKV --params security_page_status off;uci set security.common.malicious_url_firewall=0;uci commit security; /etc/init.d/securitypage restart'
+    option status ''
+
+config service 'auto_upgrade'
+    option on 'uci set otapred.settings.auto=1; uci commit otapred'
+    option off 'uci set otapred.settings.auto=0; uci commit otapred'
+    option status 'uci get otapred.settings.auto 2>/dev/null'

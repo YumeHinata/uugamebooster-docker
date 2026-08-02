@@ -1,0 +1,72 @@
+#!/bin/sh
+[ -z "$1" ] && echo "Error: should be run by udhcpc" && exit 1
+
+setup_interface() {
+	echo "udhcpc: ifconfig $interface $ip netmask ${subnet:-255.255.255.0} broadcast ${broadcast:-+}"
+	ifconfig $interface $ip netmask ${subnet:-255.255.255.0} broadcast ${broadcast:-+}
+
+	echo "server_ip = $serverid"
+
+	[ -n "$router" ] && [ "$router" != "0.0.0.0" ] && [ "$router" != "255.255.255.255" ] && {
+		echo "udhcpc: setting default routers: $router"
+
+		for i in $router ; do
+			nvram set cap_ipaddr=$router
+			route add default gw $ip
+		done
+
+		return
+	}
+
+	[ -n "$serverid" ] && {
+		echo "server_ip = $serverid"
+
+		nvram set cap_ipaddr=$serverid
+
+		return
+	}
+
+	[ -n "$dns" ] && {
+		echo "dns = $dns"
+
+		nvram set cap_ipaddr=$serverid
+
+		return
+	}
+}
+
+save_for_mesh_re()
+{
+	local nw_cfg="/tmp/log/nw_cfg"
+	mkdir -p /tmp/log/
+	rm -f $nw_cfg
+	touch $nw_cfg
+	echo "ip:$ip" > $nw_cfg
+	echo "subnet:$subnet" >> $nw_cfg
+	echo "dns:$dns" >> $nw_cfg
+	echo "router:$router" >> $nw_cfg
+	echo "vendorinfo:$vendorinfo" >> $nw_cfg
+	ap_hostname_tmp=${vendorinfo:7}
+	ap_hostname_tmp=${ap_hostname_tmp%%-*}
+	ap_hostname=MiWiFi-${ap_hostname_tmp}-srv
+	echo "ap_hostname:${ap_hostname}" >> $nw_cfg
+}
+
+applied=
+case "$1" in
+	deconfig)
+		ifconfig "$interface" 0.0.0.0
+	;;
+	renew)
+		setup_interface update
+		# save network config for future use for mesh RE device
+		save_for_mesh_re
+	;;
+	bound)
+		setup_interface ifup
+		# save network config for future use for mesh RE device
+		save_for_mesh_re
+	;;
+esac
+
+exit 0

@@ -1,0 +1,49 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+USE_PROCD=1
+
+LOG_PREFIX="security"
+
+start_service() {
+    local netmode=$(uci -q get xiaoqiang.common.NETMODE)
+    local gw_ip=$(uci -q get network.lan.ipaddr)
+    local gw_mac=$(uci -q get network.lan.macaddr)
+    if [ -z "$netmode" ] || [ -z "$gw_ip" ] || [ -z "$gw_mac" ]; then
+        logger -t "$LOG_PREFIX" "Gateway param is null"
+        return 0
+    fi
+
+    local security_log_interval=$(uci -q get local_gw_security.settings.alarm_interval)
+    local security_enable=$(uci -q get local_gw_security.settings.enabled)
+    if [ "$security_enable" = "0" ]; then
+        logger -t "$LOG_PREFIX" "Gateway security switch is off"
+        return 0
+    fi
+
+    if [ -d "/proc/local_gw_security" ]; then
+        echo 1 $security_log_interval >/proc/local_gw_security/config
+        logger -t "$LOG_PREFIX" "Proc dir:security is exist,switch on"
+        return 0
+    fi
+
+    if [ "$netmode" = "whc_cap" ]; then
+        insmod local_gw_security.ko
+        sleep 1
+        echo 1 $security_log_interval >/proc/local_gw_security/config
+        echo $gw_ip $gw_mac >/proc/local_gw_security/gw
+    fi
+}
+
+stop_service() {
+    if [ ! -d "/proc/local_gw_security" ]; then
+        logger -t "$LOG_PREFIX" "Proc dir:security not exist,no need to uninstall"
+        return 0
+    fi
+
+    local security_log_interval=$(uci -q get local_gw_security.settings.alarm_interval)
+    echo 0 $security_log_interval >/proc/local_gw_security/config
+    sleep 1
+    rmmod local_gw_security
+    return 0
+}

@@ -1,0 +1,8 @@
+Package: tz2localtime
+Version: 1.0
+Depends: libc
+Source: package/miwifi/tz2localtime
+Section: TimeUtil
+Architecture: all
+Installed-Size: 4457
+Description:  Module to monitor /tmp/TZ and transform TZ info to localtime.

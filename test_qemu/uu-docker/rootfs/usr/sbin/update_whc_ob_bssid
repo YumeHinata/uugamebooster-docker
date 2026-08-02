@@ -1,0 +1,38 @@
+#!/bin/sh
+
+mode="`uci -q get xiaoqiang.common.NETMODE`"
+[ "whc_cap" != "$mode" ] && return
+
+XQLOGTAG="xqwhc_obbssid"
+success=0 loop_count=5
+bh_ap_5g="`uci -q get misc.backhauls.backhaul_5g_ap_iface`"
+bh_ap_2g="`uci -q get misc.backhauls.backhaul_2g_ap_iface`"
+
+if [ -n "$bh_ap_5g" ] && [ -n "$bh_ap_2g" ]; then
+    while [ "$success" -eq 0 ] && [ "$loop_count" -gt 0 ]; do
+        bssid_5g=$(ifconfig "$bh_ap_5g" | grep "HWaddr" | awk -F" " '{print $5}' | grep -Eo "..:..:..:..:..:..")
+        bssid_2g=$(ifconfig "$bh_ap_2g" | grep "HWaddr" | awk -F" " '{print $5}' | grep -Eo "..:..:..:..:..:..")
+        logger -t "$XQLOGTAG" -p user.warn " 5G bh $bh_ap_5g: $bssid_5g, 2.4G bh $bh_ap_2g: $bssid_2g "
+        if [ -z "$bssid_5g" -o -z "$bssid_2g" ]; then
+            logger -t "$XQLOGTAG" -p user.warn " set otherband bssids netdev NOT ready @ $loop_count! "
+            sleep 1
+            loop_count=`expr $loop_count - 1`
+            continue
+        fi
+
+        otherband_bssid1=$(echo "$bssid_5g" | sed -e "s/://g" | cut -b 1-8)
+        otherband_bssid2=$(echo "$bssid_5g" | sed -e "s/://g" | cut -b 9-12)
+        #iwpriv $bh_ap_2g otherband_bssid 0x$otherband_bssid1 0x$otherband_bssid2
+        cfg80211tool $bh_ap_2g otherband_bssid 0x$otherband_bssid1 0x$otherband_bssid2
+        logger -t "$XQLOGTAG" -p user.warn " set 2.4G bh $bh_ap_2g otherband_bssid: $bssid_5g "
+
+        otherband_bssid1=$(echo "$bssid_2g" | sed -e "s/://g" | cut -b 1-8)
+        otherband_bssid2=$(echo "$bssid_2g" | sed -e "s/://g" | cut -b 9-12)
+        #iwpriv $bh_ap_5g otherband_bssid 0x$otherband_bssid1 0x$otherband_bssid2
+        cfg80211tool $bh_ap_5g otherband_bssid 0x$otherband_bssid1 0x$otherband_bssid2
+        logger -t "$XQLOGTAG" -p user.warn " set 5G bh $bh_ap_5g otherband_bssid: $bssid_2g "
+
+        success=1
+    done
+fi
+

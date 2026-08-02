@@ -1,0 +1,21 @@
+<%
+local ps = require "xiaoqiang.util.XQPortServiceUtil"
+local speed = ps.psGetWanSpeed("wan_2")
+local label = ps.psGetLabel("wan_2")
+local XQMultiWan = require "xiaoqiang.module.XQMultiWanPolicy"
+local MultiWanEnable = XQMultiWan.getStatus() == 1 and true or false
+if MultiWanEnable then
+%>
+<div class="mod-set multiwan">
+    <h3><%:WAN2:%></h3>
+    <form action="#" class="form form-wanspeed" name="wan2_wanspeed" id="wan2_wanspeed">
+        <div class="form-item-select <%if speed == "10G" and label ~= "10G SFP+" then%>wan10G<%end%>">
+            <%include("web/inc/wan2_wanspeed")%>
+            <em class="t"></em>
+        </div>
+        <div class="form-contral">
+            <button type="submit" class="btn btn-primary hidden" id="wan2_btnSubmitwanspeed"><span><%:保存%></span></button>
+        </div>
+    </form>
+</div>
+<%end%>

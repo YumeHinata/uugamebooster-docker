@@ -1,0 +1,7 @@
+/lib/modules/5.4.213/nf_socket_ipv4.ko
+/lib/modules/5.4.213/nf_tproxy_ipv6.ko
+/lib/modules/5.4.213/xt_TPROXY.ko
+/lib/modules/5.4.213/nf_socket_ipv6.ko
+/lib/modules/5.4.213/xt_socket.ko
+/lib/modules/5.4.213/nf_tproxy_ipv4.ko
+/etc/modules.d/ipt-tproxy

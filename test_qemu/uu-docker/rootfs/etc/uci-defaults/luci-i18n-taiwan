@@ -1,0 +1,5 @@
+#!/bin/sh
+uci batch <<-EOF
+	set luci.languages.zh_tw='台湾繁體'
+	commit luci
+EOF

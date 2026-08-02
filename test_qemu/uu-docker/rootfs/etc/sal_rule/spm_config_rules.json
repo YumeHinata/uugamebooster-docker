@@ -1,0 +1,86 @@
+/*
+ * Copyright (c) 2022-2023 Qualcomm Technologies, Inc.
+ * All Rights Reserved.
+ * Confidential and Proprietary - Qualcomm Technologies, Inc.
+ */
+
+{
+  "rules": [
+   {
+    "rule": {
+      "in_id": "1",
+      "in_add_delete": "1",
+      "in_precedence": "1",
+      "out_rule_output": "1",
+      "in_user_priority": "2",
+      "in_src_mac": "00:00:5e:00:53:af",
+      "in_dst_mac": "00:00:5e:00:53:aa",
+      "in_src_ipv4_addr": "192.168.1.1",
+      "in_dst_ipv4_addr": "192.168.1.1",
+      "in_src_ipv4_addr_mask": "255.255.255.255",
+      "in_dst_ipv4_addr_mask": "255.255.255.255",
+      "in_src_ipv6_addr": "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+      "in_dst_ipv6_addr": "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+      "in_src_ipv6_addr_mask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+      "in_dst_ipv6_addr_mask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+      "in_src_port": "1",
+      "in_dst_port": "1",
+      "in_proto_num": "1",
+      "in_vlan_id": "1",
+      "in_dscp": "1",
+      "in_src_port_range_start": "0",
+      "in_src_port_range_end": "65535",
+      "in_dst_port_range_start": "0",
+      "in_dst_port_range_end" : "65535",
+      "out_dscp_remark": "1",
+      "in_vlan_pcp": "1",
+      "out_vlan_pcp_remark": "1",
+      "out_service_class_id": "1"
+    },
+    },
+    {
+    "rule": {
+      "in_id": "2",
+      "in_add_delete": "1",
+      "in_precedence": "1",
+      "out_rule_output": "1",
+      "in_user_priority": "2",
+      "in_src_mac": "00:00:5e:00:53:af",
+      "in_dst_mac": "00:00:5e:00:53:aa",
+      "in_src_ipv4_addr": "192.168.1.1",
+      "in_dst_ipv4_addr": "192.168.1.1",
+      "in_src_ipv4_addr_mask": "255.255.255.255",
+      "in_dst_ipv4_addr_mask": "255.255.255.255",
+      "in_src_ipv6_addr": "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+      "in_dst_ipv6_addr": "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+      "in_src_ipv6_addr_mask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+      "in_dst_ipv6_addr_mask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+      "in_src_port": "1",
+      "in_dst_port": "1",
+      "in_proto_num": "1",
+      "in_vlan_id": "1",
+      "in_dscp": "1",
+      "in_src_port_range_start": "0",
+      "in_src_port_range_end": "65535",
+      "in_dst_port_range_start": "0",
+      "in_dst_port_range_end" : "65535",
+      "out_dscp_remark": "1",
+      "in_vlan_pcp": "1",
+      "out_vlan_pcp_remark": "1",
+      "out_service_class_id": "1"
+    },
+  },
+  {
+    "rule": {
+      "in_id": "1",
+      "in_add_delete": "2"
+    },
+  },
+  {
+    "rule": {
+      "in_id": "2",
+      "in_add_delete": "2"
+    }
+  }
+  ]
+}

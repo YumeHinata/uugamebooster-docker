@@ -1,0 +1,49 @@
+<%
+local ps = require "xiaoqiang.util.XQPortServiceUtil"
+local port_type = ps.psGetType("wan_2")
+local speed = ps.psGetWanSpeed("wan_2")
+local mode = ps.psGetWanLinkMode("wan_2")
+%>
+
+<%if port_type == "No Port" then%>
+<p><%:未检测到宽带网线接入%></p>
+<%elseif port_type == "eth" then%>
+    <%if speed == "10G" then%>
+    <label class="k"><%:速率%></label>
+        <span class="v">
+        <select name="wan2_speedselect" id="wan2_speedselect" class="beautify" >
+            <option value="0" <%if(mode == 0) then%>selected="selected"<%end%>><%:10000M/5000M/2500M/1000M/100M自动协商（推荐）%></option>
+            <option value="10000" <%if(mode == 10000) then%>selected="selected"<%end%> ><%:10000M%></option>
+            <option value="5000" <%if(mode == 5000) then%>selected="selected"<%end%> ><%:5000M%></option>
+            <option value="2500" <%if(mode == 2500) then%>selected="selected"<%end%> ><%:2500M%></option>
+            <option value="1000" <%if(mode == 1000) then%>selected="selected"<%end%> ><%:1000M%></option>
+            <option value="100" <%if(mode == 100) then%>selected="selected"<%end%> ><%:100M%></option>
+        </select>
+        </span>
+    <%elseif speed == "2.5G" then%>
+    <label class="k"><%:速率%></label>
+        <span class="v">
+        <select name="wan2_speedselect" id="wan2_speedselect" class="beautify" >
+            <option value="0" <%if(mode == 0) then%>selected="selected"<%end%>><%:2500M/1000M/100M自动协商（推荐）%></option>
+            <option value="2500" <%if(mode == 2500) then%>selected="selected"<%end%> ><%:2500M%></option>
+            <option value="1000" <%if(mode == 1000) then%>selected="selected"<%end%> ><%:1000M%></option>
+            <option value="100" <%if(mode == 100) then%>selected="selected"<%end%> ><%:100M%></option>
+        </select>
+        </span>
+    <%elseif speed == "1G" then%>
+    <label class="k"><%:速率%></label>
+        <span class="v">
+        <select name="wan2_speedselect" id="wan2_speedselect" class="beautify" >
+            <option value="0" <%if(mode == 0) then%>selected="selected"<%end%>><%:1000M/100M自动协商（推荐）%></option>
+            <option value="1000" <%if(mode == 1000) then%>selected="selected"<%end%> ><%:1000M%></option>
+            <option value="100" <%if(mode == 100) then%>selected="selected"<%end%> ><%:100M%></option>
+        </select>
+        </span>
+    <%else%>
+    <p><%:WAN口参数异常%></p>
+    <%end%>
+<%elseif port_type == "sfp" then%>
+<p><%:当前wan口为SFP口，速率取决于您插入的模块，无法设置。%></p>
+<%else%>
+<p><%:WAN口参数异常%></p>
+<%end%>

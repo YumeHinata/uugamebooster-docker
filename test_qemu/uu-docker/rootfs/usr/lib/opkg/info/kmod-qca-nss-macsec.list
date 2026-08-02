@@ -1,0 +1,4 @@
+/etc/modules.d/52-qca-nss-macsec
+/usr/lib/libfal.so
+/usr/sbin/macsec_shell
+/lib/modules/5.4.213/qca-nss-macsec.ko

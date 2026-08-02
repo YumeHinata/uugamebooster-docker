@@ -1,0 +1,10 @@
+/tmp/messages
+/tmp/wifi_analysis.log
+/tmp/wifi.log
+/tmp/etc/dnsmasq.conf.cfg01411c
+/tmp/pppoe.log
+/tmp/hyd-*.conf
+/tmp/lbd.conf
+/tmp/plc.conf
+/tmp/resolv.conf
+/tmp/core-*

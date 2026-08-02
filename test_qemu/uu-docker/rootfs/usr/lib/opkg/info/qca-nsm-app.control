@@ -1,0 +1,8 @@
+Package: qca-nsm-app
+Version: miwifi_git-1
+Depends: libc, qca-nsm-lib
+Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/nss-sap/qca-nsm-app
+Section: utils
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 3650
+Description:  Network status module application

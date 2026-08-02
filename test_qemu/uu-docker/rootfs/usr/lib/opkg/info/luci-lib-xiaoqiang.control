@@ -1,0 +1,9 @@
+Package: luci-lib-xiaoqiang
+Version: 0.11.1-1
+Depends: libc, luci-lib-core, lua-curl-v3, libstdcpp, luci-lib-core, luci-lib-json, liblua
+Source: feeds/luci/luci
+Section: luci
+Maintainer: LuCI Development Team <luci@lists.subsignal.org>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 305346
+Description:  XiaoQiang util

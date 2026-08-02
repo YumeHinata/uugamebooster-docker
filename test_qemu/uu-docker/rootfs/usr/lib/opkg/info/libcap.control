@@ -1,0 +1,11 @@
+Package: libcap
+Version: 2.25-2
+Depends: libc
+Source: feeds/packages/libs/libcap
+License: GPL-2.0
+LicenseFiles: License
+Section: libs
+Maintainer: Paul Wassi <p.wassi@gmx.at>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 6231
+Description:  Linux capabilities library

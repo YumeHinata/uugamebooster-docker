@@ -1,0 +1,11 @@
+Package: zlib
+Version: 1.2.11-2
+Depends: libc
+Source: package/libs/zlib
+License: Zlib
+LicenseFiles: README
+Section: libs
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 40915
+Description:  zlib is a lossless data-compression library.
+ This package includes the shared library.

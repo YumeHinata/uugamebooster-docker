@@ -1,0 +1,8 @@
+Package: baidupan
+Version: 1-1.0
+Depends: libc, libubus, libuci, jshn, lua, libblobmsg-json, libpthread, libjson-c, libopenssl
+Source: package/miwifi/baidupan
+Section: util
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 21505
+Description:  Upload files, Download files, Wget files between rom and baidupan.

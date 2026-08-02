@@ -1,0 +1,31 @@
+{
+"RD08": [
+	{"sys_light": [
+		{"name": "sys_booting", "states":"all","cb":"", "description": "系统正在启动"},
+		{"name": "sys_init", "states":"all", "description": "系统启动完成，待配置"},
+		{"name": "sys_ok", "states":"all", "cb":"","description": "系统完成初始化，且启动完成，同时可开系统灯"},
+		{"name": "sys_off", "states":"sys_on,sys_ota", "description": "关系统灯"},
+		{"name": "sys_on", "states":"all", "description": "开系统灯"},
+		{"name": "sys_ota", "states":"sys_off,sys_ok", "description": "系统正在ota升级"},
+		{"name": "systest_ongo", "states":"all", "description": "系统测试"},
+		{"name": "systest_fail", "states":"all", "description": "系统测试失败"},
+		{"name": "factest_white", "states":"all", "description": "产测白色"},
+		{"name": "factest_orange", "states":"all", "description": "产测橙色"},
+		{"name": "factest_off", "states":"all", "description": "产测关灯"},
+		{"name": "meshing", "states":"sys_off,sys_ota,mesh_finish", "description": "下级节点接入中"},
+		{"name": "mesh_join", "states":"sys_off,sys_ota,mesh_finish", "description": "接入Mesh主路由中"},
+		{"name": "mesh_discovery", "states":"meshing,sys_off,sys_ota,mesh_finish", "description": "发现新节点"},
+		{"name": "mesh_finish", "states":"all", "description": "Mesh停止闪灯"},
+		{"name": "link_down", "states":"internet_fail,internet_ok,meshing,sys_off,sys_ota", "backup":"1", "description": "wan对应port断开"},
+		{"name": "internet_fail", "not":"1", "states":"mesh_finish,sys_on,sys_ok", "backup":"1", "cb": "", "description": "wan接入正常,但无法访问外网(ping)"},
+		{"name": "internet_ok", "not":"1", "states":"mesh_finish,sys_on,sys_ok", "backup":"1", "cb": "", "description": "wan接入正常,且能访问外网(ping)"}
+	]},
+	{"eth_light": [
+		{"name": "led_eth_off", "states":"all", "description": "关闭网口灯"},
+		{"name": "led_eth_on", "states":"all", "description": "开启网络灯功能（允许点亮，未必立即点亮）"},
+		{"name": "led_eth1_on", "states":"all", "description": "产测点亮网口灯1"},
+		{"name": "led_eth2_on", "states":"all", "description": "产测点亮网口灯2"},
+		{"name": "led_eth3_on", "states":"all", "description": "产测点亮网口灯3"},
+		{"name": "led_eth4_on", "states":"all", "description": "产测点亮网口灯4"}
+	]}
+]}

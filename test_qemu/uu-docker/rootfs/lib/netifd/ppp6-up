@@ -1,0 +1,91 @@
+#!/bin/sh
+PPP_IPPARAM="$6"
+
+. /lib/netifd/netifd-proto.sh
+proto_init_update "$IFNAME" 1 1
+proto_set_keep 1
+[ -n "$PPP_IPPARAM" ] && {
+	[ -n "$LLLOCAL" ] && proto_add_ipv6_address "$LLLOCAL" 128
+}
+proto_send_update "$PPP_IPPARAM"
+
+[ -d /etc/ppp/ip-up.d ] && {
+	for SCRIPT in /etc/ppp/ip-up.d/*
+	do
+		[ -x "$SCRIPT" ] && "$SCRIPT" "$@"
+	done
+}
+
+if [ "$AUTOIPV6" = "1" ]; then
+	wan6_iface="wan6"
+
+	ppp_idx=${PPP_IPPARAM##*_}
+	[ "$ppp_idx" != "$PPP_IPPARAM" ] && {
+		wan6_iface="${wan6_iface}_$ppp_idx"
+	}
+
+	uci -q show ipv6.$wan6_iface > /dev/null 2>&1
+	[ "$?" != "0" ] && return
+
+	ipv6_mode=$(uci -q get ipv6.$wan6_iface.mode)
+	[ -z "$ipv6_mode" -o "$ipv6_mode" = "off" ] && return
+
+	[ "$ipv6_mode" = "static" ] && {
+		ip6addr=$(uci -q get network.$wan6_iface.ip6addr)
+		ip6gw=$(uci -q get network.$wan6_iface.ip6gw)
+		ip6prefix=$(uci -q get network.$wan6_iface.ip6prefix)
+		[ -z "$ip6addr" -o -z "$ip6gw" -o -z "$ip6prefix" ] && return
+	}
+
+	ZONE=$(fw3 -q network $PPP_IPPARAM 2>/dev/null)
+
+	json_init
+	json_add_string name "$wan6_iface"
+	json_add_string ifname "@$PPP_IPPARAM"
+	if [ "$ipv6_mode" = "static" ]; then
+		json_add_string proto "static"
+		_proto_push_array ip6addr "$ip6addr" _proto_push_string
+		json_add_string ip6gw "$ip6gw"
+		_proto_push_array ip6prefix "$ip6prefix" _proto_push_string
+	else
+		json_add_string proto "dhcpv6"
+		[ -n "$EXTENDPREFIX" ] && json_add_string extendprefix 1
+		[ -n "$IP6TABLE" ] && json_add_string ip6table $IP6TABLE
+
+		nat6_enabled=$(uci -q get ipv6.$wan6_iface.nat6_enabled)
+		[ "$nat6_enabled" = "1" ] && {
+			[ "$ipv6_mode" = "pppoev6" ] && {
+				use_pppoev4=$(uci -q get ipv6.$wan6_iface.use_pppoev4)
+				if [ "$use_pppoev4" = "1" ]; then
+					ip6prefix=$(uci -q get network.$wan6_iface.ip6prefix)
+				else
+					ip6prefix=$(uci -q get network.$PPP_IPPARAM.ip6prefix)
+				fi
+			}
+			[ -n "$ip6prefix" ] && {
+				json_add_string reqprefix no
+				_proto_push_array "ip6prefix" "$ip6prefix" _proto_push_string
+			}
+		}
+	fi
+
+	[ -n "$ZONE" ] && json_add_string zone "$ZONE"
+	#	[ -n "$PEERDNS" ] && json_add_boolean peerdns $PEERDNS
+	dns_wan6_iface="$wan6_iface"
+	[ "${PPP_IPPARAM:0:7}" = "wan6ppp" ] && dns_wan6_iface="$PPP_IPPARAM"
+
+	peerdns=$(uci -q get network.$dns_wan6_iface.peerdns)
+	[ -z "$peerdns" ] && peerdns=1
+	json_add_boolean peerdns "$peerdns"
+	if [ "$peerdns" = "0" ]; then
+		proto_init_dns_server_ex
+		dns_list=$(uci -q get network.$dns_wan6_iface.dns)
+		for dns in "$dns_list"; do
+			proto_add_dns_server_ex "$dns"
+		done
+		proto_update_dns_server_ex
+	fi
+
+	json_close_object
+	ubus call network add_dynamic "$(json_dump)"
+fi

@@ -1,0 +1,58 @@
+#!/bin/sh /etc/rc.common
+START=95
+STOP=10
+boot() {
+return 0
+}
+start() {
+killall dynamic_dns_updater.sh 2>/dev/null
+rm -rf /var/run/ddns/*
+local mode=$(uci -q get xiaoqiang.common.NETMODE)
+[ "$mode" = "cpe_bridgemode" ] && return 0
+for server in `awk '/^config.*service/{print$3}' /etc/config/ddns|tr "\'\"" " " `
+do
+local ddns_enabled=$(uci -q get ddns.$server.enabled)
+local ddns_laststatus=$(uci -q get ddns.$server.laststatus)
+if [ "$ddns_enabled" = "0" ]; then
+[ -n "$ddns_laststatus" -a "$ddns_laststatus" = "loading" ] && {
+uci -q set ddns.$server.laststatus="off"
+uci -q commit ddns
+}
+else
+/usr/lib/ddns/dynamic_dns_updater.sh -v 0 -S "$server" -- start &
+fi
+done
+return 0
+}
+stop() {
+for server in `awk '/^config.*service/{print$3}' /etc/config/ddns|tr "\'\"" " " `
+do
+local ddns_enabled=$(uci -q get ddns.$server.enabled)
+if [ "$ddns_enabled" = "1" ]; then
+/usr/lib/ddns/dynamic_dns_updater.sh -S "$server" -- stop
+local ddns_laststatus=$(uci -q get ddns.$server.laststatus)
+[ -n "$ddns_laststatus" -a "$ddns_laststatus" = "loading" ] && {
+uci -q set ddns.$server.laststatus="off"
+uci -q commit ddns
+}
+fi
+done
+return 0
+}
+enabled() {
+for server in `awk '/^config.*service/{print$3}' /etc/config/ddns|tr "\'\"" " " `
+do
+local ddns_enabled=$(uci -q get ddns.$server.enabled)
+[ "$ddns_enabled" = "1" ] && return 0
+done
+return 1
+}
+restart() {
+stop
+sleep 1
+start
+}
+reload() {
+restart
+return 0
+}

@@ -1,0 +1,28 @@
+#!/bin/sh
+
+[ -z "$1" ] && echo "odhcp6c.user Error: should be run by odhcp6c" && exit 1
+
+[ -n "$2" ] && {
+    case "$2" in
+    "ra-updated")
+        wan6_old=$(ip -6 route 2>/dev/null | grep "default via" | awk 'NR==1 {print $3}')
+        [ -z "$wan6_old" ] && return
+
+        res=$(ip -6 route | grep "default from")
+        wan6_gw=$(echo $res | awk 'NR==1 {print $5}')
+        wan6_itf=$(echo $res | awk 'NR==1 {print $7}')
+        [ -z "$wan6_gw" -o -z "$wan6_itf" ] && return
+
+        [ "$wan6_old" == "$wan6_gw" ] && return
+
+        #wan6 server linkaddr changed
+        ip -6 route change default via $wan6_gw dev $1
+        ;;
+
+	"stopped")
+        #flush all deprecated address
+        ip -6 address flush scope global deprecated dynamic
+        ;;
+
+    esac
+}

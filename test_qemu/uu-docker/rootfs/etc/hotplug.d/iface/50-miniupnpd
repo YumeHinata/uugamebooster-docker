@@ -1,0 +1,14 @@
+#!/bin/sh
+logger -p notice -t "hotplug.d" "50-miniupnpd: ACTION=$ACTION, INTERFACE=$INTERFACE"
+
+restart_upnp()
+{
+	local iface
+	for iface in $(uci_get upnpd config internal_iface; uci_get upnpd config external_iface); do
+		[ "$INTERFACE" = "$iface" ] && /etc/init.d/miniupnpd restart
+	done
+}
+
+/etc/init.d/miniupnpd enabled && [ "$ACTION" = "ifup" ] && {
+	restart_upnp
+}

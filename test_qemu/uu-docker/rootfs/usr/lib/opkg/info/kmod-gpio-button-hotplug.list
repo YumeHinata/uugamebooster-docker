@@ -1,0 +1,2 @@
+/lib/modules/5.4.213/gpio-button-hotplug.ko
+/etc/modules.d/30-gpio-button-hotplug

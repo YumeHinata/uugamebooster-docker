@@ -1,0 +1,9 @@
+/sbin/ap_info_report_to_trafficd.lua
+/etc/init.d/trafficd
+/etc/iwevent.d/02-notify_trafficd.sh
+/usr/sbin/trafficd
+/etc/info_sync/topo_change.d/trafficd.sh
+/etc/traffic.d/device/10-ma_device_disassoc.sh
+/sbin/device_event_call
+/etc/hotplug.d/iface/77-traffic
+/usr/sbin/get_uplink_port.sh

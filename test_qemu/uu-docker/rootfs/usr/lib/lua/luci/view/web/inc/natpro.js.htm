@@ -1,0 +1,395 @@
+<script>
+    var isEdit = true
+    var thirdStr = 31
+    var listaddDialog;
+    var selfaddDialog;
+    var enableLast;
+    var ipenable;
+    var selfMac = '<%=mac%>'.toUpperCase();
+    var lanType = '<%=lanType%>';
+    var macSwitchBtn = $('#macfilterswitch');
+    var ipSwitchBtn = $('#ipFilterSwitch');
+    var hardware = '<%=hardware%>';
+    var netmod = '<%=netmod%>';
+    var isMesh = netmod == '3' || netmod == '4';
+    var macWanMode = ""
+    var ipWanMode = "";
+    var ptRulesLength = "";
+    var vsRulesLength = "";
+    var natPro = (function(){
+        return {
+            init : function(){
+                // save ip for later use
+                var ip = $('#bd').data('ip');
+                var iparr = ip.split('.');
+                thirdStr = iparr[2]
+                iparr.pop();
+                //iparr.pop();
+                var firewallIpprefix = iparr.join('.') + '.';
+                window.firewallIpprefix = firewallIpprefix;
+                
+                //Virtual Servers virtualServersList
+                // delPort
+                $('#virtualServersList').on('click', '.delVsRules', function(e) {
+                    e.preventDefault();
+                    var name = $(this).data('name');
+                    var service = $(this).data('service');
+                    var protocol = $(this).data('protocol');
+                    var exports = $(this).data('export');
+                    var inport = $(this).data('inport');
+                    var ip = $(this).data('ip');
+                    var dlg = window.art.dialog({
+                        title: '<%:端口转发%>',
+                        content: '<%:确定要删除这条规则吗？%>',
+                        lock: true,
+                        ok: function() {
+                            natPro.delVsServers(name, service,protocol,exports,inport,ip);
+                        },
+                        cancel: function() {}
+                    })
+                });
+                //set_vs_rules
+                $('body').on('click', '.addVsRules' ,function(e) {
+                    e.preventDefault();
+                    if(vsRulesLength >= 20){
+                        return
+                    }
+                    var dlg = window.art.dialog({
+                        title: '<%:新建端口转发规则%>',
+                        content: StringH.tmpl($('#vsDialog').html(), {thirdStr: thirdStr,isEdit:isEdit}),
+                        initialize: function() {
+                            $.selectBeautify();
+                            $.formInit();
+                            $('.iphere').text(window.firewallIpprefix);
+                        },
+                        lock: true,
+                        okValue: '<%:添加%>',
+                        ok: function() {
+                            e.preventDefault();
+                            var $vsForm = $('#vsForm'),
+                                    data = $vsForm.serialize(), ip;
+    
+                            ip = $vsForm.find('.iphere').text() + $vsForm.find('input[name="ip"]').val();
+                            data = data.replace(/ip=\d{1,3}/, 'ip=' + ip);
+                            var validator = Valid.checkAll( $vsForm[0] );
+                            if (validator) {
+                                natPro.setVsRules(data, 'new');
+                            } else {
+                                return false;
+                            }
+                        }
+                    });
+                });
+                $('body').on('change', '.service' ,function(e) {
+                // $( '.service' ).on( 'change', function( e ){
+                    var serviceType = this.value;
+                    switch (serviceType) {
+                        case 'TELNET':
+                            $(".export").val('23');
+                            $(".inport").val('23');
+                           break;
+                        case 'HTTP':
+                            $(".export").val('80');
+                            $(".inport").val('80');
+                            break;
+                        case 'HTTPS':
+                            $(".export").val('443');
+                            $(".inport").val('443');
+                            break;
+                        case 'FTP':
+                            $(".export").val('21');
+                            $(".inport").val('21');
+                            break;
+                        case 'DNS':
+                            $(".export").val('53');
+                            $(".inport").val('53');
+                            break;
+                        case 'SMTP':
+                            $(".export").val('25');
+                            $(".inport").val('25');
+                            break;
+                        case 'POP3':
+                            $(".export").val('110');
+                            $(".inport").val('110');
+                            break;
+                        case 'H323':
+                            $(".export").val('1720');
+                            $(".inport").val('1720');
+                            break;
+                        case 'REMOTE DESKTOP':
+                            $(".export").val('3389');
+                            $(".inport").val('3389');
+                            break;
+                        case 'PPTP':
+                            $(".export").val('1723');
+                            $(".inport").val('1723');
+                            break;
+                        case 'L2TP':
+                            $(".export").val('1701');
+                            $(".inport").val('1701');
+                            break;
+                        case 'Wake-On-Lan':
+                            $(".export").val('9');
+                            $(".inport").val('9');
+                            break;
+                        default:
+                            $(".export").val('');
+                            $(".inport").val('');
+                            break;
+                    }
+                    $.formInit('#vsForm');
+                })
+                //port trigger
+                // delPort
+                 $('#portTriggerList').on('click', '.delPtRules', function(e) {
+                    e.preventDefault();
+                    var name = $(this).data('name');
+                    var tgport = $(this).data('tgport');
+                    var tgprotocol = $(this).data('tgprotocol');
+                    var exports = $(this).data('export');
+                    var exprotocol = $(this).data('exprotocol');
+                    var dlg = window.art.dialog({
+                        title: '<%:端口触发%>',
+                        content: '<%:确定要删除这条规则吗？%>',
+                        lock: true,
+                        ok: function() {
+                            natPro.delPtRules(name, tgport,tgprotocol,exports,exprotocol);
+                        },
+                        cancel: function() {}
+                    })
+                });
+                //set_pt_rules
+                $('body').on('click', '.addPtRules' ,function(e) {
+                    e.preventDefault();
+                    if(ptRulesLength >= 20){
+                        return
+                    }
+                    var dlg = window.art.dialog({
+                        title: '<%:创建端口触发规则%>',
+                        content: StringH.tmpl($('#ptDialog').html(), {thirdStr: thirdStr,isEdit:isEdit}),
+                        initialize: function() {
+                            $.selectBeautify();
+                            $.formInit();
+                            $('.iphere').text(window.firewallIpprefix);
+                        },
+                        lock: true,
+                        okValue: '<%:添加%>',
+                        ok: function() {
+                            e.preventDefault();
+                            var $ptForm = $('#ptForm'),
+                                    data = $ptForm.serialize();
+                            var validator = Valid.checkAll( $ptForm[0] );
+                            if (validator) {
+                                natPro.setPtRules(data, 'new');
+                            } else {
+                                return false;
+                            }
+                        }
+                    });
+                });
+                $("body").on('click','.algApply',function(e) {
+                    e.preventDefault();
+                    var _this = $(this)
+                    var data = {
+                        "pptp": $(".pptp").prop('checked') ? '1' : '0',
+                        "l2tp": $(".l2tp").prop('checked') ? '1' : '0',
+                        "ipsec":$(".ipsec").prop('checked') ? '1' : '0', 
+                        "sip":  $(".sip").prop('checked') ? '1' : '0', 
+                        "ftp":  $(".ftp").prop('checked') ? '1' : '0', 
+                        "tftp": $(".tftp").prop('checked') ? '1' : '0',  
+                        "rtsp": $(".rtsp").prop('checked') ? '1' : '0', 
+                        "h323": $(".h323").prop('checked') ? '1' : '0'
+                    };
+                    
+                    $.post(natPro.url.setAlgPassthrough, data, function(rsp) {
+                        if (rsp.code === 0) {
+                            _this.parents('form').find('.btn-primary').addClass('hidden');
+                        }else{
+                            $.alert( rsp.msg );
+                        }
+                    }, 'json')
+                });
+                
+                $('body').on('click','input[type=checkbox]', function(e) {
+                    $(this).parents('form').find('.btn-primary').removeClass('hidden');
+                })
+                $('.helpOpen .ico').on('click', function(){
+                    $(this).siblings(".arrow-wrap").show();
+                    $(this).parents(".mod-set").find(".section-help").show()
+                });
+                //端口触发和虚拟服务器文本提示
+                $('.help-close').on('click', function(){
+                    $(this).parents(".mod-set").find(".arrow-wrap").hide()
+                    $(this).parents(".section-help").hide()
+                });
+                natPro.getVsRulesList();
+                natPro.getPtRulesList();
+            },
+            
+            delVsServers: function(name,service,protocol,exports,inport,ip) {
+                $.post(natPro.url.delVsServers, {name: name, service: service,protocol:protocol,export:exports,inport:inport,ip:ip}, function(rsp) {
+                    if (rsp.code === 0) {
+                        natPro.getVsRulesList();
+                    } else {
+                        $.dialog({
+                            title: '<%:端口转发%>',
+                            content: rsp.msg,
+                            lock: true,
+                            time: 5*1000
+                        });
+                    }
+                }, 'json');
+            },
+            getVsRulesList: function() {
+                
+                var url = natPro.url.getVsRules;
+                var tit = '<%:端口转发%>'
+                var htmlAdd = '<tr><td colspan="6"><a class="btn btn-dft addVsRules btn-l" href="#" ><span><%:添加规则%></span></a></td></tr>'
+            
+                $.getJSON(url,function(rsp) {
+                    var html;
+                    if (rsp.code === 0) {
+                        isEdit = rsp.lanmask == '255.255.0.0'
+                        vsRulesLength = rsp.list.length;
+                        if (rsp.list.length !== 0) {
+                            html = StringH.tmpl($('#vsList').html(), {arr: rsp.list});
+                            $('#virtualServersList').html(html);
+                            $('#virtualServersList').append(htmlAdd)
+                        } else {
+                            $('#virtualServersList').html(htmlAdd);
+                        }
+                        if(rsp.list.length >= 20){
+                            $(".addVsRules").addClass("btn-dft-disabled");
+                        }else{
+                            $(".addVsRules").removeClass("btn-dft-disabled");
+                        }
+                    } else {
+                        $.dialog({
+                            title: tit,
+                            content: rsp.msg,
+                            lock: true,
+                            time: 5*1000
+                        });
+                        $(".addVsRules").removeClass("btn-dft-disabled");
+                    }
+                });
+            },
+            setVsRules: function(data, type) {
+                $.post(natPro.url.setVsRules, data, function(rsp) {
+                    if (rsp.code === 0) {
+                        natPro.getVsRulesList();
+                        if (type === 'new') {
+                            // 成功后清空form
+                            $('#vsForm').find('input:not(".dummy")').val('');
+                        }
+                    } else {
+                        $.dialog({
+                            title: '<%:端口转发%>',
+                            content: rsp.msg,
+                            lock: true,
+                            time: 5*1000
+                        });
+                    }
+                }, 'json');
+            },
+            delPtRules: function(name,tgport,tgprotocol,exports,exprotocol) {
+                $.post(natPro.url.delPtRules, {name: name, tgport: tgport,tgprotocol:tgprotocol,export:exports,exprotocol:exprotocol}, function(rsp) {
+                    if (rsp.code === 0) {
+                        natPro.getPtRulesList();
+                    } else {
+                        $.dialog({
+                            title: '<%:端口触发%>',
+                            content: rsp.msg,
+                            fixed: true,
+                            lock: true,
+                            time: 5*1000
+                        });
+                    }
+                }, 'json');
+            },
+            getPtRulesList: function() {
+                var url = natPro.url.getPtRules;
+                var tit = '<%:端口触发%>';
+                var htmlAdd = '<tr><td colspan="6"><a class="btn btn-dft addPtRules btn-l" href="#"><span><%:添加规则%></span></a></td></tr>'
+            
+                $.getJSON(url,function(rsp) {
+                    var html;
+                    if (rsp.code === 0) {
+                        isEdit = rsp.lanmask == '255.255.0.0'
+                        ptRulesLength = rsp.list.length;
+                        if(rsp.list.length >= 20){
+                            $(".addPtRules").addClass("btn-dft-disabled");
+                        }else{
+                            $(".addPtRules").removeClass("btn-dft-disabled");
+                        }
+                        if (rsp.list.length !== 0) {
+                            html = StringH.tmpl($('#ptList').html(), {arr: rsp.list});
+                            $('#portTriggerList').html(html);
+                            $('#portTriggerList').append(htmlAdd)
+                        } else {
+                            $('#portTriggerList').html(htmlAdd);
+                        }
+                    } else {
+                        $.dialog({
+                            title: tit,
+                            content: rsp.msg,
+                            lock: true,
+                            fixed: true,
+                            time: 5*1000
+                        });
+                        $(".addPtRules").removeClass("btn-dft-disabled");
+                    }
+                });
+            },
+            setPtRules: function(data, type) {
+                $.post(natPro.url.setPtRules, data, function(rsp) {
+                    if (rsp.code === 0) {
+                        natPro.getPtRulesList();
+                        if (type === 'new') {
+                            // 成功后清空form
+                            $('#ptForm').find('input:not(".dummy")').val('');
+                        }
+                    } else {
+                        $.dialog({
+                            title: '<%:端口触发%>',
+                            content: rsp.msg,
+                            fixed: true,
+                            lock: true,
+                            time: 5*1000
+                        });
+                    }
+                }, 'json');
+            },
+            getAlgData:function() {
+                $.getJSON('<%=luci.dispatcher.build_url("api", "xqsystem", "get_alg_rules")%>',function(rsp) {
+                    if (rsp.code === 0) {
+                        $(".pptp").prop('checked',rsp.alg_status.pptp==1?1:0);
+                        $(".l2tp").prop('checked',rsp.alg_status.l2tp==1?1:0);
+                        $(".ipsec").prop('checked',rsp.alg_status.ipsec==1?1:0);
+                        $(".sip").prop('checked',rsp.alg_status.sip==1?1:0);
+                        $(".ftp").prop('checked',rsp.alg_status.ftp==1?1:0);
+                        $(".tftp").prop('checked',rsp.alg_status.tftp==1?1:0);
+                        $(".rtsp").prop('checked',rsp.alg_status.rtsp==1?1:0);
+                        $(".h323").prop('checked',rsp.alg_status.h323==1?1:0);
+    
+                    }
+                })
+            },
+            url: {
+                'setVsRules': '<%=luci.dispatcher.build_url("api", "xqsystem", "set_vs_rules")%>',
+                'delVsServers': '<%=luci.dispatcher.build_url("api", "xqsystem", "del_vs_rules")%>',
+                'getVsRules':'<%=luci.dispatcher.build_url("api", "xqsystem", "get_vs_rules")%>',
+                'delPtRules': '<%=luci.dispatcher.build_url("api", "xqsystem", "del_pt_rules")%>',
+                'setPtRules': '<%=luci.dispatcher.build_url("api", "xqsystem", "set_pt_rules")%>',
+                'getPtRules':'<%=luci.dispatcher.build_url("api", "xqsystem", "get_pt_rules")%>',
+                'setAlgPassthrough':'<%=luci.dispatcher.build_url("api", "xqsystem", "set_alg_rules")%>',
+            }
+        }
+    }());
+    $(function(){
+        natPro.init();
+        natPro.getAlgData()
+        $(".natForward").show();
+    })
+</script>
+    

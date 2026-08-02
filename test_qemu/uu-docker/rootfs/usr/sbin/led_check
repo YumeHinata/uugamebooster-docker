@@ -1,0 +1,18 @@
+#!/bin/sh
+# Turn off led if configured
+
+# turn off status led
+led=$(uci -q get xiaoqiang.common.BLUE_LED)
+[ "$led" = "0" ] && xqled sys_off && xqled func_off
+
+# turn off ambient led
+xled=$(uci -q get xiaoqiang.common.XLED)
+[ "$xled" = "0" ] && xqled led_amb_off
+
+# turn off ethernet led
+ethled=$(uci -q get xiaoqiang.common.ETHLED)
+[ "$ethled" = "0" ] && xqled led_eth_off
+
+# turn off xled event
+xled_event=$(uci -q get xqled.handle_event.value)
+[ "$xled_event" = "0" ] && led_ctl event_toggle 0

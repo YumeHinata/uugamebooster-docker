@@ -1,0 +1,55 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+. /lib/config/uci.sh
+
+check_vpn() {
+    local mode=$(uci -q get xiaoqiang.common.NETMODE)
+    if [ "$mode" = "wifiapmode" -o "$mode" = "lanapmode" -o "$mode" = "whc_re" -o "$mode" = "cpe_bridgemode" ]; then
+        exit 0
+    fi
+    [ ! -f "/usr/sbin/vpn.lua" ] && exit 0
+
+    local vpn=$(uci -q get network.vpn)
+    [ -z "$vpn" ] && exit 0
+
+    local vpndisabled=$(uci -q get network.vpn.disabled)
+    [ "$vpndisabled" = "1" ] && exit 0
+}
+
+boot() {
+    local wanproto
+    local control_wan="wan"
+
+    check_vpn
+
+    [ -f "/usr/sbin/mwan3" ] && control_wan=$(/usr/sbin/mwan3 curr_wan ipv4)
+    wanproto=$(uci -q get network."$control_wan".proto)
+
+    if [ "$wanproto" != "pppoe" ]; then
+        start
+    else
+        (sleep 10; start) &
+    fi
+}
+
+start() {
+
+    #check_vpn
+
+    local vpnauto=$(uci -q get network.vpn.auto)
+    local vpnproto=$(uci -q get network.vpn.proto)
+    local useroption=$(uci_get_state network vpn user_option "1")
+
+    [ "$vpnauto" = "1" -a "$vpnproto" = "pptp" -a "$useroption" = "1" ] && {
+        local vpnstatus=$(ifstatus vpn | grep \"up\" | cut -d ' ' -f 2 | cut -d ',' -f 1)
+        [ "$vpnstatus" = "false" ] && {
+            ifdown vpn
+            /usr/sbin/vpn.lua up
+        }
+    }
+
+    return 0
+}
+

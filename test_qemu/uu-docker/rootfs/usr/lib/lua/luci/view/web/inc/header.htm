@@ -1,0 +1,439 @@
+<%
+    local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+    local XQTopology = require("xiaoqiang.module.XQTopology")
+    local homeUrl = '/'
+    if XQSysUtil.getInitInfo() then
+        homeUrl = luci.dispatcher.build_url("web", "home")
+    end
+    local XQFunction = require("xiaoqiang.common.XQFunction")
+    local router_name = XQFunction.getRouterName()
+    -- ap model
+    local netMode = 0
+    local MeshType = 0
+
+    local mode = XQFunction.getNetMode()
+    if mode == "lanapmode" then
+        netMode = 2
+    elseif mode == "wifiapmode" then
+        netMode = 1
+    elseif mode == "whc_cap" then
+        --mesh主设备
+        netMode = 0
+    elseif mode == "whc_re" then
+         --mesh从设备
+        netMode = 3
+    end
+    local hardware = string.lower( XQSysUtil.getHardware() )
+    local storageSupport = XQFunction.getFeature('0', 'apps', 'storage')
+    local dockerSupport = XQFunction.getFeature('0', 'apps', 'docker')
+    local ports_custom = XQFunction.getFeature('0', 'apps', 'ports_custom')
+    local lan_port = XQFunction.getFeature('0', 'apps', 'lanPort')
+    local split5gSupport = XQFunction.getFeature('0', 'wifi', 'split5g')
+    local showTopoLink = 0
+
+
+    local netmod = 0
+    local netmod = XQFunction.getnetmode()
+    local meshVersion = XQFunction.getMeshVersion()
+    local XQLanWanUtil = require("xiaoqiang.util.XQLanWanUtil")
+    ip = XQLanWanUtil.getLanIp()
+    topo_url = "http://" .. ip .. "/cgi-bin/luci/web/topo"
+    if mode == "lanapmode" then
+        netmod = 5
+    end
+    --4 mesh主设备  whc_cap
+    --3 mesh从设备  whc_re
+    --5 mesh lanap mode	
+    --0 router
+
+
+    local topo = XQTopology.topologicalGraph()
+    local leafs = topo["leafs"]
+    if leafs and #leafs > 0 then
+        showTopoLink = 1
+    end
+%>
+<noscript>
+<div class="noscript"><%:你的浏览器禁止了Javascript功能，会造成无法使用系统进行路由器管理，请开启。%></div>
+</noscript>
+<script>
+var GLOBALHEADER = true;
+</script>
+<div id="hd">
+    <div class="inner">
+        <div class="mod-head clearfix">
+            <h1 id="logo"><a href="<%=homeUrl%>"><img src="<%=resource%>/web/img/logo.png?v=<%=ver%>" alt="<%:小米路由器%>"></a></h1>
+            <div id="nav">
+                <!-- <%:netMode header=%><%=netMode%> -->
+                <%if netMode == 0 then%>
+                <ul>
+                    <li <%if string.find(REQUEST_URI, "/home") then%>class="active"<%end%> style="margin-right: 70px"><a href="<%=luci.dispatcher.build_url("web", "home")%>"><%:路由状态%></a></li>
+                    <%if storageSupport == '1' then%>
+                    <li <%if string.find(REQUEST_URI, "/store") then%>class="active"<%end%> style="margin-right: 70px"><a href="<%=luci.dispatcher.build_url("web", "store", "storesetting")%>"><%:存储功能%></a></li>
+                    <%end%>
+                    <li <%if string.find(REQUEST_URI, "/setting") then%>class="active"<%end%> style="margin-right: 70px"><a href="<%=luci.dispatcher.build_url("web", "setting", "wifi")%>"><%:常用设置%></a></li>
+
+                    <li <%if string.find(REQUEST_URI, "/prosetting") then%>class="active"<%end%> style="margin-right: 70px"><a href="<%=luci.dispatcher.build_url("web","prosetting","qos")%>"><%:高级设置%></a></li>
+
+                </ul>
+                <%elseif netMode==3 then%>
+                <ul>
+                    <li <%if string.find(REQUEST_URI, "/home") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web", "home")%>"><%:子Mesh状态%></a></li>
+                    <%if storageSupport == '1' then%>
+                    <li <%if string.find(REQUEST_URI, "/store") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web", "store", "storesetting")%>"><%:存储功能%></a></li>
+                    <%end%>
+                    <li <%if string.find(REQUEST_URI, "/apsetting") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web", "apsetting", "upgrade")%>"><%:子Mesh设置%></a></li>
+                    <li <%if string.find(REQUEST_URI, "/prosetting") then%>class="active"<%end%> style="margin-right: 70px"><a href="<%=luci.dispatcher.build_url("web","prosetting","networkportcustom")%>"><%:高级设置%></a></li>
+                </ul>
+                <%else%>
+                <ul>
+                    <li <%if string.find(REQUEST_URI, "/home") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web", "home")%>"><%:中继状态%></a></li>
+                    <%if storageSupport == '1' then%>
+                    <li <%if string.find(REQUEST_URI, "/store") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web", "store", "storesetting")%>"><%:存储功能%></a></li>
+                    <%end%>
+                    <li <%if string.find(REQUEST_URI, "/apsetting") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web", "apsetting", "wifi")%>"><%:中继设置%></a></li>
+                    <li <%if string.find(REQUEST_URI, "/prosetting") then%>class="active"<%end%> style="margin-right: 70px"><a href="<%=luci.dispatcher.build_url("web","prosetting","networkportcustom")%>"><%:高级设置%></a></li>
+                </ul>
+                <%end%>
+            </div>
+            <div id="userbar">
+                <%if (hardware == "d01")then%>
+                    <span class="goto-topo"><a href="http://miwifi.com/" target="_blank"><%:查看网络拓扑图%></a></span>
+                <%end%>
+                <%if (showTopoLink==1 and hardware~="d01") then%>
+                    <span class="goto-topo"><a href="<%=topo_url%>" target="_blank"><%:查看完整网络%></a></span>
+                <%end%>
+
+
+                <%if (netmod == 4 or netmod == 0 or netmod == 5)then%>
+                   <span id="addMesh" style="cursor:pointer;margin-top:6px;margin-left:15px"><%:添加Mesh子路由%></span>
+                <%end%>
+
+                <span id="sysmenu" class="name s-dropdown" style="margin-left:15px;margin-right:15px;max-width:8em;"><%=router_name%></span>
+                <span id="sysnotice" class="ico-notice"></span>
+            </div>
+        </div>
+
+        <%if string.find(REQUEST_URI, "/store") then%>
+        <div class="mod-set-nav">
+            <ul class="clearfix li-5">
+                <%if storageSupport == '1' then%>
+                <li <%if string.find(REQUEST_URI, "/storesetting") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "store", "storesetting")%>">
+                        <i class="ico ico-14"></i>
+                        <span><%:存储设置%></span>
+                    </a>
+                </li>
+                <%end%>
+                <%if dockerSupport == '1' then%>
+                <li <%if string.find(REQUEST_URI, "/docker") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "store", "docker")%>">
+                        <i class="ico ico-13"></i>
+                        <span><%:DOCKER%></span>
+                    </a>
+                </li>
+                <%end%>
+            </ul>
+        </div>
+        <%end%>
+        <%if string.find(REQUEST_URI, "/setting") then%>
+        <div class="mod-set-nav">
+            <ul class="clearfix li-5">
+                <li <%if string.find(REQUEST_URI, "/wifi") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "setting", "wifi")%>">
+                        <i class="ico ico-1"></i>
+                        <span><%:Wi-Fi设置%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/wan") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "setting", "wan")%>">
+                        <i class="ico ico-2"></i>
+                        <span><%:上网设置%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/safe") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "setting", "safe")%>">
+                        <i class="ico ico-3"></i>
+                        <span><%:安全中心%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/lannetset") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "setting", "lannetset")%>">
+                        <i class="ico ico-4"></i>
+                        <span><%:局域网设置%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/upgrade") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "setting", "upgrade")%>">
+                        <i class="ico ico-5"></i>
+                        <span><%:系统设置%></span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+        <%end%>
+
+        <%if string.find(REQUEST_URI, "/apsetting") then%>
+        <div class="mod-set-nav mod-ap-set-nav">
+            <%if hardware == "r3a" or hardware == "r3g" or hardware == "r4ac" then%>
+            <ul class="clearfix li-5">
+                <li <%if string.find(REQUEST_URI, "/wifi") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "wifi")%>">
+                        <i class="ico ico-1"></i>
+                        <span><%:Wi-Fi设置%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/wan") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "wan")%>">
+                        <i class="ico ico-2"></i>
+                        <span><%:上网设置%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/safe") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "safe")%>">
+                        <i class="ico ico-3"></i>
+                        <span><%:安全中心%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/upgrade") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "upgrade")%>">
+                        <i class="ico ico-5"></i>
+                        <span><%:系统设置%></span>
+                    </a>
+                </li>
+
+                <li <%if string.find(REQUEST_URI, "/roam") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "roam")%>">
+                        <i class="ico ico-7"></i>
+                        <span><%:其他%></span>
+                    </a>
+                </li>
+            </ul>
+             <%elseif (hardware == "d01" and netMode == 3 ) then%>
+             <ul class="clearfix li-1">
+              <li <%if string.find(REQUEST_URI, "/upgrade") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "upgrade")%>">
+                        <i class="ico ico-5"></i>
+                        <span><%:系统设置%></span>
+                    </a>
+                </li>
+             </ul>
+            <%elseif ( netmod == 3 ) then%>
+             <ul class="clearfix li-2">
+                <%if split5gSupport == '1' then%>
+                <li <%if string.find(REQUEST_URI, "/wifi") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "wifi")%>">
+                        <i class="ico ico-1"></i>
+                        <span><%:Wi-Fi设置%></span>
+                    </a>
+                </li>
+                <%end%>
+                <li <%if string.find(REQUEST_URI, "/upgrade") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "upgrade")%>">
+                        <i class="ico ico-5"></i>
+                        <span><%:系统设置%></span>
+                    </a>
+                </li>
+             </ul>
+
+            <%else%>
+            <ul <%if lan_port == "1" then%> class="clearfix li-5"<%else%>class="clearfix li-4"<%end%>>
+                <li <%if string.find(REQUEST_URI, "/wifi") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "wifi")%>">
+                        <i class="ico ico-1"></i>
+                        <span><%:Wi-Fi设置%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/wan") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "wan")%>">
+                        <i class="ico ico-2"></i>
+                        <span><%:上网设置%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/safe") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "safe")%>">
+                        <i class="ico ico-3"></i>
+                        <span><%:安全中心%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/upgrade") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "apsetting", "upgrade")%>">
+                        <i class="ico ico-5"></i>
+                        <span><%:系统设置%></span>
+                    </a>
+                </li>
+            </ul>
+            <%end%>
+        </div>
+        <%end%>
+
+        <%if string.find(REQUEST_URI, "/prosetting") then%>
+        <div class="mod-set-nav mod-set-nav-pro">
+            <ul class="clearfix li-6" id="prosetting">
+                <%if netMode == 0 then%>
+                <li <%if string.find(REQUEST_URI, "/qos")  then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web","prosetting","qos")%>">
+                        <i class="ico ico-6"></i>
+                        <span><%:QoS智能限速%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/ddns") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "prosetting", "ddns")%>">
+                        <i class="ico ico-9"></i>
+                        <span><%:DDNS%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/nat")  then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "prosetting", "nat")%>">
+                        <i class="ico ico-10"></i>
+                        <span><%:端口转发%></span>
+                    </a>
+                </li>
+                <li <%if string.find(REQUEST_URI, "/vpn") then%>class="active"<%end%>>
+                    <a href="<%=luci.dispatcher.build_url("web", "prosetting", "vpn")%>">
+                        <i class="ico ico-11"></i>
+                        <span><%:VPN%></span>
+                    </a>
+                </li>
+                <%end%>
+                <%if ports_custom == "1" then%>
+                    <li <%if string.find(REQUEST_URI, "/networkportcustom") then%>class="active"<%end%>><a href="<%=luci.dispatcher.build_url("web","prosetting","networkportcustom")%>">
+                            <i class="ico ico-16"></i>
+                        <span><%:网口自定义%></span>
+                        </a>
+                    </li>
+                <%end%>
+            </ul>
+        </div>
+        <%end%>
+    </div>
+</div>
+
+<script type="tmpl/html" id="tmplMeshMode">
+<div class="netmode-switch-dialog-cont">
+    <div class="switch-step step-select" id="mesh-select" style="display:block;overflow:hidden">
+        <div class="mesh_title"><%:添加Mesh子路由%></div>
+        <div class="mesh_content">
+            <p style="font-weight: bold;"><%:您可以选择以下两种方式来新增Mesh子路由%></p>
+            <p style="font-weight: bold;margin-top:6px"><%:无线组网：%></p>
+            <p style="margin-top:6px;"><%:1、将未配置过的路由器作为子路由，放置在需要Wi-Fi信号覆盖的房间 （如已配置请长按Reset按键5秒以上进行重置）  %></p>
+            <!-- <p style="color:#979797;;"><%:*请确保此路由器处于未配置状态，如已配置请长按Reset按键5秒以上进行重置%></p> -->
+            <%:2、接通子路由电源，等待System指示灯变成蓝色或白色常亮（颜色取决于具体型号）%><br/>
+            <%:3、点击开始搜索%><br/>
+            <p style="margin-top:6px;font-weight: bold;"><%:有线组网：%></p>
+            <%:1、将未配置过的子路由WAN口与主路由LAN口通过网线连接%><br/>
+            <%:2、将子路由上电，启动完成后将自动进行组网，组网时子路由Internet指示灯快闪%><br/>
+        </div>
+        <button class="mesh_buttons" id="mesh_search">开始搜索</button>
+    </div>
+
+    <div id="mesh-overMaxLength" class="switch-step">
+         <div class="mesh_title"><%:温馨提示%></div>
+         <div class="mesh_content">
+              <p class="content">
+             为保证Mesh网络良好的使用体验，当前至多可支持10台Mesh路由器组网，更多Mesh路由器建议组成新的Mesh网络。
+              </p>
+          </div>
+           <button class="mesh_buttons" id="mesh-close-button">知道了</button>
+    </div>
+
+     <div id="mesh-Off-5G" class="switch-step">
+         <div class="mesh_title"><%:添加Mesh节点%></div>
+         <div class="mesh_content">
+              <p class="content">
+             搜索并添加Mesh节点时，请先到Wi-Fi设置页面，开启5G Wi-Fi。
+              </p>
+          </div>
+           <button class="mesh_buttons" id="setting-5G-button">去开启</button>
+
+    </div>
+
+    <div class="switch-step step-search-loading" id="mesh-search-loading">
+        <div class="mesh_title"><%:搜索要添加的Mesh子路由%></div>
+        <img id="loading_mesh" src="<%=resource%>/web/img/mesh_loading.png"/>
+        <div class="mesh_content" style="text-align:center">搜索Mesh子路由...</div>
+        <button class="mesh_buttons" id="mesh_search_cancle">取消</button>
+    </div>
+
+
+    <div class="switch-step step-search-lists"  id="mesh-search-lists">
+        <div class="mesh_title"><%:选择要添加的Mesh子路由%></div>
+        <div class="list_box"></div>
+        <button class="mesh_Dbuttons mesh_add_Dbuttons " id="show_locate_select">添加</button>
+        <button class="mesh_Dbuttons mesh_research_Dbuttons" id="mesh-research-btn">重试</button>
+    </div>
+
+    <div id="mesh_list_length0"  class="switch-step">
+      <div class="mesh_title"><%:未找到可用的Mesh子路由%></div>
+      <img class="fail_me" src="<%=resource%>/web/img/mesh_fail.png"/>
+      <div class="mesh_content">
+          <p>可以尝试以下方法：</p>
+          <p>1、确认主路由与待添加的子路由均支持小米Mesh组网功能：<a href="http://www1.miwifi.com/mesh_device/index.html" target="_blank">支持小米Mesh组网的路由产品</a></p>
+          <p>2、确保待添加的子路由处于未配置状态（长按Reset按钮5秒后即可恢复成未配置状态）;</p>
+          <p>3、将待添加的子路由靠近主路由并重试（注意保持1米以外的距离以免干扰）；</p>
+          <p>4、将待添加的子路由升至最新固件，并重置后重试</p>
+      </div>
+      <button class="mesh_buttons" id="mesh_re_search">重新搜索</button>
+    </div>
+
+
+    <div class="switch-step step-add-loading"  id="mesh-add-loading">
+        <div class="mesh_title"><%:正在扩展Mesh网络%></div>
+        <img id="loading_mesh" src="<%=resource%>/web/img/mesh_loading.png"/>
+        <p class="head"><%:正在连接Mesh子路由...%></p>
+    </div>
+
+    <div class="switch-step step-add-success"  id="mesh-add-success">
+        <div class="mesh_title"><%:Mesh网络扩展成功%></div>
+        <img class="success_me" src="<%=resource%>/web/img/mesh_success.png"/>
+        <button class="mesh_buttons" id="mesh_add_success"><%:完成%></button>
+    </div>
+
+    <div class="switch-step step-add-failer"  id="mesh-add-failer">
+    <div class="mesh_title"><%:Mesh网络扩展失败%></div>
+        <img class="fail_me" src="<%=resource%>/web/img/mesh_fail.png"/>
+        <div class="mesh_content">
+            <p>可以尝试以下方法：</p>
+            <p>1、将待添加的子路由靠近主路由并重试（注意保持1米以外的距离以免干扰）；</p>
+            <p>2、将主路由升至最新固件版本；</p>
+            <p>3、将待添加的子路由升至最新固件，并重置后重试（长按Reset按钮5秒后即可重置）</p>
+          
+        </div>
+        <button class="mesh_buttons" id="mesh_re_try">重试</button>
+    </div>
+    <div id="mesh-local" class="switch-step" style="display:none;">
+        <div class="mesh_title"><%:选择放置的位置%></div>
+        <div class="mesh_content">
+            <div class="form-item-select" style="margin-left:105px">
+                <select id="locateSelect" name="locateSelect" class="beautify">
+                    <option selected value="客厅">客厅</option>
+                    <option value="主卧">主卧</option>
+                    <option value="次卧">次卧</option>
+                    <option value="书房">书房</option>
+                    <option value="厨房">厨房</option>
+                    <option value="办公室">办公室</option>
+                    <option value="地下室">地下室</option>
+                    <option value="卫生间">卫生间</option>
+                    <option value="阁楼">阁楼</option>
+                    <option value="阳台">阳台</option>
+                    <option value="餐厅">餐厅</option>
+                </select>
+            </div>
+        </div>
+        <div style="clear:both">
+            <button class="mesh_buttons" id="mesh_search_add">确认</button>
+        </div>
+    </div>
+</div>
+</script>
+<script type="text/javascript">
+    try{
+        var children = document.getElementById('prosetting').children
+        var domArr = Array.prototype.slice.call(children)
+        var prosettingLen = children.length
+        var prosettingLiWidth = parseFloat((100 / prosettingLen).toFixed( 3 )) + '%'
+        for( var i = 0; i < domArr.length; i++){
+        domArr[i].style = 'width:' + prosettingLiWidth
+        }
+    }catch(e){}
+
+</script>

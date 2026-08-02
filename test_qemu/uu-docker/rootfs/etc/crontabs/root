@@ -1,0 +1,14 @@
+*/5 * * * * command -v sp_check.sh >/dev/null && sp_check.sh
+*/2 * * * * command -v logrotate >/dev/null && logrotate /etc/logrotate.conf
+*/15 * * * * /usr/sbin/ntpsetclock 60 log >/dev/null 2>&1
+* * * * * /usr/sbin/startscene_crontab.lua `/bin/date "+%u %H:%M"`
+1 3,4,5 * * * /usr/sbin/otapredownload >/dev/null 2>&1
+*/3 * * * * /usr/sbin/mobile_accel.sh check >/dev/null 2>&1
+0 3 * * * /usr/bin/downloadtool_run_safe.sh complete_record clear >/dev/null
+0 */6 * * * command -v sec_cfg_bak.sh >/dev/null && sec_cfg_bak.sh
+
+* * * * * run-parts -a 1min /etc/periodic
+*/5 * * * * run-parts -a 5min /etc/periodic
+*/10 * * * * run-parts -a 10min /etc/periodic
+3 * * * * run-parts -a hourly /etc/periodic
+6 1 * * * run-parts -a daily /etc/periodic

@@ -1,0 +1,49 @@
+#!/bin/sh
+
+REG_FILE="/usr/sbin/r5g_reg"
+R5G_DIR="/tmp/r5g_reg_dir"
+R5G_DIS_FALG="${R5G_DIR}/r5g_dis"
+REG_NORMAL_FLAG="${R5G_DIR}/reg_normal_flag"
+REG_INFO_NORMAL="reg_info_normal"
+REG_INFO_ERROR="reg_info_error"
+log_zip_file="r5g_reginfo.tar.gz"
+
+get_reg_info()
+{
+	reg_info_file="$1"
+	echo > ${reg_info_file}
+	for i in `cat ${REG_FILE}`
+	do
+		devmem2 $i | grep Value | awk '{print $4":"$6}' >> ${reg_info_file}
+	done
+}
+
+upload_reginfo()
+{
+	tar -zcf ${log_zip_file} "${REG_INFO_ERROR}.1" "${REG_INFO_ERROR}.2" "${REG_INFO_NORMAL}.1" "${REG_INFO_NORMAL}.2"
+	mtd_crash_log -a ${log_zip_file}
+}
+
+[ ! -d ${R5G_DIR} ] && mkdir -p ${R5G_DIR}
+
+[ ! -f ${R5G_DIS_FALG} ] && {
+	value="`athdiag --device=/sys/bus/pci/devices/0000\:01\:00.0/ --get --address=0x81008 | awk -F " " '/Value/{print $6}'`"
+	if [ "${value}" = "0xffffffff" ]; then
+		touch ${R5G_DIS_FALG}
+		logger stat_points_none r3d_5g_stat="1"
+		# get reg info when 5g disappear
+		cd ${R5G_DIR}
+		get_reg_info "${REG_INFO_ERROR}.1"
+		sleep 1
+		get_reg_info "${REG_INFO_ERROR}.2"
+		upload_reginfo
+	else
+		if [ ! -f ${REG_NORMAL_FLAG} ]; then
+			cd ${R5G_DIR}
+			get_reg_info "${REG_INFO_NORMAL}.1"
+			sleep 1
+			get_reg_info "${REG_INFO_NORMAL}.2"
+			touch ${REG_NORMAL_FLAG}
+		fi
+	fi
+}

@@ -1,0 +1,4 @@
+/lib/mimesh/mimesh_public.sh
+/lib/mimesh/mimesh_sync.sh
+/lib/mimesh/mimesh_stat.sh
+/usr/sbin/mesh_cmd

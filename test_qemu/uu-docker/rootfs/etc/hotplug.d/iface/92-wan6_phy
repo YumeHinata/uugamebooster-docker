@@ -1,0 +1,32 @@
+#!/bin/sh
+
+logger -p notice -t "hotplug.d" "92-wan6_phy: wan detect run because of $INTERFACE $ACTION"
+
+UCI_GET="uci -q get "
+UCI_SHOW="uci -q show "
+
+[ "${INTERFACE:0:3}" != "eth" -a "$INTERFACE" != "internet" ] && return
+
+wan6_iface_list=$($UCI_SHOW ipv6 | grep "ipv6.wan6[_0-9]*=wan" | awk -F"[.|=]" '{print $2}' | xargs echo -n)
+for wan6_iface in $wan6_iface_list; do
+    mode=$($UCI_GET ipv6.${wan6_iface}.mode)
+    [ "$mode" = "off" ] && continue
+    wan_iface=${wan6_iface/6/}
+    automode=$($UCI_GET ipv6.${wan6_iface}.automode)
+    wandt=$($UCI_GET port_service.${wan_iface}.wandt)
+    wan_ifname=$($UCI_GET network.${wan_iface}.ifname)
+    wan6_ifname=$($UCI_GET network.${wan6_iface}.ifname)
+    pass_ifname=$($UCI_GET network.${wan6_iface}.pass_ifname)
+    [ "$wandt" != "1" ] && {
+        [ "$wan6_ifname" = "${INTERFACE/_/.}" -o "$pass_ifname" = "${INTERFACE/_/.}" -o "$wan_ifname" = "br-$INTERFACE" ] && {
+            [ "$automode" = "1" -a "$ACTION" = "ifdown" ] && {
+                /usr/sbin/ipv6.sh autocheck "$wan6_iface" clear_result &
+            }
+            [ "$mode" = "passthrough" ] && {
+                [ "$ACTION" = "ifup" ]   && ifup "$wan6_iface"
+                [ "$ACTION" = "ifdown" ] && ifdown "$wan6_iface"
+            }
+        }
+    }
+done
+

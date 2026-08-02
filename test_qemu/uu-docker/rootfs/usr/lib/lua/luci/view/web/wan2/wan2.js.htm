@@ -1,0 +1,598 @@
+<%
+local xqlanwanutil = require "xiaoqiang.util.XQLanWanUtil"
+local mac2default = string.upper(xqlanwanutil.getDefaultWan2MacAddress())
+%>
+<script>
+    var wan1Mac = ''
+    var askcount = 0
+    var cachePPPoE = {}
+    var pppoeInfo = {}
+    var WAN_TYPE_MAP = {
+        0: 'pppoe',
+        1: 'dhcp',
+        2: 'static'
+    }
+    $(function(){
+        $.sub('wan2Switch', function( evt, data ){
+            var root = $('#wan2Set'),
+                status = $('#wan2_wanStatus'),
+                tab = root.find( '#wan2_wantypeselect' ),
+                tabCon = root.find( '.tab-con-item' ),
+                index = data['index'];
+                tab.val(index);
+                tabCon.removeClass( 'active' ).eq( index ).addClass( 'active' );
+            if (index === '0') {
+                var $inputpppoeName = $( '#wan2Set input[name="pppoeName"]' ),
+                    $pppoePwd = $( '#wan2Set input[name="pppoePwd"]' );
+                if ( cachePPPoE['pppoeName'] && cachePPPoE['pppoeName'] !== '' ) {
+                    $inputpppoeName.val( cachePPPoE['pppoeName'] );
+                    $pppoePwd.val( cachePPPoE['pppoePassword'] );
+                    $.formInit('#wan2_pppoe');
+                }
+            }
+        });
+        $(document.body ).delegate( '#wan2_wantypeselect', 'change', function( e ){
+            e.preventDefault();
+
+            var tar = this,
+                $tar = $(tar),
+                switchto = $tar.val();
+            // clearTimeout( timer );
+            setTimeout(function(){
+                $.pub( 'wan2Switch', [{index: switchto}] );
+            }, 200);
+        });
+
+        function wait(){
+            dlgwait = $.loadingDialog({
+                title : '<%:联网方式设置%>',
+                content : '<%:联网方式设置中，请稍等...%>'
+            }).lock();
+        }
+
+        function wait_ipv6(){
+            dlgwait_ipv6 = $.loadingDialog({
+                title : '<%:IPv6网络方式设置%>',
+                content : '<%:IPv6网络方式设置中，请稍等...%>'
+            }).lock();
+        }
+
+        //问题排查
+        $('#wan2_wanStatus').delegate('#wan2_showpppoeissue', 'click', function(e){
+            e.preventDefault();
+            var perror = $(this).attr('data-perror');
+            var html = '';
+            var tpl = $('#wan2_tmplPPPoEissue').html();
+            html = StringH.tmpl( tpl, {
+                perror: perror
+            } );
+            $.dialog({
+                title: '<%:问题排查%>',
+                content: html,
+                lock: true,
+                width: 870
+            });
+        });
+        $.sub('wan2_pppoeStatus', function(evt, data){
+            var timer = null
+
+            time = data ? data.time : 0;
+            clearTimeout(timer);
+            function wan2_ask(){
+                $.ajax({
+                    url: '<%=luci.dispatcher.build_url("api", "xqnetwork","pppoe_status")%>',
+                    type: "POST",
+                    dataType: "json",
+                    data: data.params,
+                    success : function(rsp){
+                        var msg,
+                            ip = '-.-.-.-',
+                            mask =  '-.-.-.-',
+                            gateway =  '-.-.-.-',
+                            dns = [],
+                            action = '';
+
+                        pppoeInfo = rsp
+                        if(rsp.proto == 'pppoe'){
+                            switch(rsp.status){
+                                case 1 :
+                                    msg = '<%:正在拨号...%>';
+                                    timer = setTimeout(wan2_ask, 2000);
+                                    break;
+                                case 2 :
+                                    msg = '<%:拨号成功%>';
+                                    ip = rsp.ip['address'];
+                                    mask = rsp.ip['mask'];
+                                    gateway = rsp.gw;
+                                    dns = rsp.dns;
+                                    action = '<a id="wan2_pppoeStop" href="#"><%:断开%></a>';
+                                    break;
+                                case 3 :
+                                    msg = rsp.msg || '<%:拨号失败%>';
+                                    if($('#wan2Set input[name=special]').prop('checked')) {
+                                        // this msg will displayed only when the <special> is true.
+                                        msg = msg + '<%:，正在尝试特殊拨号模式...%>';
+                                    }
+                                    timer = setTimeout(wan2_ask, 2000);
+                                    break;
+                                case 4 :
+                                    msg = '<%:已断开%>';
+                                    action = '<a id="wan2_pppoeStart" href="#"><%:立即连接%></a>';
+                                    // 断开后重新连接查询3次，防止拿不到底层新数据
+                                    if ( askcount < 4 ) {
+                                        timer = setTimeout(wan2_ask, 2000);
+                                    }
+                                    askcount ++;
+                                    break;
+                                default:
+                                    break;
+                            }
+                            var showissue;
+                            var perror;
+                            if( rsp.perror ){
+                                switch( rsp.perror ){
+                                    case 33:
+                                        showissue = true;
+                                        break;
+                                    case 34:
+                                        showissue = true;
+                                        break;
+                                    case 35:
+                                        showissue = true;
+                                        break;
+                                    case 36:
+                                        showissue = true;
+                                        break;
+                                    default:
+                                        break;
+                                }
+                                perror = rsp.perror;
+                            }
+                            var statusHTML = StringH.tmpl( $('#wan2_tmplPPPoE').html(), {
+                                status: msg,
+                                ip: ip,
+                                mask: mask,
+                                gateway: gateway,
+                                dns: dns,
+                                username: rsp.pppoename,
+                                action: action,
+                                showissue: showissue,
+                                perror: perror
+                            });
+
+                            $( '#wan2_wanStatus' ).html( statusHTML );
+                        } else {
+                            if ( rsp.proto == 'dhcp') {
+                                ip = rsp.ip['address'];
+                                mask = rsp.ip['mask'];
+                                gateway = rsp.gw;
+                                dns = rsp.dns;
+                                if ( ip == '' ) {
+                                    timer = setTimeout(wan2_ask, 2000);
+                                } else {
+                                    clearTimeout( timer );
+                                }
+                                var statusHTML = StringH.tmpl( $('#wan2_tmplDHCP').html(), {
+                                    ip: ip,
+                                    mask: mask,
+                                    gateway: gateway,
+                                    dns: dns
+                                });
+                                $( '#wan2_wanStatus' ).html( statusHTML );
+                            } else {
+                                ip = rsp.ip['address'];
+                                mask = rsp.ip['mask'];
+                                gateway = rsp.gw;
+                                dns = rsp.dns;
+                                var statusHTML = StringH.tmpl( $('#wan2_tmplStaticIP').html(), {
+                                    ip: ip,
+                                    mask: mask,
+                                    gateway: gateway,
+                                    dns: dns
+                                });
+                                $( '#wan2_wanStatus' ).html( statusHTML );
+                            }
+                        }
+                    }
+                });
+            }
+            setTimeout(wan2_ask, time);
+        });
+
+        // 设置wan2信息
+        $.sub('setWan2Info', function(evt, payload, reslove, reject){
+            var wrapName = '#' + WAN_TYPE_MAP[String($('#wan2_wantypeselect').val())]
+            var autoset = Number($(wrapName).find('.set-wan-more:checked').val())
+            var dns1Name = wrapName + ' input[name="dns1"]'
+            var dns2Name = wrapName + ' input[name="dns2"]'
+            var params = {
+                wan_name: 'WAN2',
+                wanType: WAN_TYPE_MAP[String($('#wan2_wantypeselect').val())],
+                wanMode: '<%=mode%>'==='2.5G'?'1G':'2.5G',
+                staticIp: $('#wan2Set input[name=special]').val() || '',
+                staticMask: $('#wan2Set input[name=staticMask]').val() || '',
+                staticGateway: $('#wan2Set input[name=staticGateway]').val() || '',
+                autoset: autoset,
+                special: ($('#wan2Set input[name=special]').prop('checked')?1:0),
+                pppoeName: $('#wan2Set input[name="pppoeName"]').val(),
+                pppoePwd: $('#wan2Set input[name="pppoePwd"]').val(),
+                dns1: autoset ? $(dns1Name).val():undefined,
+                dns2: autoset ? $(dns2Name).val():undefined,
+            }
+
+            return $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "xqnetwork","set_wan")%>',
+                type: "POST",
+                dataType: 'json',
+                data: $.extend({}, params, payload),
+                success: function(rsp) {
+                    setTimeout(function(){
+                        if( rsp.code === 0 ){
+                            location.reload( true );
+                        } else {
+                            $.alert( rsp.msg );
+                        }
+                        dlgwait.close();
+                    },7000)
+                },
+                error: function(err) {
+                    dlgwait.close();
+                    $.alert( err.msg );
+                }
+            })
+        });
+
+        // 获取wan2info
+        $.sub('getWan2Info', function(){
+                var requestURL = '<%=luci.dispatcher.build_url("api", "xqnetwork","wan_info")%>',
+                requestData = {wan_name:'WAN2'};
+                $.getJSON( requestURL, requestData, function( rsp ) {
+                    if( rsp.code === 0 && rsp.info ){
+                        $('.multiwan').show()
+                        currentWanType = rsp.info.details.wanType;
+                        currentMTU = rsp.info.mtu;
+                        wan2Mac = rsp.info.mac.toUpperCase();
+                        if(!rsp.info.details.netmask)
+                        {
+                            netmask='255.255.255.0'
+                        }
+                        else
+                        {
+                            netmask = rsp.info.details.netmask
+                        }
+                        
+                        if ( wan2Mac && wan2Mac != "" ){
+                            $( '#wan2_currMac' ).text(wan2Mac);
+                            $('#wan2_macClone  input[name=oldmac]').val(wan2Mac);
+                        }
+                        if( rsp.status === 0 ){
+                            return;
+                        }
+                        $.pub( 'wan2_fillwanform', [rsp] );
+                        $.pub('wan2_pppoeStatus', [{time : 500, params: { wan_name: 'WAN2' }}]);
+                    }else{
+                        $( '#wan2_currMac' ).text( '<%:获取失败%>,' + rsp.msg );
+                    }
+                });
+        });
+        $.sub('getWanType', function(){
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "xqnetwork", "check_wan_type")%>',
+                type: 'GET',
+                dataType: 'json',
+                success: function( rsp ){
+                    if ( rsp.code === 0 ) {
+                        if ( rsp.wanType == 1 ) {
+                            $('#wanType').html('<%:经过检测，建议使用PPPoE方式(需要输入账号与密码)%>');
+                        } else if ( rsp.wanType == 2 ) {
+                            $('#wanType').html('<%:经过检测，建议使用DHCP方式(系统自动分配IP地址)%>');
+                        } else if ( rsp.wanType == 3 ) {
+                            $('#wanType').html('<%:经过检测，建议使用静态IP方式%>');
+                        } else if ( rsp.wanType == 99 ) {
+                            $('#wanType').html('<%:经过检测，你的WAN口无法连通，可能网线没插好%>');
+                        } else {
+                            $('#wanType').html('<%:经过检测，无法识别你的上网类型，请手工选择上网方式%>');
+                        }
+                        cachePPPoE['pppoeName'] = rsp.pppoeName;
+                        cachePPPoE['pppoePassword'] = rsp.pppoePassword;
+                    }
+                }
+            });
+        });
+
+        $.sub('wan2_fillwanform', function( evt, data ){
+            var rsp = data,
+            wantype = rsp.info.details.wanType,
+            isauto = true,
+            dns_checked = false,
+            autoset = function( isauto ){
+                var dtd = $.Deferred();
+                if ( isauto ) {
+                    $("#wan2Set .set-wan-more[value=1]").prop("checked", true);
+                    $('#wan2Set').find('.item-more-group').find('input').prop('disabled', true);
+                } else {
+                    if ( dns_checked ) {
+                        $("#wan2Set .set-wan-more[value=0]").prop("checked", true);
+                        $('#wan2Set').find('.item-more-group').find('input').prop('disabled', false);
+                    } else {
+                        $("#wan2Set .set-wan-more[value=1]").prop("checked", true);
+                        $('#wan2Set').find('.item-more-group').find('input').prop('disabled', true);
+                    }
+                }
+                dtd.resolve();
+                return dtd.promise();
+            };
+        if ( wantype === 'pppoe' ){
+            $( '#wan2Set input[name="pppoeName"]' ).val( rsp.info.details.username );
+            $( '#wan2Set input[name="pppoePwd"]' ).val( rsp.info.details.password );
+            // mtu
+            var mtuval = rsp.info.mtu;
+            if ( mtuval && mtuval != '1480' ) {
+                isauto = false;
+                dns_checked = true;
+            }
+            $('#wan2Set input[name=mtu]').val( mtuval );
+            var service = rsp.info.details.service;
+            if ( service && service != '' ) {
+                isauto = false;
+                dns_checked = true;
+            }
+            $('#wan2Set input[name=service]').val( service );
+            // special
+            var special = rsp.info.special;
+            if ( special == '1' ) {
+                isauto = false;
+                $('#wan2Set input[name=special]').prop('checked', true);
+            } else {
+                $('#wan2Set input[name=special]').prop('checked', false);
+            }
+
+            $('#wan2_wantypeselect').val(0);
+            $.pub( 'wan2Switch', [{index: '0'}] );
+            $("#wan2Set .dummy").text("PPPoE")
+        }
+        if ( wantype === 'static' ){
+            $( '#wan2Set input[name="staticIp"]' ).val( rsp.info.details.ipaddr );
+            $( '#wan2Set input[name="staticMask"]' ).val( rsp.info.details.netmask );
+            $( '#wan2Set input[name="staticGateway"]' ).val( rsp.info.details.gateway );
+            $('#wan2_wantypeselect').val(2);
+            $.pub( 'wan2Switch', [{index: '2'}] );
+            $("#wan2Set .dummy").text("<%:静态IP%>")
+        }
+        if ( wantype === 'dhcp') {
+            $('#wan2_wantypeselect').val(1);
+            $.pub( 'wan2Switch', [{index: '1'}] );
+            $("#wan2Set .dummy").text("DHCP")
+        }
+        var dnslist = rsp.info.details.dns;
+        if ( dnslist && $.isArray( dnslist ) && dnslist.length > 0 ) {
+            for (var i = 0; i < dnslist.length; i++) {
+                $( '#wan2_wanStatus input[name="dns' + (i + 1)  + '"]' ).val( dnslist[i] );
+                $( '#wan2Set input[name="dns' + (i + 1)  + '"]' ).val( dnslist[i] );
+            }
+            isauto = false;
+            dns_checked = true;
+        }
+
+        autoset( isauto ).then(function(){
+            $.formInit();
+            $.selectBeautify({ container:'#wan2Set'});
+        });
+
+    } );
+        $.sub( 'wan2_maccloneEvent', function(){
+            // mac clone
+            $( '#wan2_macClone' ).on('submit', function( e ){
+                e.preventDefault();
+                var formName = this.name,
+                    requestData,
+                    requestURL = '<%=luci.dispatcher.build_url("api", "xqnetwork","mac_clone")%>',
+                    oldmac = $('#wan2_macClone  input[name=oldmac]').val(),
+                    mac = $('#wan2_macClone input[name=mac]').val().toUpperCase(),
+                    validator = Valid.checkAll( this );
+                
+                // 产品在wan2的mac clone校验给出了新规则    
+                if ( mac == wan1Mac ) {
+                    $.alert( '<%:该MAC地址与WAN1口MAC地址冲突，请输入其他MAC地址%>' );
+                    return;
+                }
+                if ( mac == oldmac ) {
+                    $.alert( '<%:该MAC地址与当前使用的MAC地址相同%>' );
+                    return;
+                }
+    
+                if ( validator ) {
+                    requestData = {
+                        mac: mac,
+                        wan_name: 'WAN2',
+                    };
+                    $.pub( 'wait', {id: '#wan2_btnMacSubmit'} );
+                    $.getJSON( requestURL, requestData, function( rsp ){
+                        if( rsp.code === 0 ){
+                            $.alert('<%:设置成功%>', function(){
+                                location.reload( true );
+                            }).lock();
+                        } else {
+                            $.alert( rsp.msg );
+                        }
+                        $.pub( 'done', {id: '#wan2_btnMacSubmit'} );
+                    });
+                }
+            } );
+            // 恢复MAC地址
+            $('#wan2_btnMacRecover').on('click', function(e){
+                e.preventDefault();
+                var requestData = {
+                        mac: '<%=mac2default%>',
+                        wan_name: 'WAN2'
+                    },
+                    requestURL = '<%=luci.dispatcher.build_url("api", "xqnetwork","mac_clone")%>';
+                    $.pub( 'wait', {id: '#wan2_btnMacRecover'} );
+                    $.getJSON( requestURL, requestData, function( rsp ){
+                        if( rsp.code === 0 ){
+                            $.alert('<%:设置成功%>', function(){
+                                location.reload( true );
+                            }).lock();
+                        } else {
+                            $.alert( rsp.msg );
+                        }
+                        $.pub( 'done', {id: '#wan2_btnMacRecover'} );
+                    });
+                    
+            });
+        } );
+
+        //PPPoE Stop
+        $.sub('wan2_pppoeStop', function(){
+            askcount = 0;
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "xqnetwork","pppoe_stop")%>',
+                type: "POST",
+                dataType: "json",
+                data: { wan_name: 'WAN2' },
+                success : function(rsp){
+                    $.pub('wan2_pppoeStatus', [{time : 500, params: { wan_name: 'WAN2' }}]);
+                }
+            });
+        });
+
+        //PPPoE Connect
+        $.sub('wan2_pppoeConnect', function(){
+            askcount = 0;
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "xqnetwork","pppoe_start")%>',
+                type: "POST",
+                dataType: "json",
+                data: { wan_name: 'WAN2' },
+                success : function(rsp){
+                    $.pub('wan2_pppoeStatus', [{time : 500, params: { wan_name: 'WAN2' }}]);
+                }
+            });
+        });
+
+        // 设置pppoe
+        $('#wan2_pppoe').on( 'submit', function( e ){
+            e.preventDefault();
+            var formName = this.name;
+            var validator = Valid.checkAll( this );
+            if ( validator ) {
+                wait()
+                var params = {}
+                $( this ).serializeArray().forEach(function(item) {
+                    params[item.name]=item.value
+                })
+                $.pub('setWan2Info', [params])
+            }
+        })
+
+        // 设置static
+        $('#wan2_static').on( 'submit', function( e ){
+            e.preventDefault();
+            var formName = this.name;
+            var validator = Valid.checkAll( this );
+            if ( validator ) {
+                wait()
+                var params = {}
+                $( this ).serializeArray().forEach(function(item) {
+                    params[item.name]=item.value
+                })
+                $.pub('setWan2Info', [params])
+            }
+        })
+
+        // 设置dhcp
+        $('#wan2_dhcp').on('submit', function( e ){
+            e.preventDefault();
+            var formName = this.name;
+            var validator = Valid.checkAll( this );
+            
+            if ( validator ) {
+                wait()
+                var params = {}
+                $( this ).serializeArray().forEach(function(item) {
+                    params[item.name]=item.value
+                })
+                $.pub('setWan2Info', [params])
+            }
+        })
+
+        // set wan more option
+        $('#wan2Set .set-wan-more').on('click', function( e ){
+            var tar = e.target,
+                $tar = $(tar),
+                isauto = $tar.val() === '1',
+                $moreset = $tar.parents('.item-more').next('.item-more-group');
+            if ( isauto ) {
+                $moreset.find('input,select').prop('disabled', true);
+                $moreset.find('.form-item').addClass('form-item-disabled');
+            } else {
+                $moreset.find('input,select').prop('disabled', false);
+                $moreset.find('.form-item').removeClass('form-item-disabled');
+            }
+        });
+
+        $('.btn-cancel-set').on('click', function( e ){
+            e.preventDefault();
+        });
+
+        // stop connect
+        $( document.body ).delegate( '#wan2_pppoeStop', 'click', function( e ){
+            e.preventDefault();
+            $.pub('wan2_pppoeStop');
+        } );
+
+        // reconnect
+        $( document.body ).delegate( '#wan2_pppoeStart', 'click', function( e ){
+            e.preventDefault();
+            $.pub('wan2_pppoeConnect');
+        } );
+
+        $('#wan2_wanspeed').delegate('input[type=text], input[type=checkbox], input[type=radio]', 'click', onControlFocus)
+                  .delegate('.ipt-text', 'click', onControlFocus);
+        $('#wan2Set').delegate('input[type=text], input[type=radio], input[type=checkbox]', 'click', onControlFocus)
+                    .delegate('.ipt-text', 'click', onControlFocus);
+        $('#wan2Set').delegate('select','change', function(){
+            $('#wan2Set').find('.btn-primary, .btn-dft').removeClass('hidden');
+        });
+
+        $.sub( 'wan2_wanspeedEvent', function(){
+            $('#wan2_wanspeed').on('submit', function(e){
+                e.preventDefault();
+                var oldspeed = '<%=speed%>';
+                var reqData = {};
+                reqData.speed = $('#wan2_speedselect').val();
+                reqData.wan_name = 'WAN2'
+                $('#btnSubmitwanspeed').addClass('btn-primary-disabled').prop('disabled', true).find('span').text('<%:保存中...%>');
+                $.ajax({
+                    url: '<%=luci.dispatcher.build_url("api", "xqnetwork","set_wan_speed")%>',
+                    type: 'POST',
+                    data: reqData,
+                    dataType: 'json',
+                    success: function(res){
+                        if( res.code == 0 ){
+                            window.location.reload( 1 );
+                        }else{
+                            $.alert( res.msg );
+                            $('#wan2_btnSubmitwanspeed').removeClass('btn-primary-disabled').prop('disabled', false).find('span').text('<%:保存%>');
+                        }
+                    }
+                });
+            });
+
+            $.selectBeautify({ container: '#wan2_wanspeed'});
+        });
+
+        // 显示btn
+        function onControlFocus() {
+            $(this).parents('form').find('.btn-primary, .btn-dft').removeClass('hidden');
+        }
+
+        function init() {
+            $.pub('getWan2Info');
+            $.pub('wan2_wanspeedEvent');
+            $.pub('wan2_maccloneEvent');
+        }
+
+        init();
+    })
+</script>

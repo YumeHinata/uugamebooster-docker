@@ -1,0 +1,5 @@
+#!/bin/sh
+
+logger -p notice -t "wan_check" "check-new-upgrade: run because internet connect"
+
+[ -x /usr/sbin/check-new-firmware ] && /usr/sbin/check-new-firmware >/dev/null 2>&1 &

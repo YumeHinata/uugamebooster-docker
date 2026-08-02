@@ -1,0 +1,17 @@
+#!/bin/sh /etc/rc.common
+
+START=22
+USE_PROCD=1
+
+
+start_service() {
+	local netmode=$(uci -q get xiaoqiang.common.NETMODE)
+
+	[ -z "$netmode" ] && return
+
+	local capmode=$(uci -q get xiaoqiang.common.CAP_MODE)
+
+	if [ "$netmode" = "whc_cap" -o "$capmode" = "ap" ]; then
+		/usr/sbin/topomon_action.sh cap_init &
+	fi
+}

@@ -1,0 +1,221 @@
+#!/bin/sh
+# Copyright (C) 2006-2010 OpenWrt.org
+# Copyright (C) 2010 Vertical Communications
+
+mount_dir="$pi_preinit_mount_dir"
+mount_files="$pi_preinit_mount_files"
+
+uci_apply_defaults() {
+	. /lib/functions/system.sh
+
+	cd /etc/uci-defaults || return 0
+	files="$(ls)"
+	[ -z "$files" ] && return 0
+	mkdir -p /tmp/.uci
+	for file in $files; do
+		( . "./$(basename $file)" ) && rm -f "$file"
+	done
+	uci commit
+}
+
+prepare_data_dir() {
+	[ -d "/etc" ] && mkdir -p /data/etc
+
+	for dir in $mount_dir; do
+		[ -n "${dir}" ] && {
+			mkdir -p /data/etc/${dir}
+			mkdir -p /etc/${dir}
+		}
+	done
+}
+
+init_data_dir() {
+	for dir in $mount_dir; do
+		[ -n "${dir}" ] && {
+			rm -rf /data/etc/${dir}/*
+			[ "$(ls /etc/${dir})" != "" ] && {
+				cp -prf /etc/${dir}/* /data/etc/${dir}/
+			}
+		}
+	done
+
+	for file in $mount_files; do
+		[ -n "${file}" ] && {
+			rm -rf /data/etc/${file}
+			[ -e "/etc/${file}" ] && {
+				cp -prf /etc/${file} /data/etc/${file}
+			}
+		}
+	done
+
+	sync
+}
+
+mount_data_dir() {
+	for dir in $mount_dir; do
+		[ -n "${dir}" ] && {
+			mount --bind /data/etc/${dir} /etc/${dir}
+		}
+	done
+
+	for file in $mount_files; do
+		[ -n "${file}" -a -e /data/etc/${file} ] && {
+			rm -rf /etc/${file} 2>/dev/null
+			ln -s /data/etc/${file} /etc/${file}
+		}
+	done
+}
+
+sync_data_dir() {
+	for dir in $mount_dir; do
+		[ -n "${dir}" -a -d "/etc/${dir}" ] && {
+			[ -d "/data/etc/${dir}" ] || mkdir -p /data/etc/${dir}
+			echo N | cp -ri /etc/${dir}/* /data/etc/${dir} 2>/dev/null
+		}
+	done
+
+	for file in $mount_files; do
+		[ -n "${file}" -a -e "/etc/${file}" ] && {
+			echo N | cp -ri /etc/${file} /data/etc/${file} 2>/dev/null
+		}
+	done
+}
+
+# Check uci config files in /data/etc/config/
+do_uci_config_integrity_check() {
+
+	# 1. replace files that size 0 in /data/etc
+	cd /data/etc/config
+	find . -size 0 | while read line; do
+		if [ -s /etc/config/$line -a -e /etc/config/$line ]; then
+			echo "/etc/config/$line damaged, recovering /data/etc/config/$line"
+			cp -arf /etc/config/$line /data/etc/config/$line 2>/dev/null
+		fi
+	done
+	cd /
+
+	for file in $mount_files; do
+		[ -n "${file}" -a -s "/etc/${file}" -a ! -s "/data/etc/${file}" ] && {
+			echo "/etc/${file} damaged, recovering /data/etc/${file}"
+			cp -arf /etc/${file} /data/etc/${file} 2>/dev/null
+		}
+	done
+
+	# 2. recover files that open fail in /data/etc
+	for file in $(find /data/etc/config -type f); do
+		cat $file >/dev/null
+		[ "$?" = "0" ] && continue
+
+		rootfs_file=$(echo $file | sed "s/\/data\/etc/\/etc/g")
+		[ -e "$rootfs_file" ] && {
+			rm -f $file
+			cp $rootfs_file $file
+			echo "Recover $file from rootfs"
+			continue
+		}
+
+		# Can't recover. Remove the file to prevent trouble.
+		rm -f $file
+	done
+
+	# 3. sync
+	sync
+}
+
+# When we failed  mount /data, the whole mtd partition will be automatically erased by "mtd erase overlay"
+# thus we lose all config files. here we try to save the day
+do_data_mount_fail_recover() {
+	local rec_flag="false"
+
+	restore=$(nvram get restore_defaults)
+	if [ "$restore" = "1" ]; then
+		nvram set restore_defaults=0
+		nvram commit
+		return 0
+	fi
+
+	[ -e /tmp/need_config_recovery ] && rec_flag="true"
+	if [ -e /etc/config/xiaoqiang ]; then
+		local lines=$(cat /etc/config/xiaoqiang | wc -l)
+		if [ $lines -lt 3 ]; then
+			rec_flag="true"
+		fi
+	else
+		rec_flag="true"
+	fi
+
+	[ "$rec_flag" = "false" ] && return 0
+
+	echo "start do data_mount_fail_recover"
+	rm -f /tmp/need_config_recovery
+
+	# TODO  recovery config from backup
+}
+
+do_recovery_config() {
+	if [ ! -e /etc/remove.conf ]; then
+		echo "************* WARNING *************"
+		echo "**** new rom remove.conf not exist and try to rsync files ****"
+	else
+		echo "**** ota: remove files in /etc/remove.conf ****"
+		cat /etc/remove.conf | xargs rm -rf
+	fi
+
+	echo "**** ota: sync /data/etc files from new rom ****"
+	sync_data_dir
+}
+
+# Process /etc under different scenario
+# Return 1 if OTA scenario. otherwise return 0
+process_etc() {
+	local flag_name=$(uci -q get misc.mount_bind_etc.flag_name)
+	local flg_ota=$(nvram get flag_ota_reboot)
+	local flg_format=$(nvram get ${flag_name:="flag_format_overlay"})
+
+	prepare_data_dir
+
+	if [ "$flg_format" = "1" ]; then
+		# /data is fresh formated. simply make a copy of /etc
+		init_data_dir
+		nvram unset $flag_name
+		nvram unset flag_recover_config
+		nvram commit
+		return 0
+	fi
+
+	if [ "$flg_ota" = "1" ]; then
+		/usr/sbin/config_pre_ota.sh
+		do_recovery_config
+		return 1
+	fi
+
+	# remove /etc/uci-defaults, merge uci-defaults only when overlay format or ota
+	rm -rf /etc/uci-defaults/*
+
+	return 0
+}
+
+do_mount_bind_etc() {
+	local post_ota
+
+	echo "do_mount_bind_etc..." >/dev/console
+	process_etc
+	post_ota="$?"
+
+	# Do uci conf integrity checks before we mount.bind /etc
+	do_uci_config_integrity_check
+	mount_data_dir
+	do_data_mount_fail_recover
+
+	if [ "$post_ota" = "1" ]; then
+		/usr/sbin/config_post_ota.sh
+	fi
+
+	# merge uci-defaults
+	uci_apply_defaults
+
+	[ -s /tmp/.uci.disk ] && uci import -f /tmp/.uci.disk && rm -f /tmp/.uci.disk
+	[ -f /etc/sysdisk ] && cp -f /etc/sysdisk /tmp/sysdisk
+}
+
+boot_hook_add preinit_main do_mount_bind_etc

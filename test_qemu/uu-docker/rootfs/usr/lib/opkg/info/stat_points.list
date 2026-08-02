@@ -1,0 +1,6 @@
+/usr/sbin/sp_file.lua
+/usr/sbin/mtd_crash_log
+/usr/sbin/ecos_pair_verify
+/usr/sbin/sp_upload
+/lib/config_post_ota/statpoints_post_ota.sh
+/usr/sbin/sp_check.sh

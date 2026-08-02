@@ -1,0 +1,164 @@
+#!/bin/sh /etc/rc.common
+
+#this script will run by /etc/init.d/rcS after all rc script.
+START=99
+
+RCSTATFILE='/tmp/rc.timing'
+BOOTCHECKCODEFILE='/tmp/rc.done'
+
+
+dlog() {
+	local oneline
+	oneline="$@"
+	if [ -x /usr/bin/logger ]; then
+		logger -s -p 1 -t "$LOGTAG" -- "$oneline"
+	else
+		echo "`date` ${LOGTAG}[${$}]: $oneline"
+	fi
+}
+
+do_config_backup() {
+	# In case /data get trashed, backup config after a successful boot
+	local rec_mtd_name="cfg_bak"
+	local init_flag
+
+	init_flag=`uci -q get xiaoqiang.common.INITTED`
+	[ "$init_flag" = "YES" ] || return 0
+
+	rec_mtd=$(find_mtd_part "$rec_mtd_name")
+	[ -z "$rec_mtd" ] && return 0
+
+	tar -czf /tmp/cfg_bak.tgz /etc/config > /dev/null 2>&1
+	mtd erase $rec_mtd_name
+	mtd write /tmp/cfg_bak.tgz $rec_mtd_name
+	rm -f /tmp/cfg_bak.tgz
+}
+
+set_setup_flag(){
+	local flg=0
+	local flag_boot_rootfs=$(nvram get flag_boot_rootfs)
+	local flag_ota_root=$(nvram get flag_ota_reboot)
+	local flag_boot_success=$(nvram get flag_boot_success)
+	local flag_try_sys1_failed=$(nvram get flag_try_sys1_failed)
+	local flag_try_sys2_failed=$(nvram get flag_try_sys2_failed)
+	local flag_last_success=$(nvram get flag_last_success)
+
+	echo 0 > /tmp/upgraded_result
+	[ "$flag_ota_root" != "0" ] && {
+		flg=1
+		echo 1 > /tmp/upgraded_result
+		nvram set flag_ota_reboot=0
+	}
+	[ "$flag_boot_success" != "1" ] && {
+		flg=1
+		nvram set flag_boot_success=1
+	}
+	[ "$flag_try_sys1_failed" != "0" ] && {
+		flg=1
+		nvram set flag_try_sys1_failed=0
+	}
+	[ "$flag_try_sys2_failed" != "0" ] && {
+		flg=1
+		nvram set flag_try_sys2_failed=0
+	}
+
+	[ "$flag_boot_rootfs" = "0" -o "$flag_boot_rootfs" = "1" ] && [ "$flag_boot_rootfs" != "$flag_last_success" ] && {
+		flg=1
+		nvram set flag_last_success=$flag_boot_rootfs
+	}
+
+	# switch asrflag, work in obm to switch a/b slot
+	if which asrflag_ab >/dev/null; then
+		asrflag_ab $flag_boot_rootfs $flag_boot_rootfs
+	fi
+
+	[ "$flg" = "1" ] && nvram commit
+}
+
+upload_upgrade_info(){
+	local upgrad_flag=`nvram get flag_upgrade_push`
+
+	[ "$upgrad_flag" = "1" ] && {
+		nvram set flag_show_upgrade_info=1
+		nvram unset flag_upgrade_push
+		nvram commit
+		feedPush "{\"type\":3}"
+		/usr/sbin/vasinfo_fw.sh post_ota
+
+		elog "upload ugrade info"
+
+		if which sp_log_info.sh >/dev/null; then
+			cur_ver=$(uci -q -c /usr/share/xiaoqiang get xiaoqiang_version.version.ROM)
+			sp_log_info.sh -k sys.upgrade.info -m "success:${cur_ver}:${cur_ver}" -i
+		fi
+	}
+}
+
+cal_boot_time(){
+	eval "$(cat $RCSTATFILE | grep '^TOTALESP='| tail -n 1)"
+	test -z "$TOTALESP" && TOTALESP='FIXME:unknow'
+	local tmsg="INFO: rcS $@ timing $TOTALESP seconds."
+	logger stat_points_none gel_log_boot_time=$TOTALESP
+	dlog "$tmsg"
+}
+
+elog(){
+	tmsg="$@"
+	logger -p local0.warning -t boot_check "boot_check[${$}]: $tmsg"
+	echo "`date` boot_check[${$}]: $tmsg" >> /dev/console
+}
+
+boot_phy_start() {
+	/sbin/phyhelper start
+}
+
+start() {
+	# S10boot will stop all phy, then we start all phy at here
+	boot_phy_start
+
+	# init fan speed
+	[ -f /usr/sbin/fancycle ] && {
+		fancycle 10
+		i2cset -f -y 1 0x2f 0x38 0x18
+		i2cset -f -y 1 0x2f 0x2b 0x01
+	}
+
+	# when upgrade finish, send push: flag 1 is need push
+	upload_upgrade_info
+
+	# set bootup flag
+	set_setup_flag
+
+	# backup config
+	do_config_backup
+
+	# should led be turned off?
+	[ -x /usr/sbin/led_check ] && /usr/sbin/led_check
+
+	# process crashlog if any
+	[ -x /usr/sbin/upcrash ] && {
+		# wait for network stable
+		sleep 5
+		/usr/sbin/upcrash
+	}&
+
+	#cal total time
+	cal_boot_time
+
+	# boot finished
+	xqled sys_ok
+	xqled sys_ready
+	local init_flag
+	init_flag=$(uci -q get xiaoqiang.common.INITTED)
+	if [ "$init_flag" != "YES" ]; then
+		xqled sys_init
+	fi
+
+	echo "BOOTCHECKCODE=0;" > $BOOTCHECKCODEFILE
+	echo "boot_done" > /tmp/boot_check_done
+	elog "Booting up finished."
+}
+
+stop() {
+	echo "stop"
+}

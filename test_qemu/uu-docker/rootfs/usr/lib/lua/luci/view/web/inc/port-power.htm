@@ -1,0 +1,25 @@
+<%
+local features = require("xiaoqiang.XQFeatures").FEATURES
+%>
+<div class="mod-set">
+    <div class="hd">
+        <h3>
+            <%:端口供电管理%>
+        </h3>
+    </div>
+    <div class="bd">
+        <form action="#" class="form" id="powerPortForm">
+            <div class="form-item">
+                <div><%:请选择网口%>：</div>
+                <%if features["apps"]["port_sequence"] == "1" then%>
+                <div class="selectPort powerPort verticalWan">
+                <%else%>
+                <div class="selectPort powerPort">
+                <%end%>
+                </div>
+            </div>
+        </form>
+        <div style="clear:both"></div>
+    </div>
+</div>
+

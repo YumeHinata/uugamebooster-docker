@@ -1,0 +1,9 @@
+Package: libeventlog
+Version: 0.2.12-2
+Depends: libc
+Source: feeds/packages/libs/eventlog
+Section: libs
+Maintainer: W. Michael Petullo <mike@flyn.org>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 6081
+Description:  A new API to format and send structured log messages.

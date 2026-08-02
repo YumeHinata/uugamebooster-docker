@@ -1,0 +1,8 @@
+Package: port_service_linkcheck
+Version: 1-1.0
+Depends: libc, kmod-bonding
+Source: package/miwifi/port_service
+Section: opt
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 6420
+Description:  auto check link

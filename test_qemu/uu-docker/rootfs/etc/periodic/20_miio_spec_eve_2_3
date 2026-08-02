@@ -1,0 +1,113 @@
+#!/bin/sh
+
+readonly SPEC_SIID=2
+readonly SPEC_EIID=3
+readonly LAST_OFF=/tmp/miio_spec/2e2
+readonly LAST_DBG=/tmp/miio_spec/2e2dbg
+
+gUptime=$(cut -d '.' -f1 /proc/uptime)
+gDebug=
+
+is_offline() {
+	local mac="$1"
+	local str=
+	local res=
+
+	str=$(printf '{"filter":{"assoc":true},"hw":"%s"}' "$mac")
+	res=$(ubus call trafficd hw "$str" 2>/dev/null | jsonfilter -q -e '@.assoc')
+
+	return "${res:-0}"
+}
+
+is_trigger() {
+	local mac="$1"
+	local sec="$2"
+	local file=
+	local last_up=
+	local delta=
+
+	if [ -n "$gDebug" ]; then
+		file="$LAST_DBG"
+	else
+		file="$LAST_OFF"
+	fi
+
+	if [ -f "$file" ]; then
+		last_up=$(grep "^$mac" "$file" | awk '{print $2}')
+		if [ -z "$last_up" ]; then
+			return 1
+		fi
+
+		delta=$((gUptime - last_up))
+
+		if [ "$((sec - 30))" -lt "$delta" ] && [ "$delta" -le "$((sec + 30))" ]; then
+			return 0
+		fi
+	fi
+
+	return 1
+}
+
+gen_event() {
+	local mac="$1"
+	local min="$2"
+	local did=
+	local reply=
+
+	did="$(get_miot_did.sh)"
+
+	json_init
+	json_add_string "method" "event_occured"
+	json_add_object "params"
+	json_add_string "did" "$did"
+	json_add_int "eiid" "$SPEC_EIID"
+	json_add_int "siid" "$SPEC_SIID"
+	json_add_array "arguments"
+	json_add_object
+	json_add_int "piid" "20"
+	json_add_string "value" "$mac"
+	json_close_object
+	json_add_object
+	json_add_int "piid" "23"
+	json_add_int "value" "$min"
+	json_close_object
+	json_close_array
+	json_close_object
+
+	reply=$(json_dump)
+	json_cleanup
+
+	json_init
+	json_add_string "msg" "$reply"
+	reply=$(json_dump)
+	json_cleanup
+
+	ubus send miio_proxy "$reply"
+}
+
+# Check run-parts params
+if [ "$1" != "1min" ]; then
+	return 0
+fi
+
+# Check enable
+if ! uci -q get "miio_spec.$SPEC_SIID" >/dev/null; then
+	return 0
+fi
+
+# Debug feature
+if [ -n "$DEBUG" ]; then
+	gDebug=1
+	gUptime="$DEBUG"
+fi
+
+. /usr/share/libubox/jshn.sh
+
+uci get miio_spec.2_24.cfg | tr ' ' '\n' |
+	while IFS=_ read -r mac min; do
+		! is_offline "$mac" && continue
+
+		! is_trigger "$mac" "$((min * 60))" && continue
+
+		gen_event "$mac" "$min"
+	done

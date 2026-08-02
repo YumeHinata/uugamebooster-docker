@@ -1,0 +1,9 @@
+/lib/modules/5.4.213/nf_nat_pptp.ko
+/lib/modules/5.4.213/nf_nat_tftp.ko
+/etc/modules.d/nf-nathelper-extra
+/lib/modules/5.4.213/nf_conntrack_h323.ko
+/lib/modules/5.4.213/nf_conntrack_sip.ko
+/lib/modules/5.4.213/nf_conntrack_pptp.ko
+/lib/modules/5.4.213/nf_nat_h323.ko
+/lib/modules/5.4.213/nf_conntrack_tftp.ko
+/lib/modules/5.4.213/nf_nat_sip.ko

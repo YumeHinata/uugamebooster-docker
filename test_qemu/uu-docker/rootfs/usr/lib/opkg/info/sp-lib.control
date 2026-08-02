@@ -1,0 +1,8 @@
+Package: sp-lib
+Version: 1.1-1.1
+Depends: libc, stat_points, busybox, logrotate
+Source: package/miwifi/system/sp-lib
+Section: data
+Architecture: all
+Installed-Size: 8469
+Description:  Library to collect/convert stat points data

@@ -1,0 +1,7 @@
+# Copyright (c) 2022 Qualcomm Technologies, Inc.
+# All Rights Reserved.
+# Confidential and Proprietary - Qualcomm Technologies, Inc.
+
+/license/pfm
+/lib/firmware/qcn9224/license*.dat
+/lib/firmware/IPQ5332/license*.dat

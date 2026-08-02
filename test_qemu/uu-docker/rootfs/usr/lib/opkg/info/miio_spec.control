@@ -1,0 +1,8 @@
+Package: miio_spec
+Version: 1.0-1.0
+Depends: libc, sp-lib
+Source: package/miwifi/miio_spec
+Section: net
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 3131
+Description:  miot spec realization

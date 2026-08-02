@@ -1,0 +1,10 @@
+Package: swconfig
+Version: 1-12
+Depends: libc, libuci, libnl-tiny
+Source: package/network/config/swconfig
+License: GPL-2.0
+Section: base
+Maintainer: Felix Fietkau <nbd@nbd.name>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 9590
+Description:  Switch configuration utility

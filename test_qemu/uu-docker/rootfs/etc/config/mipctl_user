@@ -1,0 +1,6 @@
+config meta meta
+	option user_max 8
+	option dev_per_user 10
+	option host_per_user 20
+	option ban_per_user 4
+	option appinfo_version 0.3.7

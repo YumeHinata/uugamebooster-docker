@@ -1,0 +1,7 @@
+nf_tproxy_core
+xt_socket
+nf_socket_ipv4
+nf_socket_ipv6
+xt_TPROXY
+nf_tproxy_ipv4
+nf_tproxy_ipv6

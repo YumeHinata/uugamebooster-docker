@@ -1,0 +1,10 @@
+Package: exfat-mkfs
+Version: 1.0.1-1
+Depends: libc, libexfat
+Source: package/utils/exfat-utils
+License: GPL-2.0
+Section: utils
+Maintainer: Daniel Golle <daniel@makrotopia.org>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 9963
+Description:  Utility for creating an exFAT File System

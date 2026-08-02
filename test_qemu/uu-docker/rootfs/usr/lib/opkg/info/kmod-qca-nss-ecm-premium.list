@@ -1,0 +1,10 @@
+/lib/modules/5.4.213/ecm.ko
+/etc/sysctl.d/qca-nss-ecm.conf
+/etc/uci-defaults/99-qca-nss-ecm
+/usr/bin/ecm_dump.sh
+/etc/init.d/qca-nss-ecm
+/etc/firewall.d/qca-nss-ecm
+/lib/netifd/offload/on-demand-down
+/lib/modules/5.4.213/ecm_sfe_l2.ko
+/etc/config/ecm
+/lib/modules/5.4.213/ecm_ae_select.ko

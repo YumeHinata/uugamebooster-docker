@@ -1,0 +1,5 @@
+/usr/lib/trace-cmd/plugins/plugin_sched_switch.so
+/usr/lib/trace-cmd/plugins/plugin_mac80211.so
+/usr/bin/trace-cmd
+/usr/lib/trace-cmd/plugins/plugin_hrtimer.so
+/usr/lib/trace-cmd/plugins/plugin_function.so

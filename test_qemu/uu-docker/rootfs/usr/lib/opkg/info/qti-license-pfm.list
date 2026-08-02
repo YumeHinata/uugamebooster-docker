@@ -1,0 +1,3 @@
+/etc/init.d/license-pfm
+/lib/upgrade/keep.d/license-pfm
+/usr/sbin/license-pfm-upgrade.sh

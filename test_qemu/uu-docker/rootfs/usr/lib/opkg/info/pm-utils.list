@@ -1,0 +1,10 @@
+/usr/sbin/pm-powersave
+/usr/lib/pm-utils/functions
+/etc/init.d/powerctl
+/usr/lib/pm-utils/bin/pm-action
+/etc/pm/power.d/ipq-power-save.sh
+/usr/lib/pm-utils/bin/service
+/usr/bin/pm-is-supported
+/etc/pm/power.d/cold_boot.sh
+/sbin/on_ac_power
+/usr/lib/pm-utils/pm-functions

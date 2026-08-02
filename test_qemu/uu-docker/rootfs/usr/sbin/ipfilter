@@ -1,0 +1,312 @@
+#! /bin/sh
+. /lib/functions.sh
+. /lib/lib.scripthelper.sh 
+dlog "INFO: ipfilter input ARGS: $@"
+LOCKFILE="/var/lock/`basename $0`"
+action="$1"
+shift
+#Global Setting
+IN_INTERFACE="br-lan"
+IPFILTER_CHAIN="ipfilter_wan"
+NETFILTER_TABLE="filter"
+ipfilter_conf="/etc/config/ipfilter"
+FORWARD_CHAIN_IDX=2
+FORWARD_CHAIN="forwarding_lan_rule"
+IPV6_FILTER_ENABLE=$(uci -q get ipfilter.wan.ipv6_filter_enable)
+#Funtion Define
+flush_iptables_rule(){
+	iptables -t filter -F ipfilter_wan 2>/dev/null
+	dlog "ipfilter: flush iptables rules"
+}
+flush_ip6tables_rule(){
+	ip6tables -t filter -F ipfilter_wan 2>/dev/null
+	dlog "ipfilter: flush ip6tables rules"
+}
+flush_rule(){
+	flush_iptables_rule
+	[ "$IPV6_FILTER_ENABLE" = "1" ] && flush_ip6tables_rule
+}
+
+def_white_rule(){
+	iptables -t filter -A ipfilter_wan -j REJECT 2>/dev/null
+	[ "$IPV6_FILTER_ENABLE" = "1" ] && ip6tables -t filter -A ipfilter_wan -j REJECT 2>/dev/null
+	dlog "ipfilter: add def white rule"
+}
+
+clearConntrackSession(){
+	local ip="$1"
+	local type="$2"
+	local netmask="$(uci get network.lan.netmask)"
+
+	if [ "$ip" == "" ]; then
+	echo f > /proc/net/nf_conntrack 2>/dev/null
+	fi
+	echo $ip > /proc/net/nf_conntrack 2>/dev/null
+	if [ "$type" != "ipv6" ]; then
+		[ -f /sbin/accelctrl ] && /sbin/accelctrl conntrack clean $ip $netmask
+	fi
+}
+
+parse_rule(){
+	local ip="$1"
+	local action="$2"
+	local IPT="iptables"
+	if [ "$action" == "black" ]; then
+		action=" -j REJECT"
+	elif [ "$action" == "white" ];then
+		action=" -j RETURN"
+	else
+		elog "parse_rule fail"
+	fi
+
+	config_get proto ${ip} proto
+	config_get export ${ip} export
+
+	ip=${ip//_/.}
+
+	if [ "$proto" = "tcp" -o "$proto" = "udp" ]; then
+		proto="-p $proto"
+	else
+		proto=""
+	fi
+
+	[ -n "$export" ] && export="--dport ${export//-/:}"
+
+	if [ -n "$export" -a -z "$proto" ]; then
+		$IPT -t $NETFILTER_TABLE -I $IPFILTER_CHAIN -i $IN_INTERFACE -s $ip -p tcp $export $action
+		$IPT -t $NETFILTER_TABLE -I $IPFILTER_CHAIN -i $IN_INTERFACE -s $ip -p udp $export $action
+	else
+		$IPT -t $NETFILTER_TABLE -I $IPFILTER_CHAIN -i $IN_INTERFACE -s $ip $proto $export $action
+	fi
+
+	if [ "$2" = "black" ];then
+		clearConntrackSession $ip
+	fi
+}
+
+parse_rule_v6(){
+	local ip="$1"
+	local action="$2"
+	local IPT="ip6tables"
+
+	if [ "$action" == "black" ]; then
+		action=" -j REJECT"
+	elif [ "$action" == "white" ];then
+		action=" -j ACCEPT"
+	else
+		return
+	fi
+
+	config_get proto ${ip} proto
+	config_get export ${ip} export
+
+	ip=${ip//_/:}
+
+	if [ "$proto" = "tcp" -o "$proto" = "udp" ]; then
+		proto="-p $proto"
+	else
+		proto=""
+	fi
+
+	[ -n "$export" ] && export="--dport ${export//-/:}"
+
+	if [ -n "$export" -a -z "$proto" ]; then
+		$IPT -t $NETFILTER_TABLE -I $IPFILTER_CHAIN -i $IN_INTERFACE -s $ip -p tcp $export $action
+		$IPT -t $NETFILTER_TABLE -I $IPFILTER_CHAIN -i $IN_INTERFACE -s $ip -p udp $export $action
+	else
+		$IPT -t $NETFILTER_TABLE -I $IPFILTER_CHAIN -i $IN_INTERFACE -s $ip $proto $export $action
+	fi
+
+	clearConntrackSession $ip "ipv6"
+}
+
+apply_rule(){
+	mode="$1"
+	config_load ipfilter
+	config_foreach parse_rule "$mode""_v4" $mode
+	[ "$IPV6_FILTER_ENABLE" = "1" ] && config_foreach parse_rule_v6 "$mode""_v6" $mode
+}
+
+ipfilter_ipv4_init(){
+	iptables -t filter -F $IPFILTER_CHAIN 2>/dev/null
+	iptables -t filter -L $IPFILTER_CHAIN 2>&- >&-
+	[ $? -ne 0 ] && {
+		iptables -t filter -N $IPFILTER_CHAIN 2>/dev/null
+		iptables -t filter -I $FORWARD_CHAIN $FORWARD_CHAIN_IDX -j $IPFILTER_CHAIN 2>/dev/null
+	}
+}
+
+ipfilter_ipv6_init(){
+	ip6tables -t filter -F $IPFILTER_CHAIN 2>/dev/null
+	ip6tables -t filter -L $IPFILTER_CHAIN 2>&- >&-
+	[ $? -ne 0 ] && {
+		ip6tables -t filter -N ipfilter_wan 2>/dev/null
+		ip6tables -t filter -I $FORWARD_CHAIN $FORWARD_CHAIN_IDX -j ipfilter_wan 2>/dev/null
+	}
+}
+
+init(){
+	#ipfilter chains to table filter chain forwarding_rule
+	mode="$1"
+	ipfilter_ipv4_init
+	[ "$IPV6_FILTER_ENABLE" = "1" ] && ipfilter_ipv6_init
+	dlog "ipfilter: init rule"
+	#init wan rule
+	if [ $mode = "white" ]; then
+		def_white_rule
+	fi
+	apply_rule $mode
+}
+
+add_rule(){
+	local iptype=$2
+	local ip=$3
+	local proto=$4
+	local export=$5
+	local action=$1
+	local IPT="iptables"
+
+	if [ "$iptype" == "ipv6" ]; then
+		IPT="ip6tables"
+	fi
+	if [ "$action" == "black" ]; then
+		action=" -j REJECT"
+	elif [ "$action" == "white" ];then
+		action=" -j RETURN"
+	else
+		elog "parse_rule fail"
+	fi
+
+	if [ "$proto" = "tcp" -o "$proto" = "udp" ]; then
+		proto="-p $proto"
+	else
+		proto=""
+	fi
+
+	[ -n "$export" ] && export="--dport ${export//-/:}"
+
+
+	if [ -n "$export" -a -z "$proto" ]; then
+		$IPT -t $NETFILTER_TABLE -I $IPFILTER_CHAIN -i $IN_INTERFACE -s $ip -p tcp $export $action
+		$IPT -t $NETFILTER_TABLE -I $IPFILTER_CHAIN -i $IN_INTERFACE -s $ip -p udp $export $action
+	else
+		$IPT -t $NETFILTER_TABLE -I $IPFILTER_CHAIN -i $IN_INTERFACE -s $ip $proto $export $action
+	fi
+
+	return
+}
+
+delete_rule(){
+	local iptype=$2
+	local ip=$3
+	local proto=$4
+	local export=$5
+	local action=$1
+	local IPT="iptables"
+
+	if [ "$iptype" == "ipv6" ]; then
+		IPT="ip6tables"
+	fi
+	if [ "$action" == "black" ]; then
+		action=" -j REJECT"
+	elif [ "$action" == "white" ];then
+		action=" -j RETURN"
+	else
+		elog "parse_rule action fail"
+		return
+	fi
+
+	if [ "$proto" = "tcp" -o "$proto" = "udp" ]; then
+		proto="-p $proto"
+	else
+		proto=""
+	fi
+
+	[ -n "$export" ] && export="--dport ${export//-/:}"
+
+	if [ -n "$export" -a -z "$proto" ]; then
+		$IPT -t $NETFILTER_TABLE -D $IPFILTER_CHAIN -i $IN_INTERFACE -s $ip -p tcp $export $action
+		$IPT -t $NETFILTER_TABLE -D $IPFILTER_CHAIN -i $IN_INTERFACE -s $ip -p udp $export $action
+	else
+		$IPT -t $NETFILTER_TABLE -D $IPFILTER_CHAIN -i $IN_INTERFACE -s $ip $proto $export $action
+	fi
+
+	return
+}
+usage(){
+	case "$0" in
+		init)
+			#读取配置，初始化ip过滤
+			elog "USAGE: $0 ipfilter init"
+		;;
+		enable)
+			#配置全局规则，开关、黑白名单模式
+			elog "USAGE: $0 ipfilter <enable> [enable:0|1] [mode:black|white] [wan:yes|no]"
+		;;
+		set)
+			#wan表示禁止/允许访问广域网
+			elog "USAGE: $0 ipfilter <set> [iptype:ipv4|ipv6] [ipaddr:192.168.31.210|2001:1::123] [rulename:xxx]"
+		;;
+		del)
+			elog "USAGE: $0 ipfilter <del> [mode:black|white] [filter:wan] [iptype:ipv4|ipv6] [ip=x.x.x.x]"
+		;;
+	esac
+	return 0
+}
+
+
+lock $LOCKFILE
+
+firewall_enable=$(uci -q get firewall.@defaults[0].fw_enable)
+[ "$firewall_enable" = "0" ] && {
+	lock -u $LOCKFILE
+	exit 0
+}
+
+case "$action" in
+	init|INIT)
+		open="$(uci -q get ipfilter.wan.enable)"
+		mode="$(uci -q get ipfilter.wan.mode)"
+		if [ "$open" = "1" ]; then
+			init $mode
+			[ "$mode" = "white" ] && clearConntrackSession
+		elif [ "$open" = "0" ]; then
+			flush_rule
+		fi
+	;;
+	enable|ENABLE)
+		open=$1
+		mode=$2
+		if [ "$open" = "1" ]; then
+			init $mode
+			[ "$mode" = "white" ] && clearConntrackSession
+		elif [ "$open" = "0" ]; then
+			flush_rule
+		fi
+	;;
+	set|SET)
+		iptype=$2
+		ip=$3
+		proto=$4
+		export=$5
+		mode=$1
+		add_rule $mode $iptype $ip $proto $export
+		clearConntrackSession $ip
+	;;
+	del|DEL)
+		iptype=$2
+		ip=$3
+		proto=$4
+		export=$5
+		mode=$1
+		delete_rule $mode $iptype $ip $proto $export
+		clearConntrackSession $ip
+	;;
+	*)
+		elog "WARNING: Unsupport Function In Ipfilter!"
+		usage
+	;;
+esac
+lock -u $LOCKFILE
+exit 0
+

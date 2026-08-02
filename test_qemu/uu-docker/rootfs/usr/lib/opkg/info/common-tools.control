@@ -1,0 +1,8 @@
+Package: common-tools
+Version: 1_0_0-1
+Depends: libc, libpthread, boost-thread
+Source: package/miwifi/common-tools
+Section: opt
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 51970
+Description:  Some common tools

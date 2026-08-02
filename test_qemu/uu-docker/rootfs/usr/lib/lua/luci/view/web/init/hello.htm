@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<%
+local ver = require("xiaoqiang.XQVersion").webVersion
+local sys = require("xiaoqiang.util.XQSysUtil")
+if sys.getInitInfo() then
+	luci.template.render("mobile/sysauth")
+else
+	sys.setSysPasswordDefault()
+end
+%>
+<html lang="zh-CN">
+<head>
+	<!-- Meta, title, CSS, favicons, etc. -->
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	<title>小米路由器</title>
+	<link href="<%=resource%>/mobile/css/bc.css?v=<%=ver%>" rel="stylesheet">
+	<link href="<%=resource%>/mobile/css/hello.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+	<article class="mod-hello">
+		<div class="content">
+			<p>
+				<label for="agree"><img id="agree" class="check" src="<%=resource%>/mobile/img/bg_checked.png" data-checked="checked"> <span>我已阅读并同意小米路由器</span></label><a target="_blank" href="<%=luci.dispatcher.build_url("mobile", "agreement")%>">用户协议</a></a>
+				</p>
+			<a id="toInit" href="#" class="btn btn-primary btn-block">开始</a>
+		</div>
+		<form style="display:none" id="prelogin" name="prelogin" method="post" action="<%=luci.dispatcher.build_url("mobile", "guide")%>">
+			<input type="hidden" name="username" value="admin"/>
+			<input type="hidden" name="password" value="admin"/>
+		</form>
+	</article>
+	<!-- <p class="testp"></p> -->
+	<%include("mobile/inc/footer")%>
+<script src="<%=resource%>/mobile/js/zepto.js"></script>
+<script>
+$(function(){
+	$('#toInit').on('click', function(e){
+		e.preventDefault();
+		if ($('#agree').attr('data-checked') == 'checked') {
+			$('#prelogin').submit();
+		}
+	});
+	$('#agree').on('click', function(e){
+		if ($('#agree').attr('data-checked') == 'checked') {
+			$(this).attr('data-checked', '').attr('src','<%=resource%>/mobile/img/bg_check.png');
+			$('#toInit').addClass('btn-disabled');
+		}else{
+			$(this).attr('data-checked', 'checked').attr('src','<%=resource%>/mobile/img/bg_checked.png');
+			$('#toInit').removeClass('btn-disabled');
+		}
+	});
+	$('body').on('orientationchange', function(){
+		// window.location.reload(true);
+	});
+});
+</script>
+</body>
+</html>

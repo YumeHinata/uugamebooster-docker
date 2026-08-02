@@ -1,0 +1,17 @@
+/usr/lib/iptables/libxt_miwifi-connantiy.so
+/etc/init.d/antiy_dpi
+/etc/init.d/antiy-url-fw
+/usr/lib/liburl_antiy.so
+/etc/antiy/conf/avllib.conf
+/etc/antiy/b_url_tag.avl
+/etc/antiy/tag.avl
+/usr/sbin/antiy_url_firewall
+/etc/config/antiy_url_policy
+/etc/config/antiy_url_class
+/etc/antiy/antiy_url_class
+/lib/miwifi/hotupgrade/antiy-url-firewall.sh
+/etc/antiy/b_regular_tag.avl
+/etc/nginx/conf.d/8900.conf
+/etc/antiy/conf/liscense.conf
+/usr/lib/libdpi_antiy.so
+/etc/antiy/b_tag.avl

@@ -1,0 +1,117 @@
+#!/bin/sh
+
+# ban specify mac address for half an hour(could specify in parameter)
+# usage: ban_admin ban <mac>
+
+RULE_CHAIN='bfd_admin'
+IPT="iptables -t filter -w"
+
+firewall_flush() {
+    $IPT -F $RULE_CHAIN 2> /dev/null
+}
+
+firewall_del_mac() {
+    local mac="$1"
+
+    for i in $($IPT -L "$RULE_CHAIN" --line-numbers -n | grep "$mac" | sort -r | cut -f 1 -d' '); do
+        $IPT -D "$RULE_CHAIN" "$i"
+    done
+}
+
+firewall_del_old() {
+    local now line lines
+    local _mac _time _ts
+
+    now=$(date +"%s")
+    lines=$($IPT -S "$RULE_CHAIN"  | grep DROP | cut -f14,18 -d ' ')
+
+    echo "$lines" | while read -r line; do
+        [ -z "$line" ] && continue
+        _mac=$(echo "$line" | cut -f 1 -d' ')
+        _time=$(echo "$line" | cut -f 2 -d' ')
+        _ts=$(date -u -D "%Y-%m-%dT%H:%M:%S" -d "$_time" +"%s")
+        [ "$now" -gt "$_ts" ] && [ -n "$_mac" ] && firewall_del_mac "$_mac"
+    done
+    return 0
+}
+
+get_stop_time() {
+    local band_seconds now_timestamp stop_timestamp
+
+    band_seconds="${1:-1800}"    # ban half an hours by default
+    now_timestamp=$(date +"%s")
+    stop_timestamp=$((band_seconds + now_timestamp))
+    date -u -d "@$stop_timestamp" +"%Y-%m-%dT%H:%M:%S"
+}
+
+firewall_renew() {
+    local stop_time line lines
+
+    stop_time=$(get_stop_time)
+    lines=$($IPT -S "$RULE_CHAIN" | grep 'DROP' | sed "s/datestop.*/datestop $stop_time -j DROP/")
+
+    $IPT -F "$RULE_CHAIN"
+    echo "$lines" | while read -r line; do
+        [ -z "$line" ] && continue
+        eval "$IPT" "$line"
+    done
+    return 0
+}
+
+firewall_set() {
+    local mac="$1"
+    local father_chain="input_rule"
+    local lan_ip stop_time
+
+    # check input_rule chain exist
+    if ! $IPT -S "$father_chain"; then
+        $IPT -N "$father_chain"
+        $IPT -A INPUT -j "$father_chain"
+    fi
+
+    # check bfd_admin chain exist
+    if ! $IPT -S "$RULE_CHAIN"; then
+        $IPT -N "$RULE_CHAIN"
+        $IPT -A "$father_chain" -j "$RULE_CHAIN"
+    fi
+
+    # add rule
+    firewall_del_mac "$mac"
+    stop_time=$(get_stop_time "$2")
+    $IPT -A $RULE_CHAIN -i br-lan -p tcp -m multiport --dport 80,8098,443 -m mac --mac-source "$mac" -m time --datestop "$stop_time" -j DROP
+
+    lan_ip=$(uci -q get network.lan.ipaddr)
+    echo "$lan_ip,80" > /proc/net/nf_conntrack
+    echo "$lan_ip,8098" > /proc/net/nf_conntrack
+    echo "$lan_ip,443" > /proc/net/nf_conntrack
+}
+
+
+# main
+[ "reload" = "$1" ] && {
+    firewall_flush
+    firewall_set
+    exit 0
+}
+
+trap "lock -u /var/run/fw3.lock; exit 1" SIGHUP SIGINT SIGTERM
+lock /var/run/fw3.lock
+case $1 in
+    ban)
+        [ -n "$2" ] && {
+            shift
+            firewall_del_old
+            firewall_set "$@"
+        }
+        ;;
+    renew)
+        firewall_renew "$@"
+        ;;
+    flush)
+        firewall_flush
+        ;;
+    *)
+        ;;
+esac
+lock -u /var/run/fw3.lock
+exit 0

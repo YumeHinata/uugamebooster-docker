@@ -1,0 +1,161 @@
+#!/bin/sh
+delay="$1"
+once="$2"
+timeout="$3"
+#
+. /lib/lib.scripthelper.sh
+#
+
+NTPSTATUSFLAG="/tmp/ntp.status"
+NTP_FAILED_FLAG="/tmp/ntp.failed"
+SCRIP_PATH='/etc/hotplug.d/ntp'
+LOCKFILE=/var/lock/ntpd-ifup
+
+dlog() {
+    logger -s -p 6 -t "ntp" "$@"
+}
+
+run_scripts() {
+    dlog "Begin run ntp script in $SCRIP_PATH"
+    for i in $SCRIP_PATH/*; do
+        dlog "exec $i"
+        $i $1 &>/dev/null
+    done &
+}
+
+time_sync_done() {
+    dlog "INFO: $1 sync ok."
+    echo -e "ok,$(date +"%Y%m%d%H%M%S")" >$NTPSTATUSFLAG 2>/dev/null
+    # run background
+    run_scripts $(date +%s)
+}
+
+time_sync_failed() {
+    dlog "INFO: $1 sync failed."
+    touch "$NTP_FAILED_FLAG"
+}
+
+ntp_sync() {
+    local ntpservers onentpsrv
+    local ntpcmd="/usr/sbin/ntpd -N -q -n -4"
+    local ntpservers_default="0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org 3.pool.ntp.org 0.cn.pool.ntp.org"
+
+    ntpservers="$(uci -q get system.ntp.server)"
+    [ -z "$ntpservers" ] && {
+        # unlikely
+        ntpservers="$ntpservers_default"
+        uci -q set system.ntp.server="$ntpservers_default"
+        uci commit system
+    }
+
+    for onentpsrv in $ntpservers; do
+        ntpcmd="$ntpcmd -p $onentpsrv"
+    done
+
+    eval "$ntpcmd"
+    if [ $? -ne 0 ]; then
+        dlog "ERROR: ntp failed, cmd $ntpcmd. do you have a working Internet connection?"
+        time_sync_failed "ntp"
+        return 1
+    else
+        time_sync_done "ntp"
+        return 0
+    fi
+}
+
+# get time from http header
+htp_sync() {
+    local htphost='htp.miwifi.com'
+    local dnsip=$(nslookup ${htphost} | grep Server | awk '{print $2}')
+    local htpip=$(nslookup ${htphost} | sed '1,2d' | grep "Address 1" | awk -F': ' '{print $2}')
+    # htp server ip is not the same with dns server ip.
+    # if they are the same, dns request should be redirected to dns server.
+    [ ${dnsip} = ${htpip} ] && {
+        dlog "ERROR: htp server is dns server, please check your internet connection!"
+        return 1
+    }
+    #local htpcmd="htpdate -4 -l -t -s $htphost"
+    # default(without -t) the time_limit is 1 year and with -t option it is 2100000000(much more than 1 year)
+    # when (-time_limit < server_time - system_time < time_limit), the time get from server is considered as valid
+    # but when HTTP response doesn't contain "Date:" field, server_time will be the default LONG_MAX(2147483647)
+    # and then considered as a valid time with -t option, and htpdate will return 0(although settimeofday failed)
+    local htpcmd="htpdate -4 -l -t -s https://$htphost"
+    runt "${timeout:=60}" "$htpcmd"
+    if [ $? -ne 0 ]; then
+        dlog "ERROR: htp failed... do you have a working Internet connection?"
+        time_sync_failed "htp"
+        return 1
+    else
+        time_sync_done "htp"
+        return 0
+    fi
+}
+
+rm -f "$NTP_FAILED_FLAG"
+ntp_enable="$(uci -q get system.ntp.enabled)"
+[ "$ntp_enable" = "0" ] && exit
+
+trap "lock -u ${LOCKFILE}; exit" INT TERM EXIT
+if ! lock -n $LOCKFILE; then
+    dlog "ntpsetclock is running, skip sync this time"
+    trap '' EXIT
+    exit 0
+fi
+
+# skip time adjust when uninitilized
+/usr/sbin/check_accessInternet.sh "init" || exit 0
+
+
+mesh_support=$(uci -q get misc.features.supportMesh)
+if [ $mesh_support -eq 1 ]; then
+    MESH_ROLE=$(mesh_cmd role)
+    [ "$MESH_ROLE" != "RE" ] && ! /usr/sbin/check_accessInternet.sh "config" && exit 0
+else
+    ! /usr/sbin/check_accessInternet.sh "config" && exit 0
+fi
+
+# just sync time when network is ready, or htpd will sync time from myself (htp.miwifi.com is redirected to 192.168.31.1)
+# if network is not ready, clean ntp sync flag to make sure we will sync time next time.
+nettb2 &> /dev/null || {
+    [ -f ${NTPSTATUSFLAG} ] && rm ${NTPSTATUSFLAG}
+    exit 0
+}
+
+if [ "$(/bin/date -u +%s 2>/dev/null)" -lt "0" ]; then
+    /bin/date -s "1970-01-01 13:00:00" 2>/dev/null && logger -t "ntpsetclock" "fix epoch time ok $(/bin/date -u +%s 2>/dev/null)"
+fi
+
+NTPSTATUS=$(cut -d, -f1 $NTPSTATUSFLAG 2>/dev/null)
+if [ "$NTPSTATUS" = "ok" ]; then
+    last_sync=$(cut -d, -f2 $NTPSTATUSFLAG 2>/dev/null)
+    echo "INFO: last ntp sync sucessed at $last_sync"
+    [ "${once:=no}" = "once" ] && exit 0
+fi
+
+case $delay in
+post)
+    echo "INFO: wan up event, ntp sync called."
+    echo "INFO: delay 3 seconds befor sync."
+    sleep 3
+    ;;
+now)
+    echo "INFO:  emergency ntp sync called."
+    ;;
+rand)
+    sleeptm=$(cat /dev/urandom | head -c 30 | md5sum | tr -d [0a-zA-Z- ] 2>/dev/null)
+    sleeptm=$((${sleeptm:0:8} % 300))
+    echo "INFO: random ntp sync called."
+    echo "sleep $sleeptm for ntpd sync"
+    sleep $sleeptm
+    ;;
+*) ;;
+esac
+
+ntp_sync || {
+    dlog "try htp..."
+    htp_sync || {
+        # both ntp and htp failed
+        # clean up status file
+        [ -f ${NTPSTATUSFLAG} ] && rm ${NTPSTATUSFLAG}
+    }
+}

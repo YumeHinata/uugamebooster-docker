@@ -1,0 +1,23 @@
+#!/bin/sh /etc/rc.common
+
+START=52
+
+USE_PROCD=1
+NAME=antiy_url_firewall
+
+stop_service() {
+    antiy_url_firewall clean > /dev/null 2>&1
+}
+
+start_service() {
+    if [ "$(uci -q get xiaoqiang.common.NETMODE)" = whc_cap ]; then
+        antiy_url_firewall > /dev/null 2>&1
+        return
+    fi
+    stop_service
+}
+
+service_triggers() {
+    procd_add_reload_trigger xiaoqiang
+    procd_add_reload_trigger antiy_url_policy
+}

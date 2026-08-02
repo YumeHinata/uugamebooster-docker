@@ -1,0 +1,5 @@
+/etc/hotplug.d/mount/00-storage
+/usr/sbin/mkfs
+/usr/sbin/storage
+/lib/miwifi/storage/storage.sh
+/etc/hotplug.d/block/00-storage

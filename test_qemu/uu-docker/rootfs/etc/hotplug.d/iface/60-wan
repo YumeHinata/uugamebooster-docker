@@ -1,0 +1,45 @@
+#!/bin/sh
+
+logger -p notice -t "hotplug.d" "60-wan: run because of $INTERFACE $ACTION"
+
+[ "$ACTION" = "ifup" ] && [ "$INTERFACE" = "wan" ] && {
+	[ -f /usr/sbin/smartdns.lua ] && /usr/bin/lua /usr/sbin/smartdns.lua &
+
+	[ "1" != "$(uci -q get miio_ot.ot.bound)" ] && [ -x "/etc/init.d/miio_client" ] && {
+		# let the miio_client get the new ip, otherwise it will disconnect with server
+		/etc/init.d/miio_client restart &
+	}
+
+	[ "$(uci -q get xiaoqiang.common.INITTED)" != "YES" ] && {
+		lan_ip=$(uci -q get network.lan.ipaddr)
+		lan_mask=$(uci -q get network.lan.netmask)
+		[ -n "$lan_ip" -a -n "$lan_mask" -a -n "$nexthop" ] && {
+			lan_ip_num=$(echo "$lan_ip" | awk '{c=256;split($0,ip,".");print ip[4]+ip[3]*c+ip[2]*c^2+ip[1]*c^3}')
+			lan_mask_num=$(echo "$lan_mask" | awk '{c=256;split($0,ip,".");print ip[4]+ip[3]*c+ip[2]*c^2+ip[1]*c^3}')
+			gw_ip_num=$(echo "$nexthop" | awk '{c=256;split($0,ip,".");print ip[4]+ip[3]*c+ip[2]*c^2+ip[1]*c^3}')
+			
+			# lan and wan in the same net
+			[ "$((lan_ip_num&lan_mask_num))" == "$((gw_ip_num&lan_mask_num))" ] && {
+				wan_ifname=$(uci -q get network.wan.ifname)
+				[ -n "$wan_ifname" ] && {
+					echo "$nexthop" > /tmp/wan_gw_ip
+					route add -net $nexthop netmask 255.255.255.255 dev "$wan_ifname"
+				}
+			}
+		}
+	} || {
+		[ -e "/tmp/wan_gw_ip" ] && {
+			wan_gw_ip=$(cat /tmp/wan_gw_ip)
+			[ -n "$wan_gw_ip" ] && {
+				wan_ifname=$(uci -q get network.wan.ifname)
+				[ -n "$wan_ifname" ] && route del -net $wan_gw_ip netmask 255.255.255.255 dev "$wan_ifname"
+			}
+			rm -rf /tmp/wan_gw_ip
+		}
+	}
+
+	wan_ifname=$(uci -q get network.wan.ifname)
+	link_rate=$(phyhelper speed iface $wan_ifname)
+	matool --method setKV --params "wan_port_rate" "$link_rate" >/dev/null 2>&1
+}
+

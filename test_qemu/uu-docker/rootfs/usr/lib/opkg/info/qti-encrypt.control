@@ -1,0 +1,9 @@
+Package: qti-encrypt
+Version: 1.0-1
+Depends: libc, openssl-util
+Source: qca/feeds/afc/qti-encrypt
+SourceName: qti-encrypt
+Section: Encrypt App
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 687712
+Description:  Encrypt App

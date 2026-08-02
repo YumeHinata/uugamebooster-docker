@@ -1,0 +1,8 @@
+#!/usr/bin/lua
+
+local br_util=require("xiaoqiang.util.XQBrUtil")
+if #arg == 0 then
+	br_util.print_all_macs()
+else
+	br_util.print_br_macs(arg[1])
+end

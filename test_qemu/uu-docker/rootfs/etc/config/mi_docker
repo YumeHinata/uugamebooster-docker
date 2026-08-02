@@ -1,0 +1,18 @@
+config mi_docker settings
+	option docker_enable "1"
+	option docker_install "0"
+	option portainer_install "0"
+	option default_mem '256'
+	option static_bin '/data/docker'
+	option cgroup_off '1'
+
+config globals 'globals'
+	option iptables '0'
+	option exec_root '/tmp/docker_exec'
+	option data_root '/data/other/docker'
+
+config cgroup 'cgroup'
+	option cpu '0.5'
+	option mem '256'
+
+config md5 'md5'

@@ -1,0 +1,9 @@
+#!/bin/ash
+
+if [ "$ACTION" != "ifdown" ]; then
+	exit 0
+fi
+
+. /lib/miwifi/lib_sp_colls.sh
+
+hotplug_check_down "$INTERFACE"

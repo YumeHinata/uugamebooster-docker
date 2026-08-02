@@ -1,0 +1,13 @@
+Package: iptables-mod-u32
+Version: 1.6.2-2
+Depends: libc, iptables, kmod-ipt-u32
+Source: package/network/utils/iptables
+License: GPL-2.0
+Section: net
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 2555
+Description:  U32 iptables extensions.
+ 
+ Matches:
+ - u32
+ 

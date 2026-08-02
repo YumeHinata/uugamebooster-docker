@@ -1,0 +1,8 @@
+Package: sysupgrade-helper
+Version: miwifi_git-1
+Depends: libc, losetup
+Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/platform_utils/sysupgrade-helper
+Section: boot
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 124573
+Description:  U-boot images tools (dumpimage, mkimage)

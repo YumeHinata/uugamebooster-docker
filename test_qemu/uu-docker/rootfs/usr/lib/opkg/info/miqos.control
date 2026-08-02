@@ -1,0 +1,12 @@
+Package: miqos
+Version: 1.1-a
+Depends: libc, kmod-sched, tc, ip
+Source: package/miwifi/miqos
+Section: net
+Architecture: all
+Installed-Size: 55683
+Description:  A script to do traffing shaping with the HTB algorithm.
+ Wshaper attempts to:
+ * Maintain low latency for interfactive traffic at all times
+ * Allow 'surfing' at reasonable speeds while up or downloading
+ * Make sure uploads don't harm downloads, and the other way around

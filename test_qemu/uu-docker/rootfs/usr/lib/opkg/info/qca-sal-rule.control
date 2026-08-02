@@ -1,0 +1,8 @@
+Package: qca-sal-rule
+Version: miwifi_git-1
+Depends: libc, libjson-c, libnl
+Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/nss-sap/sal-rule
+Section: utils
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 4040
+Description:  sal network rules configuration library

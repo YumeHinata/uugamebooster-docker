@@ -1,0 +1,10 @@
+Package: libipset
+Version: 6.38-1
+Depends: libc, kmod-ipt-ipset, libmnl
+Source: package/network/utils/ipset
+License: GPL-2.0
+Section: net
+Maintainer: Jo-Philipp Wich <jo@mein.io>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 35107
+Description:  IPset administration utility

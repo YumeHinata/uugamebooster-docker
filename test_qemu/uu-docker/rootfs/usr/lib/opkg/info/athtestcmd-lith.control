@@ -1,0 +1,8 @@
+Package: athtestcmd-lith
+Version: miwifi_git-1
+Depends: libc
+Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/athtestcmd/athtestcmd
+Section: QCA
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 82621
+Description:  qcatestcmd command support for lithium

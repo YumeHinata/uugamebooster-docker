@@ -1,0 +1,8 @@
+nf_conntrack_h323
+nf_nat_h323
+nf_conntrack_pptp
+nf_nat_pptp
+nf_conntrack_sip
+nf_nat_sip
+nf_conntrack_tftp
+nf_nat_tftp

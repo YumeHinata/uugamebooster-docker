@@ -1,0 +1,17 @@
+/etc/nginx/miwifi-webinitrd.conf
+/etc/nginx/win-utf
+/etc/nginx/cert.key
+/etc/nginx/conf.d/8080.conf
+/etc/nginx/conf.d/443.conf
+/etc/nginx/conf.d/80.conf
+/etc/nginx/koi-win
+/etc/nginx/fastcgi-proxy-tcp.conf
+/etc/nginx/fastcgi_params
+/etc/nginx/80-real-locations.conf
+/etc/nginx/default-locations.conf
+/etc/nginx/cert.crt
+/etc/nginx/luci-backend.conf
+/etc/nginx/nginx.conf
+/etc/nginx/mime.types
+/etc/nginx/force-https-locations.conf
+/etc/nginx/koi-utf

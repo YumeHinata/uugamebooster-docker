@@ -1,0 +1,9 @@
+Package: ip6tables
+Version: 1.6.2-2
+Depends: libc, kmod-ip6tables, iptables
+Source: package/network/utils/iptables
+License: GPL-2.0
+Section: net
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 210
+Description:  IPv6 firewall administration tool

@@ -1,0 +1,5 @@
+config maccel settings
+    option enabled "1"
+	option client_active "0"
+	option client_active_max "5"
+	option db_record "0"

@@ -1,0 +1,11 @@
+Package: libnghttp2
+Version: 1.32.0-1
+Depends: libc
+Source: package/libs/nghttp2
+License: MIT
+LicenseFiles: COPYING
+Section: libs
+Maintainer: Hans Dedecker <dedeckeh@gmail.com>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 58571
+Description:  C library implementing the framing layer of the HTTP/2 protocol. It can be used to build a HTTP/2-capable HTTP client or server

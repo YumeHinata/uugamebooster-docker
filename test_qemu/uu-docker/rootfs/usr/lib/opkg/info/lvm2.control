@@ -1,0 +1,12 @@
+Package: lvm2
+Version: 2.02.177-1
+Depends: libc, libdevmapper, libblkid, libreadline, libncurses
+Source: feeds/packages/utils/lvm2
+License: GPL-2.0 LGPL-2.1
+Section: utils
+Maintainer: Daniel Golle <daniel@makrotopia.org>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 690084
+Description:  LVM2 refers to a new userspace toolset that provide logical volume management
+ facilities on linux. It is reasonably backwards-compatible with the original
+ LVM toolset.

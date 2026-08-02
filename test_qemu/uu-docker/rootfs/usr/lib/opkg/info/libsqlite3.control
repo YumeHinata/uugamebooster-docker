@@ -1,0 +1,13 @@
+Package: libsqlite3
+Version: 3260000-2
+Depends: libc, libpthread, zlib
+Source: feeds/packages/libs/sqlite3
+License: PUBLICDOMAIN
+Section: libs
+Maintainer: Sebastian Kemper <sebastian_ml@gmx.net>
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 444493
+Description:  SQLite is a small C library that implements a self-contained, embeddable,
+ zero-configuration SQL database engine.
+ This package contains the SQLite (v3.x) shared library, used by other
+ programs.

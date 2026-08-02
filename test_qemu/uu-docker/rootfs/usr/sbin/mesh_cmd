@@ -1,0 +1,185 @@
+#!/bin/sh 
+
+. /lib/mimesh/mimesh_public.sh
+
+LOCKF="/var/lock/mimesh.lock"
+ERR_MIMESH_LOCK=100
+MIMESH_LOCK()
+{
+	lock "$LOCKF" 2>/dev/null
+}
+
+MIMESH_TRYLOCK()
+{
+	lock -n "$LOCKF" 2>/dev/null && lock -u "$LOCKF"
+}
+
+MIMESH_UNLOCK()
+{
+	lock -u "$LOCKF" 2>/dev/null
+}
+
+
+list="iscap isre role sync sync_lite syncbuf initbuf backhaul is_tri_band mesh_iface dev_type nbh_band"
+method="$1"
+ret=0
+out=""
+
+
+trap "MIMESH_UNLOCK; exit 1" SIGINT SIGHUP SIGTERM SIGKILL SIGSEGV
+
+case "$method" in
+	iscap)
+		. /lib/mimesh/mimesh_stat.sh
+		mimesh_is_cap
+		ret=$?
+		;;
+
+	isre)
+		. /lib/mimesh/mimesh_stat.sh
+		mimesh_is_re
+		ret=$?
+		;;
+
+	role)
+		. /lib/mimesh/mimesh_stat.sh
+		echo -n "$(mimesh_get_stat)"
+		ret=0
+		;;
+
+	sync)
+		# sync with wifi cfg update
+		. /lib/mimesh/mimesh_sync.sh
+		MIMESH_LOCK
+		MIMESH_LOGI " ** mimesh_action sync ppid=$PPID"
+		mimesh_sync "$2"
+		ret=$?
+		MIMESH_UNLOCK
+		;;
+
+	sync_lite)
+		# lite sync withOUT wifi update
+		. /lib/mimesh/mimesh_sync.sh
+		MIMESH_LOCK
+		MIMESH_LOGI " ** mimesh_action sync_lite ppid=$PPID"
+		mimesh_sync_lite
+		ret=$?
+		MIMESH_UNLOCK
+		;;
+
+	syncbuf)
+		. /lib/mimesh/mimesh_sync.sh
+		mimesh_sync_jsonbuf
+		ret=$?
+		;;
+
+	initbuf)
+		. /lib/mimesh/mimesh_sync.sh
+		mimesh_init_jsonbuf "$2"
+		ret=$?
+		;;
+
+	init_sync)
+		# mesh_ver4 re init sync
+		. /lib/mimesh/mimesh_sync.sh
+		mimesh_init_sync_jsonbuf "$2"
+		ret=$?
+		;;
+
+	support_mesh_version)
+		shift 1
+		support_mesh_version "$1"
+		ret=$?
+		echo "$ret"
+		;;
+
+	max_mesh_version)
+		max_mesh_version
+		ret=$?
+		echo "$ret"
+		;;
+
+	mesh_suites)
+		mesh_suites
+		ret=$?
+		echo "$ret"
+		;;
+
+	backhaul)
+		shift
+		echo -n "$(mesh_backhaul "$@")"
+		ret=0
+		;;
+
+	is_tri_band)
+		tri_band_check
+		ret=$?
+		echo "$ret"
+		;;
+
+	mesh_iface)
+		shift
+		echo -n "$(mesh_iface "$@")"
+		ret=0
+		;;
+
+	dev_type)
+		echo -n "$(dev_type)"
+		ret=0
+		;;
+
+	nbh_band)
+		echo -n "$(mesh_nbh_band)"
+		ret=0
+		;;
+
+	re_count)
+		. /lib/mimesh/mimesh_stat.sh
+		echo -n "$(mimesh_re_counts)"
+		ret=0
+		;;
+
+	mlo_members)
+		mlo_members "$2" "$3" "$4"
+		ret=0
+		;;
+
+	is_mlo_bhlink)
+		is_mlo_bhlink
+		ret=$?
+		echo "$ret"
+		;;
+
+	mlo_bhlink_check)
+		shift 1
+		mlo_bhlink_check "$@"
+		ret=$?
+		echo "$ret"
+		;;
+
+	mlo_support)
+		mlo_support_check
+		ret=$?
+		echo "$ret"
+		;;
+
+	bh_mlo_support)
+		bh_mlo_support
+		ret=$?
+		echo "$ret"
+		;;
+
+	easymesh_support)
+		easymesh_support
+		ret=$?
+		echo "$ret"
+		;;
+	*)
+		echo " support cmd:" 
+		echo "$0 $list"
+		ret=1
+	;;
+esac
+
+return $ret
+

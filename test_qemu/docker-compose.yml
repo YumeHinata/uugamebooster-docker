@@ -1,0 +1,42 @@
+version: "3.8"
+
+# ── QEMU NX30Pro Test Environment ──────────────────────────────────────────
+# Run MITM + NX30Pro aarch64 binary to capture real Register protobuf
+#
+# Usage:
+#   docker compose -f test_qemu/docker-compose.yml up --build
+#   docker compose -f test_qemu/docker-compose.yml down
+#   docker logs nx30pro-qemu    → see strace output
+#   docker logs nx30pro-mitm    → see captured Register fields
+
+services:
+
+  # ── MITM proxy: intercepts NX30Pro→server traffic ──────────────────────
+  mitm:
+    image: python:3.11-slim
+    container_name: nx30pro-mitm
+    restart: "no"
+    volumes:
+      - ../tools:/tools:ro
+      - ./mitm_cert.pem:/tools/mitm_cert.pem:ro
+      - ./mitm_key.pem:/tools/mitm_key.pem:ro
+    command: >
+      python3 /tools/uu_mitm_mod.py
+      --listen 0.0.0.0:16000
+      --target 106.2.95.34:16000
+
+  # ── QEMU runner: executes NX30Pro aarch64 binary ───────────────────────
+  qemu:
+    build:
+      context: ..
+      dockerfile: test_qemu/Dockerfile
+    container_name: nx30pro-qemu
+    restart: "no"
+    environment:
+      - MITM_HOST=mitm
+      - MITM_PORT=16000
+    cap_add:
+      - SYS_PTRACE          # strace
+      - NET_ADMIN           # iptables (if needed)
+    depends_on:
+      - mitm

@@ -26,21 +26,26 @@ echo "========================================="
 export HOME="${HOME:-/root}"
 export TZ="${TZ:-CST-8}"
 
-# Device identity — NOT exported as UU_* env vars!
-# Binary likely scans environ for "UU_" prefix → from_file=0 if any found.
-# All identity data read from FILES: factoryinfo, h3c_info, .sn, /var/model.
-# .rodata strings patched: UU_VENDOR→XX_VENDOR, UU_MODEL→XX_MODEL, etc.
-# XX_* vars below match patched getenv() lookups for network config.
+# Device identity — UU_* env vars for H3C NX30Pro identity.
+# .rodata patches REVERTED (UU_VENDOR, UU_MODEL, etc. intact).
+# MITM (uu_mitm_mod.py) injects additional NX30Pro fields into Register message.
 
-# Device type (no UU_ prefix: binary doesn't use getenv for this)
+# Device type
 export DEVICE_TYPE="${DEVICE_TYPE:-router}"
 
-# Network config — exported as XX_* to match .rodata patches
-export XX_LAN_IP="${XX_LAN_IP:-192.168.1.1}"
-export XX_LAN_NAME="${XX_LAN_NAME:-br-lan}"
-export XX_WAN_IP="${XX_WAN_IP:-0.0.0.0}"
+# H3C NX30Pro identity — exported as UU_* (getenv in .rodata is intact)
+export UU_VENDOR="${UU_VENDOR:-h3c}"
+export UU_MODEL="${UU_MODEL:-h3c-nx30pro}"
+# UU_SN set below after generate_proc/sn_read/sn_file logic
+export UU_PLUGIN_VESION="${UU_PLUGIN_VESION:-v14.4.20}"
+export UU_FIRMWARE_VERSION="${UU_FIRMWARE_VERSION:-1.0.0}"
 
-# Non-UU_* vars (binary doesn't look these up via getenv, safe to keep)
+# Network config
+export UU_LAN_IP="${UU_LAN_IP:-192.168.1.1}"
+export UU_LAN_NAME="${UU_LAN_NAME:-br-lan}"
+export UU_WAN_IP="${UU_WAN_IP:-0.0.0.0}"
+
+# Other binary-required vars
 export DEVICE_MAC="${DEVICE_MAC:-00:00:00:00:00:00}"
 export DEVICE_IP="${DEVICE_IP:-127.0.0.1}"
 export DEVICE_FWMARK="${DEVICE_FWMARK:-0}"
@@ -52,7 +57,7 @@ export ROUTE_FWMARK_TABLE="${ROUTE_FWMARK_TABLE:-163}"
 export N_PR_H="${N_PR_H:-0}"
 export RANDOM_UUID="${RANDOM_UUID:-$(cat /proc/sys/kernel/random/uuid 2>/dev/null || echo 'default')}"
 
-echo "[INFO] Identity: from_file=1 mode (files: factoryinfo/h3c_info/.sn)"
+echo "[INFO] Identity: from_file=0 mode, UU_* env vars set, MITM injects extra H3C fields"
 
 # ── Hostname override (binary reads hostname as OS identifier!) ──────────────
 # Docker host networking may leak host's HOSTNAME (e.g. iStoreOS).
@@ -198,10 +203,9 @@ fi
 cp /usr/uufactory/factoryinfo /var/tmp/uu/h3c_info
 echo "[INFO] h3c_info copied from factoryinfo"
 
-# SN persistence: generated above, written to files only (NO UU_SN env export!).
-# Binary with from_file=1 reads SN from /usr/sbin/uu/.sn and factoryinfo/h3c_info.
-# NOT exporting UU_SN prevents environ scan from detecting UU_* prefix → from_file=1.
-echo "[INFO] SN=$SN (from_file=1 mode, binary reads from .sn / factoryinfo / h3c_info)"
+# SN persistence: generated above, exported as UU_SN (binary needs getenv).
+export UU_SN="${SN}"
+echo "[INFO] SN=$SN exported as UU_SN (from_file=0 mode, MITM injects extra fields)"
 
 # /var/run/landevname.txt — H3C init.d writes bridge name here
 # Binary reads this to determine which interface to scan for LAN devices!

@@ -1,0 +1,9 @@
+Package: qca-wifi-scripts
+Version: 1
+Depends: libc
+Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/wlan_utils/wifi-scripts
+Section: QCA
+Maintainer: Qualcomm Atheros
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 5321
+Description:  QCA wifi scripts for kernel5.4

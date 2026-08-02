@@ -1,0 +1,8 @@
+Package: miwifi-logd
+Version: 1.0-1.0
+Depends: libc, libstdcpp, wrt_cppwrap, libsqlite3, sqlite_modern_cpp, libubus, libblobmsg-json
+Source: package/miwifi/miwifi-logd
+Section: opt
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 43589
+Description:  TODO

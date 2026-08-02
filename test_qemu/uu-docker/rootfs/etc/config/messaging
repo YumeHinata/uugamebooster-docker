@@ -1,0 +1,4 @@
+config global 'setting'
+	option enable '1'
+
+config messaging 'deviceInfo'

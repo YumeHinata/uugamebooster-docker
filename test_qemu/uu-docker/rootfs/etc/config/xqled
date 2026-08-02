@@ -1,0 +1,178 @@
+config driver driver
+    option name 'sysfs'
+    option profile 'RD08'
+
+config env_var 'handle_event'
+    option name 'HANDLE_EVENT'
+    option value '1'
+
+config env_var 'default_color'
+    option name 'DEFAULT_COLOR'
+    option value '1'
+
+config action 'led_white_on'
+    option led 'white'
+    option options 'trigger brightness'
+    option trigger 'none'
+    option brightness '1'
+
+config action 'led_white_off'
+    option led 'white'
+    option options 'trigger brightness'
+    option trigger 'none'
+    option brightness '0'
+
+config action 'led_white_flash_fast'
+    option led 'white'
+    option options 'trigger delay_on delay_off'
+    option trigger 'timer'
+    option delay_on '500'
+    option delay_off '500'
+
+config action 'led_white_flash_slow'
+    option led 'white'
+    option options 'trigger delay_on delay_off'
+    option trigger 'timer'
+    option delay_on '1000'
+    option delay_off '1000'
+
+config action 'led_orange_on'
+    option led 'orange'
+    option options 'trigger brightness'
+    option trigger 'none'
+    option brightness '1'
+
+config action 'led_orange_off'
+    option led 'orange'
+    option options 'trigger brightness'
+    option trigger 'none'
+    option brightness '0'
+
+config action 'led_orange_flash_fast'
+    option led 'orange'
+    option options 'trigger delay_on delay_off'
+    option trigger 'timer'
+    option delay_on '500'
+    option delay_off '500'
+
+config action 'led_orange_flash_slow'
+    option led 'orange'
+    option options 'trigger delay_on delay_off'
+    option trigger 'timer'
+    option delay_on '1000'
+    option delay_off '1000'
+
+config action 'eth1_led_off'
+    option command 'ssdk_sh debug phy set 1 0x40078077 0x8004'
+
+config action 'eth2_led_off'
+    option command 'ssdk_sh debug phy set 2 0x40078077 0x8004'
+
+config action 'eth3_led_off'
+    option command 'ssdk_sh debug phy set 3 0x40078077 0x8004'
+
+config action 'eth4_led_off'
+    option command 'ssdk_sh debug phy set 4 0x40078077 0x8004'
+
+config action 'eth1_led_on'
+    option command 'ssdk_sh debug phy set 1 0x40078077 0xa004'
+
+config action 'eth2_led_on'
+    option command 'ssdk_sh debug phy set 2 0x40078077 0xa004'
+
+config action 'eth3_led_on'
+    option command 'ssdk_sh debug phy set 3 0x40078077 0xa004'
+
+config action 'eth4_led_on'
+    option command 'ssdk_sh debug phy set 4 0x40078077 0xa004'
+
+config action 'eth1_led_en'
+    option command 'ssdk_sh debug phy set 1 0x40078077 0x4'
+
+config action 'eth2_led_en'
+    option command 'ssdk_sh debug phy set 2 0x40078077 0x4'
+
+config action 'eth3_led_en'
+    option command 'ssdk_sh debug phy set 3 0x40078077 0x4'
+
+config action 'eth4_led_en'
+    option command 'ssdk_sh debug phy set 4 0x40078077 0x4'
+
+config func 'sys_booting'
+    option action 'led_white_off led_orange_on'
+
+config func 'sys_init'
+    option action 'led_white_off led_orange_flash_slow'
+
+config func 'sys_ok'
+    option action 'led_white_off led_orange_on'
+
+config func 'sys_off'
+    option action 'led_white_off led_orange_off'
+
+config func 'sys_on'
+    option action 'led_white_off led_orange_on'
+
+config func 'sys_ota'
+    option action 'led_white_off led_orange_flash_fast'
+
+config func 'systest_ongo'
+    option action 'led_white_off led_orange_off led_white_flash_fast led_orange_flash_fast'
+
+config func 'systest_fail'
+    option action 'led_white_on led_orange_on'
+
+config func 'meshing'
+    option action 'led_white_flash_fast led_orange_off'
+
+config func 'mesh_join'
+    option action 'led_white_off led_orange_flash_fast'
+
+config func 'mesh_discovery'
+    option action 'led_white_flash_slow led_orange_off'
+
+config func 'mesh_finish'
+    option action 'led_white_on led_orange_off'
+
+config func 'link_down'
+    option action 'led_white_off led_orange_on'
+
+config func 'internet_fail'
+    option action 'led_white_off led_orange_on'
+
+config func 'internet_ok'
+    option action 'led_white_on led_orange_off'
+
+config func 'func_off'
+    option action 'led_white_off led_orange_off'
+
+config func 'func_on'
+    option action 'led_white_on led_orange_on'
+
+config func 'factest_white'
+    option action 'led_white_on'
+
+config func 'factest_orange'
+    option action 'led_orange_on'
+
+config func 'factest_off'
+    option action 'led_white_off led_orange_off'
+
+config func 'led_eth_off'
+    option action 'eth1_led_off eth2_led_off eth3_led_off eth4_led_off'
+
+config func 'led_eth_on'
+    option action 'eth1_led_en eth2_led_en eth3_led_en eth4_led_en'
+
+config func 'led_eth1_on'
+    option action 'eth1_led_on'
+
+config func 'led_eth2_on'
+    option action 'eth2_led_on'
+
+config func 'led_eth3_on'
+    option action 'eth3_led_on'
+
+config func 'led_eth4_on'
+    option action 'eth4_led_on'
+

@@ -1,0 +1,205 @@
+config misc mount_bind_etc
+	option flag_name flag_format_overlay
+
+config misc format_ext_part
+	option save_boot_status 0
+
+config misc mount_jffs2
+	option do_mount 0
+
+config misc determine_ext_root
+	option skip_det_ext_root 0
+
+config misc ipaccount
+	list if_matching 'sta'
+
+config misc nfc
+	option nfc_support '1'
+	option if_2g_name wl18
+	option if_5g_name wl08
+
+config misc wireless
+	option if_2G wifi0
+	option if_5G wifi1
+	option apclient_2G wl12
+	option apclient_5G wl02
+	option wl_if_count 2
+	option ifname_2G wl1
+	option ifname_5G wl0
+	option ifname_guest_2G wl14
+	option ifname_guest_5G wl15
+	option ifname_apclient_2G wl11
+	option mesh_ifname_5G wl9
+	option wl02_scanifname 'wl0'
+	option wl12_scanifname 'wl1'
+	option wl02_scanband  '5g'
+	option wl12_scanband  '2g'
+	option wl02_mode 2
+	option wl12_mode 1
+	option wl02_device  'wifi1'
+	option wl12_device  'wifi0'
+	option if_2g_maxpower  '28'
+	option if_5g_maxpower  '31'
+	list APCLI_IFNAMES 'wl02'
+	list APCLI_IFNAMES 'wl12'
+	list DEVICE_LIST 'device_2g'
+	list DEVICE_LIST 'device_5g'
+	option device_2g_band '2g'
+	option device_2g_name 'wifi0'
+	option device_2g_primary 'iface_2g'
+	option device_5g_band '5g'
+	option device_5g_name 'wifi1'
+	option device_5g_primary 'iface_5g'
+	list IFACE_LIST 'iface_2g'
+	list IFACE_LIST 'iface_5g'
+	list IFACE_LIST 'iface_guest_2g'
+	list IFACE_LIST 'iface_guest_5g'
+	list IFACE_LIST 'iface_miot_2g'
+	option iface_2g_ifname 'wl1'
+	option iface_2g_deviceidx 'device_2g'
+	option iface_2g_network 'lan'
+	option iface_5g_ifname 'wl0'
+	option iface_5g_deviceidx 'device_5g'
+	option iface_5g_network 'lan'
+	option iface_guest_2g_name 'guest_2G'
+	option iface_guest_2g_ifname 'wl14'
+	option iface_guest_2g_deviceidx 'device_2g'
+	option iface_guest_2g_network 'guest'
+	option iface_miot_2g_name 'miot_2G'
+	option iface_miot_2g_ifname 'wl13'
+	option iface_miot_2g_deviceidx 'device_2g'
+	option iface_miot_2g_network 'miot'
+	option iface_guest_5g_name 'guest_5G'
+	option iface_guest_5g_ifname 'wl15'
+	option iface_guest_5g_deviceidx 'device_2g'
+	option iface_guest_5g_network 'guest'
+	list APCLI_LIST 'apcli_2g'
+	list APCLI_LIST 'apcli_5g'
+	option apcli_2g_ifname 'wl11'
+	option apcli_2g_deviceidx 'device_2g'
+	option apcli_2g_workmode '1'
+	option apcli_2g_network 'lan'
+	option apcli_5g_ifname 'wl12'
+	option apcli_5g_deviceidx 'device_5g'
+	option apcli_5g_workmode '2'
+	option apcli_5g_network 'lan'
+	option support_160m '1'
+	option if_2g_maxsta '124'
+	option if_5g_maxsta '124'
+	option ssid_len_limit_2g '28'
+	option ssid_len_limit_5g '31'
+	option wifi5_bk_2G 'wl17'
+	option wifi5_bk_5G 'wl16'
+
+config misc httpd
+	option uhttpd 0
+
+config misc quickpass
+	option ctf 0
+
+config misc log
+	option redundancy_mode 1
+
+config misc boot
+	option syslog 0
+	option checkswap 0
+
+config misc firewall
+	option webinit 1
+
+config misc messagingagent
+	option thread_num 6
+
+config misc iwevent
+	option authorize 1
+
+config misc initd
+	option cpulimit_en 0
+	option cpuctr_en 1
+	option trafctr_en 1
+	option networkdt_en 1
+
+config misc hardware
+	option model RD08
+	option displayName 'Xiaomi路由器BE6500 Pro'
+	option recovery 0
+	option gpio 0
+	option flash_per 0
+	option bbs 'http://bbs.xiaomi.cn/f-354'
+	option verify 'cd /tmp;mkxqimage -v '
+	option camera '/userdisk/data/'
+	option usbmode 0
+	option rom_up_path '/userdisk/data/upload/'
+	option rom_up_file 'customrom.bin'
+	option rom_down_path '/userdisk/data/otadownload/'
+	option cpufreq '1000MHz'
+	option wanspeed '1000'
+	option memtype 'DDR3'
+	option memfreq '1333MHz'
+	option memsize '256MB'
+
+config misc modules
+	option guestwifi 'wl14'
+
+config misc config_bkup
+	option cfg_bkup_en 1
+
+config misc fantmp
+	option fantmp_en 0
+
+config misc check_for_boottype
+	option flag31 0
+
+config misc ota_pred
+	option download 1
+
+config misc http_proxy
+	option fastpath "none"
+
+config misc cgroup
+	option memgrp1_en 1
+	option memgrp1_limit '150m'
+
+config misc backhauls
+	option backhaul '5g'
+	option backhaul_2g_sta_iface 'wl10'
+	option backhaul_2g_ap_iface 'wl4'
+	option backhaul_5g_sta_iface 'wl01'
+	option backhaul_5g_ap_iface 'wl5'
+
+config misc mesh
+	list version '2'
+	list version '3'
+	list version '4'
+	option max_node_count '9'
+	option require_re_vlan '1'
+	option support_dfs '1'
+	option support_band '2g 5g'
+	option backhaul_mlo_disabled '0'
+
+config misc features
+	option meshSuites '0'
+	option supportMesh '1'
+	option supportNewTopo '1'
+	option miio_ot '1'
+	option miio_bt '1'
+	option supportWifiAp '1'
+	option mlo_support '1'
+	option game '0'
+	option multiwan '1'
+	option sec_cfg_bak '1'
+	option upload_cadidate_res '1'
+	option iot_dev '1'
+	option supportMeshNewConfig '1'
+	option supportWifiAccessCtl '1'
+
+config misc mld
+	option hostap_mlo '2g 5g'
+	option bh_ap_mlo '2g 5g'
+	option sta_mlo '2g 5g'
+	option sta_mlo_max '1' #2g,5g
+	option hostap 'hostap_mld0'
+	option bh_ap 'bhap_mld0'
+	option bh_sta 'bhsta_mld0'
+	option slo_backup '5g'
+	option mlo_failed_max_times '6'

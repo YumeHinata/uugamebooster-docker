@@ -1,0 +1,9 @@
+Package: ftm
+Version: miwifi_git-1
+Depends: libc, libnl, libtcmd, qca-diag, librt
+Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/qca/utils/ftm
+Section: QCA
+Maintainer: Qualcomm Atheros
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 12505
+Description:  QCA ftm utils

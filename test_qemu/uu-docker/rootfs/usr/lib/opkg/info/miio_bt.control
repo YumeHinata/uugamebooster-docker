@@ -1,0 +1,8 @@
+Package: miio_bt
+Version: 0
+Depends: libc
+Source: package/miwifi/miio_bt
+Section: net
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 926405
+Description:  mi iot tool to control telink bt

@@ -1,0 +1,109 @@
+#!/bin/sh
+
+logger -p notice -t "hotplug.d" "60-wan6: run because of $INTERFACE $ACTION"
+
+[ "${INTERFACE:0:4}" != "wan6" ] && return
+
+WAN_IFACE="wan"
+WAN6_IFACE="$INTERFACE"
+WAN6_PPP_IFACE="wan6ppp"
+WAN6_IDX=${WAN6_IFACE##*_}
+if [ "$WAN6_IDX" != "$WAN6_IFACE" ]; then
+    WAN_IFACE="${WAN_IFACE}_$WAN6_IDX"
+    WAN6_PPP_IFACE="${WAN6_PPP_IFACE}_IDX"
+fi
+
+. /lib/miwifi/miwifi_functions.sh
+dedicated=$(util_network_dedicated_get "ipv6" $WAN6_IFACE)
+[ "$dedicated" = "1" ] && return
+
+mode=$(uci -q get ipv6.$WAN6_IFACE.mode)
+
+#flush all deprecated address
+ip -6 address flush scope global deprecated dynamic
+
+if [ "$ACTION" == "ifdown" ]; then
+    ifname=$(uci -q get network.$WAN_IFACE.ifname)
+    all_possible_ifname="$ifname pppoe-$WAN_IFACE pppoe-$WAN6_PPP_IFACE"
+    for tmp_ifname in $all_possible_ifname; do
+        old_ip6gw=$(ip -6 route | grep "default via .* $tmp_ifname" | awk 'NR==1 {print $3}')
+        [ -n "$old_ip6gw" ] && ip -6 route del default via $old_ip6gw >/dev/null 2>&1
+    done
+
+    # for static mode
+    old_ip6gw=$(ip -6 route | grep "default via .* $ifname" | awk 'NR==1 {print $3}')
+    [ -z "$old_ip6gw" ] && {
+        old_ip6gw=$(ip -6 route | grep "default from .* dev $ifname" | awk 'NR==1 {print $5}')
+    }
+    old_ip6prefix=$(ip -6 route | grep "default from .* dev $ifname" | awk 'NR==1 {print $3}')
+
+    [ -n "$old_ip6gw" ] && {
+        ip -6 route del default via $old_ip6gw
+    }
+
+    [ -n "$old_ip6gw" -a -n "$old_ip6prefix" ] && [ "$ip6gw" != "$old_ip6gw" -o "$ip6prefix" != "$old_ip6prefix" ] && {
+        ip -6 route del default from $old_ip6prefix via $old_ip6gw dev $ifname proto static metric 512
+    }
+else
+    . /lib/functions/network.sh
+    network_flush_cache
+    network_get_device wan6_ifname "$INTERFACE"
+
+    if [ "$mode" = "static" ]; then
+        [ "$ACTION" = "ifup" ] && {
+            ip6gw=$(uci -q get network.$WAN6_IFACE.ip6gw)
+            ip6prefix=$(uci -q get network.$WAN6_IFACE.ip6prefix)
+            old_ip6gw=$(ip -6 route | grep "default via .* $wan6_ifname" | awk 'NR==1 {print $3}')
+            [ -z "$old_ip6gw" ] && {
+                old_ip6gw=$(ip -6 route | grep "default from .* dev $wan6_ifname" | awk 'NR==1 {print $5}')
+            }
+            old_ip6prefix=$(ip -6 route | grep "default from .* dev $wan6_ifname" | awk 'NR==1 {print $3}')
+            [ -n "$old_ip6gw" -a "$ip6gw" != "$old_ip6gw" ] && {
+                ip -6 route del default via $old_ip6gw
+            }
+
+            [ -n "$old_ip6gw" -a -n "$old_ip6prefix" ] && {
+                [ "$ip6gw" != "$old_ip6gw" -o "$ip6prefix" != "$old_ip6prefix" ] && {
+                    ip -6 route del default from $old_ip6prefix via $old_ip6gw dev $wan6_ifname proto static metric 512
+                }
+            }
+
+            ip -6 route add $ip6gw dev $wan6_ifname
+            ip -6 route add default via $ip6gw dev $wan6_ifname
+            ip -6 route add default from $ip6prefix via $ip6gw dev $wan6_ifname proto static metric 512
+            ip -6 route del $ip6gw dev $wan6_ifname
+       }
+    elif [ "$mode" = "native" -o "$mode" = "dhcpv6" -o "$mode" = "pppoev6" -o "$mode" = "relay" ] ||
+         [ "$mode" = "464xlat" -o "$mode" = "pi_relay" -o "$mode" = "passthrough" ]; then
+        #ip6gw=$(ip -6 route | grep "default from .* dev $wan6_ifname" | awk 'NR==1 {print $5}')
+        network_get_gateway6 ip6gw "$INTERFACE"
+        old_ip6gw=$(ip -6 route | grep "default via" | awk 'NR==1 {print $3}')
+        old_ifname=$(ip -6 route | grep "default via" | awk 'NR==1 {print $5}')
+
+        [ "$ip6gw" != "$old_ip6gw" -o "$wan6_ifname" != "$old_ifname" ] && {
+            [ -n "$old_ip6gw" ] && ip -6 route del default via $old_ip6gw >/dev/null 2>&1
+            ip -6 route add default via $ip6gw dev $wan6_ifname >/dev/null 2>&1
+        }
+    fi
+
+    if [ "$ACTION" = "ifup" ]; then
+        if [ "$mode" = "native" -o "$mode" = "pi_relay" -o "$mode" = "passthrough" ]; then
+            automode=$(uci -q get ipv6.$WAN6_IFACE.automode)
+            succeed=$(uci -c /tmp -q get ipv6check.$WAN6_IFACE.succeed)
+            [ "$automode" = "1" -a "$succeed" != "1" ] && /usr/sbin/ipv6.sh autocheck "$WAN6_IFACE" up &
+            [  "$mode" = "pi_relay" ] && /etc/init.d/odhcpd restart
+        fi
+
+        #Clear routing rules related to old prefixes
+        route_rules=$(ip -6 route)
+        static_rule_suf="dev br-lan proto static metric 1024 pref medium"
+        echo "$route_rules" | grep expires | while read expires_rule; do
+            eval ip -6 route del "${expires_rule%expires*}"
+            logger -p notice -t "hotplug.d" "60-wan6: ip -6 route del ${expires_rule%expires*}"
+            echo "$route_rules" | grep "${prefix}.* $static_rule_suf" | grep -v "/" | while read static_rule; do
+                eval ip -6 route del "$static_rule"
+                logger -p notice -t "hotplug.d" "60-wan6: ip -6 route del $static_rule"
+            done
+        done
+    fi
+fi

@@ -1,0 +1,214 @@
+#!/bin/sh
+#
+# This file is interpreted as shell script.
+# Put your custom mwan3 action here, they will
+# be executed with each netifd hotplug interface event
+# on interfaces for which mwan3 is enabled.
+#
+# There are three main environment variables that are passed to this script.
+#
+# $ACTION
+#      <ifup>         Is called by netifd and mwan3track
+#      <ifdown>       Is called by netifd and mwan3track
+#      <connected>    Is only called by mwan3track if tracking was successful
+#      <disconnected> Is only called by mwan3track if tracking has failed
+# $INTERFACE	Name of the interface which went up or down (e.g. "wan" or "wwan")
+# $DEVICE	Physical device name which interface went up or down (e.g. "eth0" or "wwan0")
+
+. /lib/functions.sh
+. /lib/functions/network.sh
+. /lib/mwan3/mwan3.sh
+
+[ -n "$ACTION" ] || exit 1
+[ -n "$INTERFACE" ] || exit 1
+
+config_load mwan3
+config_get policy default_rule use_policy ""
+
+get_interfaces_status() {
+	local interfaces="$1"
+	local result="offline"
+
+	for intf in $interfaces; do
+		[ "$(mwan3_get_iface_hotplug_state ${intf})" = "online" ] && {
+			result="online"
+			break
+		}
+	done
+
+	echo "$result"
+}
+
+set_interfaces_down() {
+	local interfaces="$1"
+
+	for intf in $interfaces; do
+		[ "$(uci -q get network."${intf}")" = "" ] && continue
+		[ "$(uci -q get network."${intf}".disabled)" = "1" ] && continue
+
+		log "mwan3.user EVENT: ==== set $intf down, because of $INTERFACE ($policy) $ACTION ===="
+
+		mwan3_set_intf_down "$intf"
+	done
+}
+
+set_interfaces_up() {
+	local interfaces="$1"
+
+	for intf in $interfaces; do
+		[ "$(uci -q get network."${intf}")" = "" ] && continue
+		[ "$(uci -q get network."${intf}".disabled)" != "1" ] && continue
+
+		log "mwan3.user EVENT: ==== set $intf up, because of $INTERFACE ($policy) $ACTION ===="
+
+		mwan3_set_intf_up "$intf"
+	done
+}
+
+set_interfaces_route() {
+	local interfaces="$1"
+
+	for intf in $interfaces; do
+		mwan3_set_iface_default_route "$intf"
+	done
+}
+
+flush_interface_route() {
+	local interface="$1"
+	local device=""
+	local route_args=""
+	local IP="$IP4"
+
+	network_get_device device "$interface" || return
+	config_get family "$interface" family ipv4
+	[ "$family" == "ipv6" ] && IP="$IP6"
+
+	$IP route show table main | grep $device | grep default | while read route_args; do
+		$IP route del $route_args
+		log "$IP route del $route_args"
+	done
+}
+
+flush_interfaces_route() {
+	local interfaces="$1"
+
+	for intf in $interfaces; do
+		flush_interface_route "$intf"
+	done
+}
+
+###############################################################################
+
+# $1: action of main interfaces
+# $2: main interfaces
+# $3: backup interfaces
+interefaces_event1() {
+	local action="$1"
+	local main_interfaces="$2"
+	local backup_interfaces="$3"
+
+	case "$action" in
+	connected)
+		set_interfaces_down "${backup_interfaces}"
+
+		sleep 1
+
+		# main interface is connected, set them as default route
+		flush_interfaces_route "${backup_interfaces}"
+		set_interfaces_route "${main_interfaces}"
+		;;
+	ifdown)
+		if [ $(get_interfaces_status "${main_interfaces}") = "offline" ]; then
+			set_interfaces_up "${backup_interfaces}"
+
+			# keep main interfaces's route when they are up
+			set_interfaces_route "${main_interfaces}"
+		fi
+		;;
+	esac
+}
+
+mwan3_iface_event1(){
+	local policy="$1"
+
+	case "$policy" in
+	wan_wanb)
+		if [ "$INTERFACE" = "wan" ] || [ "$INTERFACE" = "wan6" ]; then
+			interefaces_event1 "$ACTION" "wan wan6" "wan_2 wan6_2"
+		fi
+		;;
+
+	wanb_wan)
+		if [ "$INTERFACE" = "wan_2" ] || [ "$INTERFACE" = "wan6_2" ]; then
+			interefaces_event1 "$ACTION" "wan_2 wan6_2" "wan wan6"
+		fi
+		;;
+	esac
+}
+
+###############################################################################
+
+interefaces_event2(){
+	local action="$1"
+	local main_interface="$2"
+	local backup_interface="$3"
+
+	if [ $(get_interfaces_status "${main_interface}") = "online" ]; then
+		mwan3_set_iface_iptables "$main_interface" online
+		mwan3_set_iface_iptables "$backup_interface" offline
+	elif [ $(get_interfaces_status "${backup_interface}") = "online" ]; then
+		mwan3_set_iface_iptables "$backup_interface" online
+		mwan3_set_iface_iptables "$main_interface" offline
+	fi
+}
+
+mwan3_iface_event2(){
+	local policy="$1"
+
+	case "$policy" in
+	wan_wanb)
+		interefaces_event2 "$ACTION" "wan" "wan_2"
+
+		flush_interfaces_route "wan wan_2"
+		for intf in "wan" "wan_2"; do
+			mwan3_set_iface_default_route "$intf"
+		done
+		;;
+
+	wanb_wan)
+		interefaces_event2 "$ACTION" "wan_2" "wan"
+
+		flush_interfaces_route "wan wan_2"
+		for intf in "wan_2" "wan"; do
+			mwan3_set_iface_default_route "$intf"
+		done
+		;;
+
+	balanced)
+		if [ "$ACTION" = "ifup" ]; then
+			mwan3_set_iface_iptables "$INTERFACE" online
+		elif [ "$ACTION" = "ifdown" ]; then
+			mwan3_set_iface_iptables "$INTERFACE" offline
+		fi
+
+		mwan3_create_default_route
+		;;
+	esac
+}
+
+$LOG notice "mwan3.user EVENT: mode = $mode, policy = $policy, ACTION = $ACTION, INTERFACE = $INTERFACE, DEVICE = $DEVICE"
+
+case "$(mwan3_routing_type)" in
+1)
+	# For cold backup event
+	[ "$ACTION" = "connected" ] || [ "$ACTION" = "ifdown" ] || return
+	mwan3_iface_event1 $policy
+	;;
+2)
+	# For hot standby event
+	[ "$ACTION" = "ifup" ] || [ "$ACTION" = "ifdown" ] || return
+	mwan3_iface_event2 $policy
+	;;
+esac
+
+exit 0

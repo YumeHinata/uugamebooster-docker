@@ -1,0 +1,10 @@
+config meta 'meta'
+   option enable '0'
+   option auto_update '1'
+
+config whitelist 'whitelist'
+   #list entry '[1691379022]figma.com'
+   #list entry '[utc时间]url'
+
+#config class 'tag name'
+#    option policy 'reject'/'alarm'/'log'/'ignored'

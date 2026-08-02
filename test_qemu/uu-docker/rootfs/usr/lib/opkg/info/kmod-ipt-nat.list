@@ -1,0 +1,5 @@
+/etc/modules.d/ipt-nat
+/lib/modules/5.4.213/xt_nat.ko
+/lib/modules/5.4.213/xt_MASQUERADE.ko
+/lib/modules/5.4.213/xt_REDIRECT.ko
+/lib/modules/5.4.213/iptable_nat.ko

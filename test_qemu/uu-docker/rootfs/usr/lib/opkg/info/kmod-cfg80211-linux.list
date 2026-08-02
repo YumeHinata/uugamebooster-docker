@@ -1,0 +1,2 @@
+/etc/modules.d/30-cfg80211-linux
+/lib/modules/5.4.213/cfg80211.ko

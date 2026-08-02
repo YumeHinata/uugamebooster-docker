@@ -1,0 +1,10 @@
+Package: terminfo
+Version: 6.2-2
+Depends: libc
+Source: package/libs/ncurses
+License: MIT
+LicenseFiles: README
+Section: libs
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 6423
+Description:  Terminal Info Database (ncurses)

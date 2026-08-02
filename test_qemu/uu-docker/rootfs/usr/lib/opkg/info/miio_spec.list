@@ -1,0 +1,8 @@
+/usr/bin/miio_spec_dev_update.sh
+/usr/bin/miio_spec_send.sh
+/etc/periodic/20_miio_spec_eve_2_3
+/etc/miio_spec/lib_2.sh
+/etc/miio_spec/lib_5.sh
+/etc/traffic.d/device/20-miio_spec.sh
+/etc/miio_spec/init.sh
+/usr/bin/miio_spec_dev_update_safe.sh

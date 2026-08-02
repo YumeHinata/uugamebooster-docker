@@ -1,0 +1,37 @@
+
+config ot '2'
+	option 1 '1'
+	option 2 '1'
+	option 3 '1'
+	option 20 '1'
+	option 24 '1'
+
+config ot '2_1'
+	option type 'int'
+
+config ot '2_2'
+	option type 'int'
+
+config ot '2_3'
+	option type 'int'
+
+config ot '2_20'
+	option type 'string'
+
+config ot '2_24'
+	option type 'string'
+
+config ot '5'
+	option 1 '1'
+
+config ot '5_1'
+	option type 'boolean'
+
+config ot '7'
+	option ignore '1'
+
+config ot '8'
+	option 1 '1'
+
+config ot '8_1'
+	option type 'string'

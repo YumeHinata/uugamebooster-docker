@@ -1,0 +1,161 @@
+<%
+local features = require("xiaoqiang.XQFeatures").FEATURES
+if features["apps"] and features["apps"]["LED_control"] and tonumber(features["apps"]["LED_control"]) > 0 then
+%>
+<script>
+  $(function () {
+    var switchElArr = [
+        "allswitch",
+        "ledswitch",
+        "effectswitch",
+        "ethledswitch",
+      ],
+      switchUrl = [
+        '<%=luci.dispatcher.build_url("api", "misystem","allled")%>',
+        '<%=luci.dispatcher.build_url("api", "misystem","led")%>',
+        '<%=luci.dispatcher.build_url("api", "misystem","effect_light")%>',
+        '<%=luci.dispatcher.build_url("api", "misystem","ethled")%>',
+      ];
+
+    //set：function
+    $.sub("setEvent", function (evt, data) {
+      //开关：所有的灯
+      /*status:
+            0：所有灯关闭
+            1：所有灯打开
+        */
+
+      $("#allswitch").on("click", function (e) {
+        e.preventDefault();
+        var switchOn = $(this).attr("data-on") == 1 ? 0 : 1;
+
+        var requestData = {
+          on: switchOn,
+        };
+
+        var index = 0;
+
+        if (switchOn == 0) {
+          $.dialog({
+            width: 390,
+            title: "<%:提示信息%>",
+            content: "<%:该操作会关闭路由器所有指示灯及氛围灯，请确认%>",
+            ok: function () {
+              switchAjax(requestData, index);
+            },
+            cancel: function () {},
+          });
+        } else {
+          switchAjax(requestData, index);
+        }
+      });
+
+      //开关：状态指示灯
+      $("#ledswitch").on("click", function (e) {
+        e.preventDefault();
+        var switchOn = $(this).attr("data-on") == 1 ? 0 : 1;
+
+        var requestData = {
+          on: switchOn,
+        };
+
+        var index = 1;
+
+        switchAjax(requestData, index);
+      });
+
+      //开关：氛围灯
+      $("#effectswitch").on("click", function (e) {
+        e.preventDefault();
+        var switchOn = $(this).attr("data-on") == 1 ? "off" : "on";
+
+        var requestData = {
+          func: switchOn,
+        };
+
+        var index = 2;
+
+        switchAjax(requestData, index);
+      });
+
+      //开关：网口灯
+      $("#ethledswitch").on("click", function (e) {
+        e.preventDefault();
+        var switchOn = $(this).attr("data-on") == 1 ? 0 : 1;
+
+        var requestData = {
+          on: switchOn,
+        };
+
+        var index = 3;
+
+        switchAjax(requestData, index);
+      });
+    });
+
+    function switchAjax(requestData, index) {
+      $.pub("loading:start");
+      $.ajax({
+        url: switchUrl[index],
+        dataType: "json",
+        timeout: 5000,
+        type: "POST",
+        data: requestData,
+        success: function (rsp) {
+          $.pub("loading:stop");
+          if (rsp.code === 0) {
+            if (index == 0) {
+              handlerStatus(rsp.status, switchElArr);
+            } else {
+              var status = rsp.status;
+              if (index == 2) {
+                status = requestData.func == "on" ? 1 : 0;
+              }
+              handlerStatus(status, [switchElArr[index]]);
+            }
+          }
+        },
+        error: function () {
+          $.pub("loading:stop");
+          $.alert("<%:网络异常，请检查是否联网%>");
+        },
+      });
+    }
+
+    function handlerStatus(status, switchArr) {
+      if (Array.isArray(switchArr)) {
+        for (var i = 0; i < switchArr.length; i++) {
+          if (status == 1) {
+            $('#'+ switchArr[i])
+              .removeClass("btn-switch-off")
+              .addClass("btn-switch-on")
+              .attr("data-on", "1");
+          } else {
+            $('#'+ switchArr[i])
+              .removeClass("btn-switch-on")
+              .addClass("btn-switch-off")
+              .attr("data-on", "0");
+          }
+        }
+      }
+    }
+
+    //问号：介绍
+    $.sub("addEvent", function (evt, data) {
+      $("#led_help_open").on("click", function () {
+        $("#helpArrow").show();
+        $("#helpSection").show();
+      });
+      $("#led_help_close").on("click", function () {
+        $("#helpArrow").hide();
+        $("#helpSection").hide();
+      });
+    });
+
+    $(function () {
+      $.pub("addEvent");
+      $.pub("setEvent");
+    });
+  });
+</script>
+<%end%>

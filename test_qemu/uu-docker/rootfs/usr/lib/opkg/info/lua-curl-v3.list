@@ -1,0 +1,5 @@
+/usr/lib/lua/lcurl.so
+/usr/lib/lua/cURL/impl/cURL.lua
+/usr/lib/lua/cURL.lua
+/usr/lib/lua/cURL/utils.lua
+/usr/lib/lua/cURL/safe.lua

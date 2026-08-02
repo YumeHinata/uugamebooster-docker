@@ -1,0 +1,14 @@
+/var/wifi_analysis.log {
+	size 1024k
+
+	# different devices
+	createolddir 755 root root
+	olddir /data/usr/log
+	copytruncate
+	su root root
+
+	# 0.gz
+	start 0
+	rotate 1
+	compress
+}

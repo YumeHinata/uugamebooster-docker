@@ -1,0 +1,16 @@
+#!/bin/sh
+
+logger -p notice -t "hotplug.d" "01-ipv6: run because of init done."
+
+UCI_SHOW="uci -q show "
+
+ipv6_reload() {
+    sleep 3
+    local wan6_iface_list=$($UCI_SHOW ipv6 | grep "ipv6.wan6[_0-9]*=wan" | awk -F"[.|=]" '{print $2}')
+    for wan6_iface in $wan6_iface_list; do
+        local mode=$(uci -q get ipv6.$wan6_iface.mode)
+        [ "$mode" != "off" ] && /usr/sbin/ipv6.sh reload "$wan6_iface" &
+    done
+}
+
+ipv6_reload &

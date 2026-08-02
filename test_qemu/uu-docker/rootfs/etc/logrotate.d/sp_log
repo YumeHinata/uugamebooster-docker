@@ -1,0 +1,12 @@
+/var/stat_points/log/*.log {
+	daily
+	ifempty
+
+	createolddir 755 root root
+	olddir /var/stat_points/daily
+	copytruncate
+	su root root
+
+	start 0
+	rotate 1
+}

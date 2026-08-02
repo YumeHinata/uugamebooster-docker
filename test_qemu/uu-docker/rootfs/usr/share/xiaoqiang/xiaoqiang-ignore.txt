@@ -1,0 +1,4 @@
+miot_did
+miot_key
+web_passwd
+wifi_passwd

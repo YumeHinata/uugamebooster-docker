@@ -1,0 +1,51 @@
+<%
+--[[
+    Info    networkPortCustom
+]]--
+local netmode = require("xiaoqiang.common.XQFunction").getNetModeType()
+local features=require("xiaoqiang.XQFeatures").FEATURES
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/layout.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/networkportcustom.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <%include("web/inc/g.js")%>
+    <div id="bd">
+        <%if netmode == 0 and features["system"] and features["system"]["multiwan"]=="1" then%>
+        <%include("web/inc/dual-wan")%>
+        <%end%>
+
+        <%if netmode == 0 then%>
+        <%include("web/setting/iptv")%>
+        <%end%>
+
+        <%if features["apps"] and features["apps"]["lan_lag"]=="1" then%>
+        <%include("web/inc/lan_lag")%>
+        <%end%>
+
+        <%if netmode == 0 and features["apps"] and features["apps"]["game_port"]=="1" then%>
+        <%include("web/inc/game_port")%>
+        <%end%>
+
+        <%if features["apps"] and features["apps"]["sfp"]=="1" then%>
+        <%include("web/inc/sfp-speed")%>
+        <%end%>
+
+        <%if (netmode == 0 or netmode == 2) and features["apps"] and features["apps"]["wire_loop_detect"]=="1" then%>
+        <%include("web/inc/wire_loop_detect")%>
+        <%end%>
+    </div>
+    <%include("web/inc/footer")%>
+</div>
+</body>
+<%if netmode == 0 and features["system"] and features["system"]["multiwan"]=="1" then%>
+<%include("web/inc/dual-wan.js")%>
+<%end%>
+<%include("web/inc/port_custom.js")%>
+</html>

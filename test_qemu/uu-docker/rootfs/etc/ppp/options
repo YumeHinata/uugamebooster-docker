@@ -1,0 +1,13 @@
+#debug
+logfile /dev/null
+noipdefault
+nomppe
+noaccomp
+nopcomp
+nocrtscts
+lock
+maxfail 0
+lcp-echo-failure 3
+lcp-echo-interval 10
+lcp-echo-adaptive
+lcp-max-terminate 1

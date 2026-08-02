@@ -1,0 +1,18 @@
+#!/bin/sh
+
+[ ! -f /etc/config/fstab ] && {
+	touch /etc/config/fstab
+
+	uci -q batch << EOF
+		set fstab.global=global
+		set fstab.global.anon_swap='0'
+		set fstab.global.anon_mount='1'
+		set fstab.global.auto_swap='0'
+		set fstab.global.auto_mount='1'
+		set fstab.global.delay_root='5'
+		set fstab.global.check_fs='0'
+		commit fstab
+EOF
+}
+
+exit 0

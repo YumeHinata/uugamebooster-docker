@@ -1,0 +1,3 @@
+/usr/lib/lua/sec_center/device_security.lua
+/usr/lib/lua/luci/controller/device_security/index.lua
+/etc/config/smartdev_sec

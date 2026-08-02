@@ -1,0 +1,15 @@
+#!/bin/sh /etc/rc.common
+
+START=97
+
+start() {
+    if [ ! -d /userdisk/appdata ]; then
+        mkdir /userdisk/appdata
+    fi
+    if [ ! -d /userdisk/appdata/installPlugin ]; then
+        mkdir /userdisk/appdata/installPlugin
+    fi
+    cp -u /usr/share/pluginmanager/* /userdisk/appdata/installPlugin/ 
+
+    /usr/sbin/pluginmanager -j {\"api\":600}
+}

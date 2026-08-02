@@ -1,0 +1,19 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006 OpenWrt.org
+
+START=10
+
+USE_PROCD=1
+
+NAME="led_service"
+PROG="/usr/sbin/led_srv"
+CONFFILE="/lib/xqled/xqled.json"
+PROFILE=$(uci -q get xqled.driver.profile)
+[ -z "$PROFILE" ] && PROFILE="default"
+
+start_service() {
+	procd_open_instance
+	procd_set_param command "$PROG" -c "$CONFFILE" -p "$PROFILE" -l6
+	procd_set_param respawn
+	procd_close_instance
+}

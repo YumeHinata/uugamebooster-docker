@@ -1,0 +1,86 @@
+#!/bin/sh /etc/rc.common
+
+USE_PROCD=1
+START=90
+
+NAME=miio_client
+MIIO_CONFIG="/data/miio_ot/"
+
+start_service() {
+	local key pid ver dbg mid mjac_enabled
+
+	key=$(uci -q get miio_ot.ot.bind_key)
+	pid=$(uci -q get miio_ot.ot.partner_id)
+	ver=$(uci -q get miio_ot.ot.ver)
+	dbg=$(uci -q get miio_ot.dbg.dbg)
+	mid=$(head -c 1000 /dev/urandom | tr -dc 1-9 | head -c5)
+	mjac_enabled=$(uci -q get miio_ot.ot.mjac_enabled)
+
+	if [ "$ver" = "1" ]; then
+		# for v1 version key and pid should be exist
+		if [ -z "$key" ] || [ -z "$pid" ]; then
+			return
+		fi
+	fi
+
+	mkdir -p "$MIIO_CONFIG"
+
+	procd_open_instance
+	procd_set_param command "$NAME" -d "$MIIO_CONFIG" -l 2
+	[ "$mjac_enabled" = "1" ] && procd_append_param command -o MSC
+	procd_set_param respawn 3600 5 0
+	procd_close_instance
+
+	procd_open_instance
+	procd_set_param command miio_client_helper_nomqtt.sh
+	[ "${dbg:-0}" = "1" ] && procd_append_param command -d
+	procd_set_param respawn
+	procd_close_instance
+
+	procd_open_instance
+	procd_set_param command miio_proxy -l 9 -i "$mid"
+	procd_set_param respawn
+	procd_close_instance
+}
+
+# Call this after country code changed
+reload_service() {
+	local country=
+	local region=
+	local old=
+	local new=
+
+	old=$(uci -q get miio_ot.ot.region)
+	country=$(nvram get CountryCode)
+	region=$(uci get "country_mapping.$country.region")
+
+	case "${region}" in
+	IN)
+		new=i2
+	;;
+	US)
+		new=us
+	;;
+	SG)
+		new=sg
+	;;
+	RU)
+		new=ru
+	;;
+	EU)
+		new=de
+	;;
+	esac
+
+	if [ "$old" != "$new" ]; then
+		# Set new region and delete old token
+		uci set miio_ot.ot.region="$new"
+		uci del miio_ot.ot.token
+		uci commit miio_ot.ot
+
+		# Remove old db to force regenerate token!
+		stop
+		rm -rf "$MIIO_CONFIG"
+		start
+	fi
+}

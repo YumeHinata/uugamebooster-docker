@@ -1,0 +1,7 @@
+/usr/sbin/ipv6.lua
+/usr/sbin/ipv6check.sh
+/lib/miwifi/lib_ipv6.sh
+/etc/hotplug.d/iface/60-wan6
+/etc/hotplug.d/iface/92-wan6_phy
+/usr/sbin/ipv6.sh
+/usr/sbin/wan6_link_check.sh

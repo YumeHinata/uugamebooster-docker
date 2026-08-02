@@ -1,0 +1,59 @@
+#!/bin/sh
+
+show_usage()
+{
+	echo "$0 <ssid> <ifname> <enctype> <encryption> <password>"
+}
+
+check_exit()
+{
+	exit_code=$1
+	echo $exit_code
+	exit $exit_code
+}
+
+if [ $# != 5 ] || [ "$1" = "-h" ]; then
+        show_usage
+        check_exit 0
+fi
+
+local bs64_ssid=$1
+local ifname=$2
+local enctype=$3
+local encryption=$4
+local bs64_password=$5
+
+echo "$bs64_ssid" > /tmp/bs64_ssid
+echo "$bs64_password" > /tmp/bs64_password
+
+local ssid="`base64 -d /tmp/bs64_ssid`"
+local password="`base64 -d /tmp/bs64_password`"
+
+local is_wpasup="`ps -w | awk '/wpa_supplicant/{if($6=="wpa_supplicant"){print}}' | wc -l`"
+
+if [ ! 0 -eq $is_wpasup ]; then
+	runssid="`cat /var/run/wpa_supplicant-$ifname.conf | awk -F '"' '/ssid="/{print$2}'`"
+	runkeymgmt="`cat /var/run/wpa_supplicant-$ifname.conf | awk -F '=' '/key_mgmt/{print$2}'`"
+	runpassword="`cat /var/run/wpa_supplicant-$ifname.conf | awk -F '"' '/psk/{print$2}'`"
+	runweppassword="`cat /var/run/wpa_supplicant-$ifname.conf | awk -F '"' '/wep_key0/{print$2}'`"
+	if [ ! $ssid = $runssid ]; then
+		check_exit 0
+	fi
+	if [ "$enctype" = "AES" ] || [ "$enctype" = "TKIP" ]; then
+		if [ ! "$runkeymgmt" = "WPA-PSK" ] || [ ! "$password" = "$runpassword" ]; then
+			check_exit 0
+		fi
+	elif [ "$enctype" = "WEP" ]; then
+		if [ ! "$runkeymgmt" = "NONE" ] || [ ! "$password" = "$runpassword" ]; then
+			check_exit 0
+		fi
+	elif [ "$enctype" = "NONE" ]; then
+		if [ ! "$runkeymgmt" = "NONE" ]; then
+			check_exit 0
+		fi
+	fi
+	check_exit 1
+else
+	check_exit 0
+fi
+

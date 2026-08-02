@@ -1,0 +1,8 @@
+Package: nfnlq-extension
+Version: 1.0-1.0
+Depends: libc, kmod-nfnlq-extension, wrt_cppwrap, libubus, libstdcpp, iptables-mod-nfqueue, firewall_cpp, libmnl
+Source: package/miwifi/nfnlq-extension
+Section: opt
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 29380
+Description:  netfilter netlink queue miwifi extension

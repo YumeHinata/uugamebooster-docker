@@ -1,0 +1,3 @@
+/lib/modules/5.4.213/nf_conntrack_ftp.ko
+/lib/modules/5.4.213/nf_nat_ftp.ko
+/etc/modules.d/nf-nathelper

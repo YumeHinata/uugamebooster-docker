@@ -1,0 +1,5 @@
+#!/bin/sh
+
+logger -p notice -t "hotplug.d" "03-port_service_arptables: run because of init done."
+
+port_service reloadfw

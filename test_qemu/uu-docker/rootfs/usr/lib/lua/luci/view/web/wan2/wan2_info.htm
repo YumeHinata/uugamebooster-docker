@@ -1,0 +1,180 @@
+<%
+local XQMultiWan = require "xiaoqiang.module.XQMultiWanPolicy"
+local MultiWanEnable = XQMultiWan.getStatus() == 1 and true or false
+if MultiWanEnable then
+%>
+<div class="mod-set multiwan">
+    <h3><%:WAN2:%></h3>
+    <div class="mod-set-wan" id="wan2_wanStatus"></div>
+</div>
+<%end%>
+<script type="tmpl/text" id="wan2_tmplPPPoE">
+    <div class="wanStatus">
+        <ul>
+            <li class="nofloat"><span class="k"><%:连接类型：%></span><span class="v">PPPoE</span></li>
+            <li><span class="k"><%:账户：%></span><span class="v">{$username}</span></li>
+            <li><span class="k"><%:IP地址：%></span><span class="v">{$ip}</span></li>
+            <li><span class="k"><%:子网掩码：%></span><span class="v">{$mask}</span></li>
+            <li><span class="k"><%:默认网关：%></span><span class="v">{$gateway}</span></li>
+            <li class="nofloat"><span class="k"><%:DNS：%></span><span class="v">
+            {if($dns.length > 0 )}
+                {for(var i=0; i<$dns.length;i++)}
+                {$dns[i]} <br/>
+                {/for}
+            {/if}
+            </span></li>
+            <li class="nofloat"><span class="k"><%:外网状态：%></span><span class="v">{$status} {$action}</span></li>
+            {if($showissue)}
+                <li>
+                    <span class="k"></span>
+                    <span class="v">
+                        <a href="#" id="wan2_showpppoeissue" data-perror = "{$perror}"><%:问题排查%></a>
+                    </span>
+                </li>
+            {/if}
+        </ul>
+    </div>
+</script>
+<script type="tmpl/text" id="wan2_tmplPPPoEissue">
+    {if($perror == 33)}
+    <div class="dialog-pppoe-issue">
+        <table>
+            <tr>
+                <td class="reason">
+                    <%:宽带拨号账号密码输入错误%>
+                </td>
+                <td class="bor-r-0">
+                    <%:请检查账号密码是否输入正确%>
+                </td>
+                <td class="bor-l-0">
+                    <a href='<%=luci.dispatcher.build_url("web", "setting", "wan")%>' class="btn btn-primary btn-m" ><span><%:PPPOE设置页面%></span></a>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <%:宽带因欠费无法继续使用%>
+                </td>
+                <td class="bor-r-0">
+                    <%:联系运营商查询宽带是否欠费%>
+                </td>
+                <td class="bor-l-0">
+                </td>
+            </tr>
+        </table>
+    </div>
+    {elseif($perror == 34)}
+    <div class="dialog-pppoe-issue">
+        <table>
+            <tr>
+                <td class="reason">
+                    <%:宽带因欠费无法继续使用%>
+                </td>
+                <td>
+                    <%:联系运营商查询宽带是否欠费%>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <%:宽带运营商机房故障%>
+                </td>
+                <td>
+                    <%:联系运营商了解是否当地有线路故障%>
+                </td>
+            </tr>
+        </table>
+    </div>
+    {elseif($perror == 35)}
+    <div class="dialog-pppoe-issue">
+        <table>
+            <tr>
+                <td class="reason" rowspan = "4">
+                    <%:拨号状态异常%>
+                </td>
+                <td class="bor-r-0">
+                    <%:办法1:尝试关闭调制解调器(猫)和路由器，几分钟后重新通电再次尝试拨号%>
+                </td>
+                <td class="bor-l-0">
+                </td>
+            </tr>
+            <tr>
+                <td class="bor-r-0">
+                    <%:办法2:使用电脑或者旧路由器完成拨号，然后手工选择“结束连接”或“关闭连接”，再尝试使用Redmi路由器拨号。%>
+                </td>
+                <td class="bor-l-0">
+                </td>
+            </tr>
+            <tr>
+                <td class="bor-r-0">
+                    <%:办法3:尝试在路由器上网设置中进行mac地址克隆，然后重新拨号%>
+                </td>
+                <td class="bor-l-0">
+                    <a href='<%=luci.dispatcher.build_url("web", "setting", "wan")%>' class="btn btn-primary btn-m" ><span><%:MAC地址克隆设置%></span></a>
+                </td>
+            </tr>
+            <tr>
+                <td class="bor-r-0">
+                    <%:办法4:尝试调整WAN口协商速率，然后重新拨号%>
+                </td>
+                <td class="bor-l-0">
+                    <a href='<%=luci.dispatcher.build_url("web", "setting", "wan")%>' class="btn btn-primary btn-m" ><span><%:WAN口协商速率设置%></span></a>
+                </td>
+            </tr>
+        </table>
+    </div>
+    {elseif($perror == 36)}
+    <div class="dialog-pppoe-issue">
+        <table>
+            <tr>
+                <td class="reason">
+                    <%:宽带因欠费无法继续使用%>
+                </td>
+                <td>
+                    <%:联系运营商查询宽带是否欠费%>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <%:更换了接入宽带%>
+                </td>
+                <td>
+                    <%:检查WAN口接入的宽带是否已经变更%>
+                </td>
+            </tr>
+        </table>
+    </div>
+    {/if}
+</script>    
+<script type="tmpl/text" id="wan2_tmplDHCP">
+  <div class="wanStatus">
+      <ul>
+          <li class="nofloat"><span class="k"><%:连接类型：%></span><span class="v">DHCP</span></li>
+          <li><span class="k"><%:IP地址：%></span><span class="v">{$ip}</span></li>
+          <li><span class="k"><%:子网掩码：%></span><span class="v">{$mask}</span></li>
+          <li><span class="k"><%:默认网关：%></span><span class="v">{$gateway}</span></li>
+          <li><span class="k"><%:DNS：%></span><span class="v">
+          {if($dns.length > 0 )}
+              {for(var i=0; i<$dns.length;i++)}
+              {$dns[i]} <br/>
+              {/for}
+          {/if}
+          </span></li>
+      </ul>
+  </div>
+</script>
+<script type="tmpl/text" id="wan2_tmplStaticIP">
+  <div class="wanStatus">
+      <ul>
+          <li class="nofloat"><span class="k"><%:连接类型：%></span><span class="v"><%:静态IP%> </span></li>
+          <li><span class="k"><%:IP地址：%></span><span class="v">{$ip}</span></li>
+          <li><span class="k"><%:子网掩码：%></span><span class="v">{$mask}</span></li>
+          <li><span class="k"><%:默认网关：%></span><span class="v">{$gateway}</span></li>
+          <li><span class="k"><%:DNS：%></span><span class="v">
+          {if($dns.length > 0 )}
+              {for(var i=0; i<$dns.length;i++)}
+              {$dns[i]} <br/>
+              {/for}
+          {/if}
+          </span></li>
+      </ul>
+  </div>
+</script>

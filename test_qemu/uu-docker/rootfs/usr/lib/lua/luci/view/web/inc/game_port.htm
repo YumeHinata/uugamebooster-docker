@@ -1,0 +1,224 @@
+<%
+local features = require("xiaoqiang.XQFeatures").FEATURES
+%>
+<div class="mod-set">
+	<div class="hd">
+		<div class="help" id="gamePortOpen">
+			<span class="ico"></span>
+			<span class="arrow-wrap">
+				<span class="arrow1"></span>
+				<span class="arrow2"></span>
+			</span>
+		</div>
+		<div class="hd-tips-desc"><%:游戏网口注意事项%></div>
+		<h3><%:游戏网口%></h3>
+		<div class="switch">
+			<a href="#gamePortSwitch" id="gamePortSwitch" class="btn-switch btn-switch-off" data-on="0"></a>
+		</div>
+	</div>
+	<div class="bd">
+		<form action="#" class="form" id="lanCheckForm">
+		<div class="section gamePort-section-help">
+			<div class="help-cont">
+			    <span class="help-close" id="gamePortClose"></span>
+			    
+			    <div class="qa">
+				<p><%:请注意，开启以下功能后游戏网口的优先转发功能将会失效：%></p>
+				<p><%:1. Qos设置；%></p>
+				<p><%:2. VPN服务与智能VPN分流。%></p>
+			    </div>
+			</div>
+		</div>
+
+			<p><%:游戏网口传输的数据会被优先转发，使得延迟更低，更适用于游戏和语音场景%></p>
+			<div class="form-item gamePortItem" style="display: none">
+                <div class="lagItemMsg"></div>
+				<div class="selectPort selectGamePort">
+				</div>
+			</div>
+			<div class="form-contral">
+				<button type="submit" class="btn btn-primary" id="btnSubmitGamePort" style="display:none"><span><%:保存%></span></button>
+			</div>
+		</form>
+    </div>
+</div>
+
+<script type="text/javascript">
+	 var oldGamePortInfo = {};
+     var gameSelectCount = 1;
+
+    //获取数据
+    function getGamePortData(){
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api", "misystem", "get_ps_service")%>',
+            dataType: 'json',
+            timeout: 5000,
+            type: 'GET',
+            data: {"service":'game'},
+            success: function( rsp ){
+            if( rsp.code == 0 ){
+                var gameInfo = rsp['game'];
+                oldGamePortInfo = gameInfo;
+                //开关
+                if( gameInfo.enable == 1){
+                    
+                        $('#gamePortSwitch')
+                        .removeClass('btn-switch-off')
+                        .addClass('btn-switch-on')
+                        .attr('data-on', '1');
+                        $('.gamePortItem').show()
+                }else{
+                    $('#gamePortSwitch')
+                        .removeClass('btn-switch-on')
+                        .addClass('btn-switch-off')
+                        .attr('data-on', '0');
+                        $('.gamePortItem').hide()
+                }
+                var config = {
+                    portInfo:gameInfo.ports.toString(),//需要让rom改为字符串
+                    el:'.selectGamePort',
+                    selectCount:gameSelectCount,
+                    service:'<%:游戏网口%>',
+                    submitBtnEl:'#btnSubmitGamePort'
+                }
+                $.portMap(config)
+            
+            }
+        }
+    })
+    }
+
+    //游戏网口提交
+    $('#btnSubmitGamePort').on('click',function(e){
+        e.preventDefault();
+        var enable =  $('#gamePortSwitch').attr('data-on');
+        var ports = '';
+        $(".selectGamePort .listDiv").each(function(index,item){
+            if($(item).hasClass("active")){
+                ports = ports + ' ' + $(item)[0].dataset.port;
+            }
+        })
+        var requestData = {
+            "service":"game",
+            "enable":enable,
+            "ports":ports.substring(1),
+            "mode":oldGamePortInfo.mode
+        }
+        $.dialog({
+            id : "confirm",
+            width: 390,
+            title : "<%:游戏网口%>",
+            content : "<%:配置生效过程中连接在路由器上的有线设备会短暂断开网络，请确认是否保存修改？%>",
+            ok: function(){
+                setGamePort(requestData,"game");
+            },
+            cancel: function () {
+            }
+        }).lock();
+    })
+    //游戏网口开关
+    $('#gamePortSwitch').on('click',function(e){
+        e.preventDefault();
+        var on = $(this).attr('data-on') == 1 ? 1 : 0;
+        var enable = oldGamePortInfo.enable
+        if(enable == 0){
+            if( on == 0){
+                if (gameSelectCount > $.idlePortCount) {
+                    $.noIdlePortDialog();
+                    return;
+                }
+                $(this).removeClass('btn-switch-off')
+                .addClass('btn-switch-on')
+                .attr('data-on', '1');
+                $('.gamePortItem').show()
+                if($(".selectGamePort .listDiv.active").length == 1){
+                    $('#btnSubmitGamePort').show()
+                }
+            }else{
+                $(this).removeClass('btn-switch-on')
+                .addClass('btn-switch-off')
+                .attr('data-on', '0');
+                $('.gamePortItem').hide()
+                $('#btnSubmitGamePort').hide()
+            }
+
+        }else{
+            var enable =  $('#gamePortSwitch').attr('data-on')==1?0:1;
+            var requestData = {
+                "service":"game",
+                "enable":enable,
+                "ports":"",
+                "mode":oldGamePortInfo.mode
+                }
+            
+                $.dialog({
+                    id : "confirm",
+                    width: 390,
+                    title : "<%:提示信息%>",
+                    content : "<%:确认是否关闭游戏网口功能%>",
+                    ok: function(){
+                        setGamePort(requestData,"game");
+                    },
+                    cancel: function () {
+                    }
+                }).lock();
+            }
+        })
+    //设置游戏网口 wan
+    function setGamePort(requestData,type){
+        if($(".selectGamePort .listDiv").hasClass('active') == false){
+            $.alert("<%:请选择一个网口作为游戏网口%>")
+            return;
+        }
+		$.pub('loading:start');
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api", "misystem", "set_ps_service")%>',
+            dataType: 'json',
+            timeout: 5000,
+            type: 'POST',
+            data: requestData,
+            success: function( rsp ) {
+                if(rsp.code === 0) {
+                    setTimeout(function() {
+                        $.pub('loading:stop');
+                        $.dialog({
+                            id : "success",
+                            width: 390,
+                            title : "<%:提示信息%>",
+                            content : "<%:保存成功%>",
+                            ok: function(){
+                                window.location.reload();
+                            }
+                        }).lock();
+                    }, rsp.hasOwnProperty("wait") ? rsp.wait * 1000 : 5000);
+                } else {
+                    $.pub('loading:stop');
+                    // show error message
+                    $.dialog({
+                        id : "error",
+                        width: 390,
+                        title : "<%:提示信息%>",
+                        content : rsp.msg,
+                        ok: function(){
+                            window.location.reload();
+                        }
+                    }).lock();
+                }
+            },
+            error: function() {
+              $.pub('loading:stop');
+              $.alert( '<%:网络异常，请检查是否联网%>' );
+            }
+        });
+    }
+
+    //helping
+    $("#gamePortOpen").click(function(){
+        $(".gamePort-section-help").show();
+    })
+    $("#gamePortClose").click(function(){
+        $(".gamePort-section-help").hide();
+    })
+
+	getGamePortData();
+</script>

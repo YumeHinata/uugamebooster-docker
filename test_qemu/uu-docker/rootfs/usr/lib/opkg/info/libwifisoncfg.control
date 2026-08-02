@@ -1,0 +1,9 @@
+Package: libwifisoncfg
+Version: miwifi_git-1
+Depends: libc, qca-cfg80211, libhyficommon, libnl
+Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/qca-lib/libwifisoncfg
+Section: QCA
+Maintainer: Qualcomm Atheros, Inc.
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 19299
+Description:  This Package contains the WiFi-SON Configuration layer support

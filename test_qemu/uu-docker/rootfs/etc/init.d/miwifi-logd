@@ -1,0 +1,31 @@
+#!/bin/sh /etc/rc.common
+
+START=51
+
+USE_PROCD=1
+NAME=miwifi-logd
+PROG=/usr/sbin/${NAME}
+
+start_service() {
+    if [ $(uci -q get xiaoqiang.common.NETMODE) != whc_cap ]; then
+        return
+    fi
+
+    procd_open_instance
+    procd_set_param command ${PROG}
+    procd_close_instance
+}
+
+service_triggers() {
+    procd_add_reload_trigger xiaoqiang
+    procd_add_reload_trigger milog
+}
+
+reload_service() {
+    ubus call miwifi-logd reload
+
+    if [ $(uci -q get xiaoqiang.common.NETMODE) != whc_cap ]; then
+        stop
+    fi
+    start
+}

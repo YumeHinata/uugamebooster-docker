@@ -1,0 +1,8 @@
+Package: gflags
+Version: 2.1.1-1
+Depends: libc, libstdcpp, libpthread, gtest
+Source: package/libs/gflags
+Section: opt
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 65469
+Description:  gflags

@@ -1,0 +1,4 @@
+/lib/lib.scripthelper.sh
+/etc/init.d/boot_check
+/usr/sbin/led_check
+/etc/init.d/key_services_boot_check

@@ -1,0 +1,9 @@
+Package: qca-wlanfw-upgrade
+Version: 1
+Depends: libc, squashfs4
+Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/qca-platform-utils/qca-wlanfw-upgrade
+Section: QCA
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 2027
+Description:  This package contains a wlan firmware upgrade script which can be used
+ internally by QCA to update the wlan firmware components like q6 and m3 images.

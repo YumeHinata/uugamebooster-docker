@@ -1,0 +1,8 @@
+/lib/modules/5.4.213/mtd_torturetest.ko
+/lib/modules/5.4.213/mtd_speedtest.ko
+/lib/modules/5.4.213/mtd_nandecctest.ko
+/lib/modules/5.4.213/mtd_oobtest.ko
+/lib/modules/5.4.213/mtd_pagetest.ko
+/lib/modules/5.4.213/mtd_readtest.ko
+/lib/modules/5.4.213/mtd_stresstest.ko
+/lib/modules/5.4.213/mtd_subpagetest.ko

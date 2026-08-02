@@ -1,0 +1,7 @@
+/etc/config/rstp
+/sbin/rstpd
+/etc/hotplug.d/iface/75-rstp
+/sbin/rstpctl
+/sbin/bridge-stp
+/lib/functions/rstp.sh
+/etc/init.d/rstp

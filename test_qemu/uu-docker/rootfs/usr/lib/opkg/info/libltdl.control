@@ -1,0 +1,10 @@
+Package: libltdl
+Version: 2.4.6-1
+Depends: libc
+Source: package/libs/libtool
+License: GPL-2.0+
+LicenseFiles: COPYING
+Section: libs
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 13412
+Description:  A generic dynamic object loading library

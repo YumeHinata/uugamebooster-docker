@@ -1,0 +1,50 @@
+#!/bin/sh
+PPP_IPPARAM="$6"
+
+logger -p9 -t ppp "ppp-up update interface, $@"
+if [ -x "/etc/ppp/ppp.d/${PPP_IPPARAM}-up" ]; then
+	"/etc/ppp/ppp.d/${PPP_IPPARAM}-up" "$@"
+else
+	. /lib/netifd/netifd-proto.sh
+	proto_init_update "$IFNAME" 1 1
+	proto_set_keep 1
+	[ -n "$PPP_IPPARAM" ] && {
+		. /lib/miwifi/miwifi_functions.sh
+		dedicated=$(util_network_dedicated_get "ipv4" $PPP_IPPARAM)
+
+		[ -n "$IPLOCAL" ] && proto_add_ipv4_address "$IPLOCAL" 32 "" "${IPREMOTE:-2.2.2.2}"
+		[ -n "$IPREMOTE" -a "$dedicated" != "1" ] && proto_add_ipv4_route 0.0.0.0 0 "$IPREMOTE"
+		[ -n "$DNS1" ] && {
+			proto_add_dns_server "$DNS1"
+			dns_list="$DNS1"
+		}
+		[ -n "$DNS2" -a "$DNS1" != "$DNS2" ] && {
+			proto_add_dns_server "$DNS2"
+			if [ -n "$dns_list" ]; then
+				dns_list="$dns_list,$DNS2"
+			else
+				dns_list="$DNS2"
+			fi
+		}
+		peerdns=$(uci -q get network.wan.peerdns)
+		[ x$peerdns == x ] && {
+			dns_list_tmp=$(uci -q get misc.smartdns.dns)
+			for dns in $dns_list_tmp; do
+				[ -n "$dns" -a "$dns" != "$DNS1" -a "$dns" != "$DNS2" ] && proto_add_dns_server "$dns"
+			done
+		}
+		[ "$dedicated" = "1" ] && util_network_dedicated_set $IPLOCAL $PPP_IPPARAM $dns_list
+	}
+	proto_send_update "$PPP_IPPARAM"
+
+	[ -d /etc/ppp/ip-up.d ] && {
+		for SCRIPT in /etc/ppp/ip-up.d/*
+		do
+			[ -x "$SCRIPT" ] && "$SCRIPT" "$@"
+		done
+	}
+	logger stat_points_privacy pppoe_up="1"
+fi
+
+# $4: wan ip address, get by pppd process
+[ -n "$4" ] && lua /usr/sbin/cr_ip_conflict.lua &

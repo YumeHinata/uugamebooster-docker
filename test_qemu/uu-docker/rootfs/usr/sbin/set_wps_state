@@ -1,0 +1,22 @@
+#!/bin/sh
+
+show_usage()
+{
+	echo "$0 <state>"
+}
+
+if [ ! $# -eq 1 ]; then
+	show_usage
+	exit 1
+fi
+
+state=$1
+if [ ! "${state}" -eq 0 ] && [ ! "${state}" -eq 1 ] && [ ! "${state}" -eq 2 ]; then
+	echo "error state, state must be 0 or 1 or 2"
+	exit 1
+fi
+
+uci set wireless.@wifi-iface[0].wscconfigstatus="${state}"
+uci set wireless.@wifi-iface[1].wscconfigstatus="${state}"
+uci commit wireless
+

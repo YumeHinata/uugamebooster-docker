@@ -1,0 +1,16 @@
+#!/bin/sh
+
+bdata_ccode=`bdata get CountryCode`
+
+if [ ! -z "$bdata_ccode" ] ; then
+	ccode=`uci -q get region_mapping.$bdata_ccode.CountryCode`
+	if [ -z "$ccode" ] ; then
+		echo $bdata_ccode
+		return
+	fi
+	echo $ccode
+	return
+else
+	echo "CN"
+	return
+fi

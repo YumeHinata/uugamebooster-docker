@@ -1,0 +1,33 @@
+#!/bin/sh
+# Copyright (C) 2024 Xiaomi
+
+product=$(uci -q get misc.features.product)
+[ "$product" = "ac" ] && exit 0
+
+bh_enable=$(uci -q get xiaoqiang.common.bhap_enable)
+
+([ -z "${bh_enable}" ] || [ "${bh_enable}" == "1" ]) && exit 0
+
+bh_band=$(mesh_cmd backhaul get real_band)
+bh_mlo_support=$(mesh_cmd bh_mlo_support)
+if [ "$bh_mlo_support" = "1" ]; then
+	mlo_radios=$(uci -q get misc.mld.bh_ap_mlo)
+	radio_sets=$(echo $mlo_radios | tr '[A-Z]' '[a-z]')
+	[ -n "$mlo_radios" ] && mld_dev=$(uci -q get misc.mld.bh_ap)
+fi
+
+ax=$(uci -q get wireless.wifi0.ax)
+
+([ -z "$radio_sets" ] || [ "$ax" == "0" ]) && radio_sets="$bh_band"
+for radio in ${radio_sets}; do
+    [ "$bh_mlo_support" = "1" ] && sec_name="bh_ap_${radio}" || sec_name="bh_ap"
+    radio_upcase=$(echo $radio | tr '[a-z]' '[A-Z]')
+	bh_device=$(uci -q get misc.wireless.if_$radio_upcase)
+	bh_ifname=$(uci get misc.backhauls.backhaul_${radio}_ap_iface)
+	fh_ifname=$(uci -q get misc.wireless.ifname_${radio_upcase})
+	hostapd_cli -i ${bh_ifname} -p /var/run/hostapd-${bh_device} enable
+	cfg80211tool ${fh_ifname} mesh_event 0
+done
+
+uci -q set xiaoqiang.common.bhap_enable=1
+uci commit xiaoqiang

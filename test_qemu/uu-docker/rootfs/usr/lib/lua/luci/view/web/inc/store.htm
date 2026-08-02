@@ -1,0 +1,160 @@
+<%
+--[[
+    Info    路由器存储状态
+]]--
+
+local ver = require("xiaoqiang.XQVersion").webVersion
+local laninfo = require("xiaoqiang.util.XQLanWanUtil").getLanInfo("lan")
+local lanip = '192.168.31.1'
+if laninfo and laninfo.ipv4 and laninfo.ipv4[1].ip then
+    lanip = laninfo.ipv4[1].ip
+end
+local sambaname = require("xiaoqiang.module.XQStorage").getSambaName()
+local XQFunction = require("xiaoqiang.common.XQFunction")
+local XQSysUtil = require("xiaoqiang.util.XQSysUtil")
+
+local swapmask = XQFunction.getFeature('0', 'apps', 'swapmask')
+local sambaflag = XQFunction.getFeature('0', 'apps', 'samba')
+local hardware = string.lower(XQSysUtil.getHardware())
+local notharddisc = "notharddisc_"..hardware..".png"
+
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/store.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div id="bd">
+        <div class="mod-nav-disk mod-nav-disk-r1c">
+            <ul class="nav-disk-ul clearfix">
+                <li class="nav-disk-li nav-disk-1">
+                    <div class="disk-area clearfix">
+                        <div class="img-area">
+                            <img src="<%=resource%>/web/img/icons/<%=notharddisc%>" alt="" />
+                            <h2><%:未检测到存储设备，请将USB存储设备连接到你的小米路由器%></h2>
+                        </div>
+                    </div>
+                </li>
+                <li class="nav-disk-li nav-disk-2" style="display:none;">
+                    <div id="memInfoDiv">
+
+                    </div>
+                </li>
+            </ul>
+        </div>
+        <div class="mod-nav-disk-content mod-nav-disk-content-r1c">
+            <div class="mod-set mod-usb3">
+                <div class="hd">
+                    <h3><%:USB3.0%></h3>
+                    <div class="switch">
+                        <a href="#" id="usb3switch" class="btn-switch btn-switch-off" data-on="0"></a>
+                    </div>
+                </div>
+                <div class="bd">
+                    <p><%:路由器USB3.0使用时会对2.4G WiFi有一定影响，如有需要可关闭USB3.0，系统将为您切换至USB2.0模式。（USB2.0对2.4G WiFi没有影响）%></p>
+                </div>
+            </div>
+<%if sambaflag == '1' then%>
+            <div class="mod-set mod-samba">
+                <div class="hd">
+                    <div class="help" id="sambaOpen">
+                        <span class="info"><%:如何使用Samba功能？%></span>
+                        <span class="ico"></span>
+                        <span class="arrow-wrap" id="helpArrow">
+                            <span class="arrow1"></span>
+                            <span class="arrow2"></span>
+                        </span>
+                    </div>
+                    <h3><%:Samba功能%></h3>
+                    <div class="switch">
+                        <a href="#" id="sambaSwitch" class="btn-switch btn-switch-off" data-on="0"></a>
+                    </div>
+                </div>
+                <div class="bd">
+                    <div class="section section-help" id="helpSection">
+                        <div class="help-cont">
+                            <span class="help-close"></span>
+                            <div class="what">
+                                <h3><%:如何使用Samba功能？%></h3>
+                            </div>
+                            <div class="qa">
+                                <p><%:第一步：支持Samba协议的PC或电视连入此路由提供的网络；%></p>
+                                <p><%:第二步：根据接入终端的情况进行文件访问%></p>
+                                <p><%:PC：打开文件资源管理器，输入\\%><span><%=lanip%></span><%:或\\%><span><%=sambaname%></span><%:，回车后即可访问此路由器外接存储器上的文件%></p>
+                                <p><%:电视：找到此电视上的Samba入口，根据电视操作提示进行访问此路由器外接存储器上的共享文件%></p>
+                                <p><%:*注：部分设备在Samba访问时需要额外的网络凭据，请尝试在用户名输入栏处输入guest，密码输入栏留空尝试连接。如问题仍无法解决，请联系客服处理。%></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <p><%:开启Samba功能后，可以让所有接入此路由器支持Samba协议的终端设备在局域网中访问路由器或其外接U盘/移动硬盘上的共享文件。%></p>
+                    </div>
+                </div>
+
+            </div>
+<%end%>
+        </div>
+
+<%if swapmask ~= '0' then%>
+        <div class="mod-set mod-mem">
+            <div class="hd">
+                <h3><%:虚拟内存%></h3>
+            </div>
+            <div class="bd">
+                <p><%:该路由器可通过创建虚拟内存来调用外部存储资源充当内存。%></p>
+                <p><%:使用方法：将剩余空间大于2GB的U盘或者移动硬盘（推荐NTFS/FAT32/exFAT/EXT4等主流格式）插入此路由USB接口，路由器识别到此存储设备后，选择预扩展内存大小来创建虚拟内存。%></p>
+                <p style="margin-top: 10px;"><%:*注：在创建虚拟内存过程中若Docker服务正在运行，Docker服务将会被重启。在虚拟内存使用过程中，请勿直接拔出磁盘，如需拔出磁盘，请使用安全移除磁盘功能。%></p>
+            </div>
+            <div class="swapCon"></div>
+
+            <div class="mod-routerstatus nav-tab-content clearfix">
+                <div id="routerMemDiv" class="status-panel status-single" >
+                    <div class="hd">
+                        <h3><%:当前路由器内存状态%></h3>
+                        <p><%:当前内存占用：%><b id="memused">--</b></p>
+                    </div>
+                    <div class="bd">
+                        <div class="canvas" id="memChart"></div>
+                    </div>
+                    <div class="ft">
+                        <%:路由器内存容量%>:
+                        <span class="val" id="memtotal">--</span>
+                    </div>
+                </div>
+                <div id="swapMemDiv" class="status-panel status-swap" style="display: none;">
+                    <div class="hd">
+                        <h3><%:当前虚拟内存状态%></h3>
+                        <p><%:当前内存占用：%><b id="swapused">--</b></p>
+                    </div>
+                    <div class="bd">
+                        <div class="canvas" id="swapChart"></div>
+                    </div>
+                    <div class="form-contral clearfix">
+                        <div class="ft" style="width: 210px; float: left;">
+                            <%:虚拟内存容量%>:
+                            <span class="val" id="swaptotal">--</span>
+                        </div>
+                        <div class="delSwap">
+                            <button type="submit" class="btn btn-primary btn-l" id="delSwap">
+                                <span><%:删除虚拟内存%></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+<%end%>
+    </div>
+    <%include("web/inc/footer")%>
+</div>
+<%include("web/inc/g.js")%>
+<script src="<%=resource%>/web/js/class.linechart.js"></script>
+<script src="<%=resource%>/web/js/class.pie.js"></script>
+<%include("web/inc/store.js")%>
+</body>
+</html>
+

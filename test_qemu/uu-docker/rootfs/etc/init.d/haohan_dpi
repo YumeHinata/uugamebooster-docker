@@ -1,0 +1,43 @@
+#!/bin/sh /etc/rc.common
+
+START=51
+
+start() {
+    if [ "$(uci get nfnlq_userland.haohan.version)" != "0" ]; then
+        ubus call uci add '{
+            "config": "nfnlq_userland",
+            "type": "extension",
+            "name": "haohan"
+        }'
+        ubus call uci set '{
+            "config": "nfnlq_userland",
+            "section": "haohan",
+            "values": {
+                "version": "0",
+                "path": "\/usr\/lib\/libdpi_haohan.so",
+                "pre_targets": [
+                    "IF",
+                    "-m miwifi-connhaohan --inspecting",
+                    "AND",
+                    "-p tcp",
+                    "AND",
+                    "NOT -m conntrack --ctstate ESTABLISHED --ctstatus ASSURED",
+                    "THEN",
+                    "-j MARK --set-mark 0x20\/0x20",
+                    "FI"
+                ],
+                "matches": [
+                    "-m miwifi-connhaohan --inspecting",
+                    "AND",
+                    "(",
+                    "! -p tcp",
+                    "OR",
+                    "-m conntrack --ctstate ESTABLISHED --ctstatus ASSURED",
+                    ")"
+                ]
+            }
+        }'
+        ubus call uci commit '{"config": "nfnlq_userland"}'
+        echo "flushed haohan nfnlq configurations"
+    fi
+}

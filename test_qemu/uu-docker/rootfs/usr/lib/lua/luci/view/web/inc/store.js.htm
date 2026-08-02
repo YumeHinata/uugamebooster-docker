@@ -1,0 +1,765 @@
+<%
+local XQFunction = require("xiaoqiang.common.XQFunction")
+local swapmask = XQFunction.getFeature('0', 'apps', 'swapmask')
+local sambaflag = XQFunction.getFeature('0', 'apps', 'samba')
+local bit = require("bit")
+%>
+<!-- 存储信息展示li -->
+<script type="text/tmpl" id="tmlMemInfo">
+    {for(var j=0, devlen=$deviceList.length; j < devlen; j++)}
+    {for(var i=0, partlen=$deviceList[j].partitionList.length; i < partlen; i++)}
+    <div class="disk-box">
+        <div class="disk-area clearfix">
+            <div class="img-area">
+                <img class="off" src="<%=resource%>/web/img/icons/USB.png" alt="" />
+                <img class="on" src="<%=resource%>/web/img/icons/USB_on.png" alt="" />
+            </div>
+            <div class="cnt-area">
+                <h2><span>{$deviceList[j].model}</span></h2>
+                <h3><%:分区名称%> <span>{$deviceList[j].partitionList[i].name}</span></h3>
+                <h3><%:已用%><span class="disk-used">{$deviceList[j].partitionList[i].used}</span> / <%:总容量%><span class="disk-all">{$deviceList[j].partitionList[i].capacity}</span></h3>
+                <div class="bar-area clearfix">
+                    <span class="b1" id="extDiskUsed"  style="width:{$deviceList[j].partitionList[i].width}"></span>
+                </div>
+                <h3><%:外接存储器格式%>: <span>{$deviceList[j].partitionList[i].fstype}</span></h3>
+            </div>
+            <div class="delUsb">
+                <input type="hidden" name="id" value="{$deviceList[j].sid}">
+                {if ($deviceList[j].partitionList.length > 1)}
+                <button type="submit" class="btn btn-primary btn-l btn-del-mem" data-on="0"><span><%:安全移除磁盘%></span></button>
+                {else}
+                <button type="submit" class="btn btn-primary btn-l btn-del-mem" data-on="1"><span><%:安全移除磁盘%></span></button>
+                {/if}
+            </div>
+        </div>
+    </div>
+    {/for}
+    {/for}
+</script>
+<!-- 虚拟内存创建表单 -->
+<%if swapmask ~= '0' then%>
+<script type="text/tmpl" id="swapCon">
+    <div class="showCre">
+        <div class="form-item-select">
+            <label class="k"><%:虚拟内存大小%></label>
+            <span class="v">
+                <select id="swapSize" name="swapSelect" class="beautify swapSelect" >
+                    <%if bit.band(swapmask, 1) ~= 0 then%> <option value="128" {if ($swapSize == 128)} selected {/if}><%:128MB%></option> <%end%>
+                    <%if bit.band(swapmask, 2) ~= 0 then%> <option value="256" {if ($swapSize == 256)} selected {/if}><%:256MB%></option> <%end%>
+                    <%if bit.band(swapmask, 4) ~= 0 then%> <option value="512" {if ($swapSize == 512)} selected {/if}><%:512MB%></option> <%end%>
+                    <%if bit.band(swapmask, 8) ~= 0 then%> <option value="1024" {if ($swapSize == 1024)} selected {/if}><%:1024MB%></option> <%end%>
+                </select>
+            </span>
+            <em class="t"></em>
+        </div>
+        <div class="form-contral">
+            <button class="btn btn-primary btn-l" id="creSwap"><span><%:创建虚拟内存%></span></button>
+        </div>
+    </div>
+</script>
+<!-- 多分区虚拟内存创建确认 -->
+<script type="tmpl/html" id="tmlCreConfirm">
+<div class="mod-nav-disk" id="creConfirm" style="padding-top: 0">
+    {for(var j=0, cnt=0, devlen=$deviceList.length; j < devlen; j++)}
+    {for(var i=0, partlen=$deviceList[j].partitionList.length; i < partlen; i++)}
+    {if ($swapSize < parseFloat($deviceList[j].partitionList[i].available) * 1024)}
+    <div style="display:none;">{cnt++}</div>
+    <div class="disk-box-singleline {if (cnt == 1)} on {/if} " data-uuid="{$deviceList[j].partitionList[i].uuid}">
+        <div class="disk-area clearfix">
+            <div class="img-area">
+                <img class="off" src="<%=resource%>/web/img/icons/USB.png" alt="" />
+                <img class="on" src="<%=resource%>/web/img/icons/USB_on.png" alt="" />
+            </div>
+            <div class="cnt-area">
+                <h2><span>{$deviceList[j].model}</span></h2>
+                <h3><%:分区名称%> <span>{$deviceList[j].partitionList[i].name}</span></h3>
+                <h3><%:已用%><span class="disk-used">{$deviceList[j].partitionList[i].used}</span> / <%:总容量%><span class="disk-all">{$deviceList[j].partitionList[i].capacity}</span></h3>
+                <div class="bar-area clearfix">
+                    <span class="b1" id="extDiskUsed" style="width:{$deviceList[j].partitionList[i].width}"></span>
+                </div>
+                <h3><%:外接存储器格式%>: <span>{$deviceList[j].partitionList[i].fstype}</span></h3>
+            </div>
+        </div>
+    </div>
+    {/if}
+    {/for}
+{/for}
+</div>
+<div style="height: 20px"></div>
+<div class="form-contral">
+    <button type="button" class="btn btn-primary btn-l" id="creSwapNow"><span><%:下一步%></span></button>
+</div>
+</script>
+<!-- 虚拟内存删除确认 -->
+<script type="tmpl/html" id="tmlDelConfirm">
+	<div class="resultContent">
+        <div style="font-size: 15px;">
+            <p class="content"><%:执行此操作将删除与路由器直连的存储器中扩展的虚拟内存，如果此时Docker服务正在运行，Docker服务将会被重启%></p>
+        </div>
+        <div style="clear: both;">
+        </div>
+	</div>
+</script>
+<!-- 虚拟内存创建中 -->
+<script type="text/tmpl" id="tplCreSwap">
+    <div class="cre-loading">
+        <p>虚拟内存创建中...</p>
+        <img id="loading" src="<%=resource%>/web/img/mesh_loading.png"/>
+    </div>
+</script>
+<!-- 虚拟内存删除中 -->
+<script type="text/tmpl" id="tplDelSwap">
+    <div class="del-loading">
+        <p>虚拟内存删除中...</p>
+        <img id="loading" src="<%=resource%>/web/img/mesh_loading.png"/>
+    </div>
+</script>
+<!-- 虚拟内存创建确认 -->
+<script type="tmpl/html" id="tmlCreSwap">
+	<div class="resultContent">
+        <div align="left">
+            <p class="content"><%:设置成功！请等待一段时间完成虚拟内存创建%></p>
+            <p style="margin-top: 10px;" class="content"><%:1.创建期间请勿断电或拔插存储设备;%></p>
+            <p class="content"><%:2.使用过程中，如需拔出磁盘请使用安全移除磁盘功能，强行拔出可能会导致路由器工作异常甚至重启;%></p>
+        </div>
+	</div>
+</script>
+<%end%>
+<script>
+    var timer = null;
+    var timeout,install_dialog;
+    var count = 0;
+    var capacity = 0;
+    var creConfirmDialog = null;
+    var creSwapLoading = null;
+    var delSwapLoading = null;
+    var selectSwapSize = "128";
+    var hasShowSwapFailed = false;
+
+    // 实体存储器相关事件
+    $.sub('memEvents', function() {
+        // 获取存储器信息执行函数
+        function getMemInfo() {
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "misystem","get_storage_device_list")%>',
+                type: "GET",
+                dataType: "json",
+                async: true,
+                success: function(rsp) {
+                    var deviceList = "";
+                    if(rsp.code == 0 && rsp.deviceList && rsp.deviceList.length > 0) {
+                        $(".nav-disk-1").hide();
+                        $(".nav-disk-2").show();
+                        deviceList = rsp.deviceList;
+                        var statusHTML = StringH.tmpl( $('#tmlMemInfo').html(), {
+                            deviceList: deviceList
+                        });
+
+                        $( '#memInfoDiv' ).html( statusHTML );
+                    }
+                    else {
+                        $(".nav-disk-2").hide();
+                        $(".nav-disk-1").show();
+                    }
+                }
+            });
+        }
+
+        // 安全移除硬盘执行函数
+        function removeMem(devName) {
+            var requestData = {
+                devName: devName
+            };
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "misystem", "umount_storage_devices")%>',
+                dataType: 'json',
+                type: 'POST',
+                data: requestData,
+                async: true,
+                success: function( rsp ){
+                    if (rsp.code == 0) {
+                        $.dialog({
+                            width: 390,
+                            title : "<%:提示%>",
+                            content : '<%:移除成功%>',
+                            ok: function(){}
+                        }).lock();
+                    }
+                    else {
+                        $.dialog({
+                            width: 390,
+                            title : "<%:提示%>",
+                            content : '<%:移除失败%>',
+                            ok: function(){}
+                        }).lock();
+                    }
+                    getMemInfo();
+                    $.pub('loading:stop');
+                }
+            });
+            setTimeout(function() {
+                $.pub('loading:stop');
+            }, 6 * 1000)
+        }
+        
+        $(document).ready(function() {
+            getMemInfo();
+        });
+        // 安全移除硬盘注册事件
+        $("body").on("click", ".btn-del-mem", function(e) {
+            e && e.preventDefault();
+            var isSinglePartition = $(this).attr("data-on"),
+            devId = $(this).siblings("input").attr("value");
+            // 单分区U盘
+            if (isSinglePartition == "1") {
+                $.dialog({
+                    width: 390,
+                    title : "<%:提示%>",
+                    content : '<%:是否确认移除？%>',
+                    ok: function(){
+                        $.pub('loading:start');
+                        removeMem(devId);
+                    },
+                    cancel: function () {}
+                }).lock();
+            }
+            // 多分区U盘
+            else {
+                var devName = $(this).parent(".delUsb")
+                              .siblings(".cnt-area").children('h2')
+                              .children("span").text();
+                console.log(devName);
+                $.dialog({
+                    width: 390,
+                    title : "<%:提示%>",
+                    content : '<%:移除%>'
+                            + devName 
+                            + '<%:将会一并移除此U盘的所有分区，请确认%>',
+                    ok: function(){
+                        $.pub('loading:start');
+                        removeMem(devId);
+                    },
+                    cancel: function () {}
+                }).lock();
+            }
+        });
+    });
+    // usb模式相关事件
+    $.sub('usbEvents', function() {
+        function getUsbModel() {
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "misystem","get_usb_u3")%>',
+                type: "GET",
+                dataType: "json",
+                async: true,
+                success: function(rsp) {
+                    if (rsp.code == 0) {
+                        if (rsp.enable == 1) {
+                            $("#usb3switch").removeClass("btn-switch-off")
+                            .addClass("btn-switch-on")
+                            .attr("data-on", "1");
+                        }
+                        else {
+                            $("#usb3switch").removeClass("btn-switch-on")
+                            .addClass("btn-switch-off")
+                            .attr("data-on", "0");
+                        }
+                    }
+                    else {
+                        alert(rsp.msg);
+                    }
+                }
+            });
+        }
+        function switchUsbModel(e) {
+            e && e.preventDefault();
+            var enable = $("#usb3switch").attr('data-on') == 1 ? 0 : 1,
+                requestData = {
+                    enable : enable
+                };
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "misystem","usb_u3")%>',
+                type: "GET",
+                dataType: "json",
+                data: requestData,
+                async: true,
+                success: function(rsp) {
+                    var time = 10;
+                    if (rsp.code == 0) {
+                        var usbLoading = $.loadingDialog({
+                            title: '<%:提示信息%>',
+                            content: '<%:设置成功，请等待%>' + time + '<%:s完成USB模式切换%>'
+                        });
+                        if (enable == 1) {
+                            $("#usb3switch").removeClass("btn-switch-off")
+                            .addClass("btn-switch-on")
+                            .attr("data-on", "1");
+                        }
+                        else {
+                            $("#usb3switch").removeClass("btn-switch-on")
+                            .addClass("btn-switch-off")
+                            .attr("data-on", "0");
+                        }
+                        var usbInterval =  setInterval(function() {
+                            if (time <= 1) {
+                                usbLoading.close();
+                                clearInterval(usbInterval);
+                                return false;
+                            }
+                            time--;
+                            usbLoading.content('<%:设置成功，请等待%>' + time + '<%:s完成USB模式切换%>');
+                        }, 1 * 1000);
+                    }
+                    else {
+                        alert(rsp.msg);
+                    }
+                }
+            });
+        }
+
+        $(document).ready(function() {
+            getUsbModel();
+        });
+        $("body").on("click", "#usb3switch", function(e) {
+            switchUsbModel(e);
+        });
+    });
+if ('<%=sambaflag%>' == '1') {
+    // samba功能
+    $.sub('sambaEvents', function() {
+        function getSambaModel() {
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "misystem","get_samba_status")%>',
+                type: "GET",
+                dataType: "json",
+                async: true,
+                success: function(rsp) {
+                    if (rsp.code == 0) {
+                        if (rsp.enable == 1) {
+                            $("#sambaSwitch").removeClass("btn-switch-off")
+                            .addClass("btn-switch-on")
+                            .attr("data-on", "1");
+                        }
+                        else {
+                            $("#sambaSwitch").removeClass("btn-switch-on")
+                            .addClass("btn-switch-off")
+                            .attr("data-on", "0");
+                        }
+                    }
+                    else {
+                        alert(rsp.msg);
+                    }
+                }
+            });
+        }
+        function switchSambaModel(e) {
+            e && e.preventDefault();
+            var enable = $("#sambaSwitch").attr('data-on') == 1 ? 0 : 1,
+                requestData = {
+                    enable : enable
+                };
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "misystem","set_samba_status")%>',
+                type: "GET",
+                dataType: "json",
+                data: requestData,
+                async: true,
+                success: function(rsp) {
+                    if (rsp.code == 0) {
+                        getSambaModel();
+                    }
+                    else {
+                        alert(rsp.msg);
+                    }
+                }
+            });
+        }
+
+        $(document).ready(function() {
+            getSambaModel();
+        });
+        $("body").on("click", "#sambaSwitch", function(e) {
+            switchSambaModel(e);
+        });
+        // Samba介绍
+        $('.help .ico').on('click', function(){
+            $('#helpArrow').show();
+            $('#helpSection').show();
+        });
+        $('.help-close').on('click', function(){
+            $('#helpArrow').hide();
+            $('#helpSection').hide();
+        });
+    });
+} // sambaflag
+if ('<%=swapmask%>' != '0') {
+    // 虚拟内存功能
+    $.sub('swapEvents', function() {
+        function pieInit() {
+            var pieConfig = {
+                id : 'piechart',
+                wt : 90 * 2,
+                ht : 90 * 2,
+                r : 90,
+                stroke : '#fff',
+                datas: [{value : 1, label : 't1'}],
+                count : {value : 0,label : 'KB'}
+            };
+            // $.pieChart = new PieChart(pieConfig);
+        }
+        function lineInit() {
+            $.chartLineSpeedDB = [
+                [0,0,0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0,0,0]
+            ];
+
+            $.chartLineCpuDB = [0,0,0,0,0,0,0,0,0,0];
+            $.chartLineCpu = new Linechart({
+                container: document.getElementById('swapChart'),
+                width: 489,
+                height: 200,
+                maxYval: 100,
+                maxYnum: 5,
+                labelUnit: '%'
+            });
+
+            $.chartLineMemDB = [0,0,0,0,0,0,0,0,0,0];
+            $.chartLineMem = new Linechart({
+                container: document.getElementById('memChart'),
+                width: 489,
+                height: 200,
+                maxYval: 100,
+                maxYnum: 5,
+                labelUnit: '%'
+            });
+        }
+        // 计算虚拟内存占比
+        function getSwap(data) {
+            $('#swapused').text( (data.swapused / data.swaptotal * 100).toFixed(2) + '%' );
+            $('#swaptotal').text( data.swaptotal + 'MB' );
+        }
+        function swapUpdate(data) {
+            var cpu = parseFloat(data.swapused/data.swaptotal) * 100;
+            $.chartLineCpuDB.push(cpu);
+            var _linedata = $.chartLineCpuDB.slice(-10);
+            $.chartLineCpu.update( _linedata );
+        }
+        // 计算路由器内存占比
+        function getMem(data) {
+            $('#memused').text( (data.memused / data.memtotal * 100).toFixed(2) + '%' );
+            $('#memtotal').text( data.memtotal + 'MB' );
+        }
+        function memUpdate(data) {
+            var mem = parseFloat(data.memused/data.memtotal) * 100;
+            $.chartLineMemDB.push(mem);
+            var _linedata = $.chartLineMemDB.slice(-10);
+            $.chartLineMem.update( _linedata );
+        }
+
+        // 创建虚拟内存选择分区弹窗
+        function creSwapConfirm(swapSize) {
+            $.pub('loading:start');
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "misystem","get_storage_device_list")%>',
+                type: "GET",
+                dataType: "json",
+                async: true,
+                success: function(rsp) {
+                    $.pub('loading:stop');
+                    var deviceList = "";
+                    var hsaPartition = false;
+                    var hasSuchPartition = false;
+                    if(rsp.code == 0 && rsp.deviceList && rsp.deviceList.length > 0) {
+                        hsaPartition = true;
+                        for (var j = 0; j < rsp.deviceList.length; j++) {
+                            for (var i = 0; i < rsp.deviceList[j].partitionList.length; i++) {
+                                if (parseFloat(rsp.deviceList[j].partitionList[i].available) * 1024 > swapSize) 
+                                {
+                                    hasSuchPartition = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (!hsaPartition) {
+                        creConfirmDialog = $.dialog({
+                            title: '<%:创建虚拟内存%>',
+                            content: '<%:虚拟内存创建失败，未检测到可用的外接存储器%>',
+                            padding: '30px 30px',
+                            lock: true,
+                            width: 610,
+                            okValue: '<%:确认%>',
+                            ok: function() {}
+                        });
+                    }
+                    else if(hasSuchPartition) {
+                        deviceList = rsp.deviceList;
+                        var statusHTML = StringH.tmpl( $('#tmlCreConfirm').html(), {
+                            deviceList: deviceList,
+                            swapSize: swapSize
+                        });
+
+                        creConfirmDialog = $.dialog({
+                            title: '<%:存储位置选择%>',
+                            content: statusHTML,
+                            padding: '30px 30px',
+                            lock: true,
+                            width: 610
+                        });
+                        $("#creSwapNow").click(function() {
+                            var disabled = $('#creSwapNow').hasClass("btn-dft-disabled");
+                            if (disabled) {
+                                return;
+                            }
+                            var uuid = $("#creConfirm").children(".on").attr("data-uuid");
+                            var size = $("#swapSize option:selected").val();
+                            creConfirmDialog.close();
+                            creSwap(uuid, size);
+                        });
+                    }
+                    else {
+                        creConfirmDialog = $.dialog({
+                            title: '<%:创建虚拟内存%>',
+                            content: '<%:虚拟内存创建失败，未检测到满足大小的外接存储器%>',
+                            padding: '30px 30px',
+                            lock: true,
+                            width: 610,
+                            okValue: '<%:确认%>',
+                            ok: function() {}
+                        });
+                    }
+                }
+            });
+            setTimeout(function() {
+                $.pub('loading:stop');
+            }, 20 * 1000)
+        }
+        // 创建虚拟内存操作
+        function creSwap(uuid, size) {
+            creSwapLoading = $.dialog({
+                width: 450,
+                title : "<%:创建虚拟内存%>",
+                content : $("#tplCreSwap").html(),
+                cancel: false
+            }).lock();
+            var requestData = {
+                uuid: uuid,
+                size: size
+            }
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "misystem","set_swap_info")%>',
+                type: "POST",
+                dataType: "json",
+                data: requestData,
+                async: true,
+                success: function(rsp) {
+                    creSwapLoading.close();
+                    if (rsp.code == 0) {
+                        $.dialog({
+                            width: 450,
+                            title : "<%:创建虚拟内存%>",
+                            content : $("#tmlCreSwap").html(),
+                            ok: function() {},
+                            beforeunload: function() {
+                                getSwapInfo();
+                            }
+                        });
+                    }
+                    else {
+                        $.dialog({
+                            width: 450,
+                            title : "<%:创建虚拟内存%>",
+                            content : "<%:虚拟内存创建失败，请确保与路由器直连的存储器剩余空间大于将要创建的虚拟内存值%>",
+                            ok: function() {}
+                        });
+                    }
+                }
+            });
+        }
+        // 删除虚拟内存操作
+        function delSwap(uuid) {
+            delSwapLoading = $.dialog({
+                width: 390,
+                title : "<%:删除虚拟内存%>",
+                content : $("#tplDelSwap").html(),
+                cancel: false
+            }).lock();
+            var requestData = {
+                uuid: uuid
+            }
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "misystem","del_swap")%>',
+                type: "POST",
+                dataType: "json",
+                data: requestData,
+                async: true,
+                success: function(rsp) {
+                    delSwapLoading.close();
+                    if (rsp.code == 0) {
+                        $.dialog({
+                            width: 390,
+                            title : "<%:删除虚拟内存%>",
+                            content : "<%:虚拟内存删除成功！%>",
+                            beforeunload: function() {
+                                getSwapInfo();
+                            },
+                            ok: function() {}
+                        });
+                    }
+                    else {
+                        $.dialog({
+                            width: 390,
+                            title : "<%:删除虚拟内存%>",
+                            content : "<%:虚拟内存删除失败%>",
+                            ok: function() {}
+                        });
+                    }
+                }
+            });
+        }
+        // 获取路由器内存和虚拟内存信息
+        function getSwapInfo() {
+            $.ajax({
+                url: '<%=luci.dispatcher.build_url("api", "misystem","get_swap_info")%>',
+                type: "GET",
+                dataType: "json",
+                async: true,
+                success: function(rsp) {
+                    if (rsp.code == 0) {
+                        getMem(rsp);
+                        memUpdate(rsp);
+                        // 未开启虚拟内存
+                        if (rsp.status == 0) {
+                            // 隐藏swap内容
+                            $('.status-swap').hide();
+                            $('#routerMemDiv').removeClass('status-mem').addClass('status-single');
+                            $('.swapCon').show();
+                            var container = $('.swapCon');
+                            var statusHTML = StringH.tmpl( $('#swapCon').html(), {
+                                swapSize: selectSwapSize
+                            });
+                            container.html(statusHTML);
+                            $.selectBeautify({ container:'.swapCon'});
+                            $("#creSwap").removeClass('btn-dft-disabled').addClass('btn-primary');
+                            $("#creSwap").children("span").html("<%:创建虚拟内存%>");
+                        }
+                        // 虚拟内存创建中
+                        else if (rsp.status == 1) {
+                            $('.status-swap').hide();
+                            $('#routerMemDiv').removeClass('status-mem').addClass('status-single');
+                            $('.swapCon').show();
+                            var container = $('.swapCon');
+                            var statusHTML = StringH.tmpl( $('#swapCon').html(), {
+                                swapSize: selectSwapSize
+                            });
+                            container.html(statusHTML);
+                            $.selectBeautify({ container:'.swapCon'});
+                            // 按钮置灰
+                            $("#creSwap").removeClass('btn-primary').addClass('btn-dft-disabled');
+                            $("#creSwap").children("span").html("<%:虚拟内存创建中%>");
+                        }
+                        // 已创建虚拟内存
+                        else if (rsp.status == 2){
+                            // 隐藏创建虚拟内存按钮
+                            $('.swapCon').hide();
+                            $('.status-swap').show();
+                            $('#routerMemDiv').removeClass('status-single').addClass('status-mem');
+                            if (rsp.uuid) {
+                                $("#delSwap").attr("data-uuid", rsp.uuid);
+                            }
+                            getSwap(rsp);
+                            swapUpdate(rsp);
+                        }
+                        // 创建失败
+                        else if (status=3 && !hasShowSwapFailed) {
+                            $.dialog({
+                                width: 390,
+                                title : "<%:创建虚拟内存%>",
+                                content : "<%:虚拟内存创建失败，请重新设置。%>",
+                                ok: function() {
+                                    if (rsp.uuid) {
+                                        delSwap(rsp.uuid);
+                                    }
+                                },
+                                //关闭弹框前使能失败对话框的显示功能
+                                beforeunload: function() {
+                                    hasShowSwapFailed = false;
+                                }
+                            });
+                            // 阻止重复显示失败对话框
+                            hasShowSwapFailed = true;
+                        }
+                    }
+                    else {
+                        alert(rsp.msg);
+                    }
+                }
+            });
+        }
+
+        $(document).ready(function() {
+            getSwapInfo();
+            pieInit();
+            lineInit();
+
+            timer = window.setInterval(function() {
+                getSwapInfo();
+            }, 10000);
+        });
+        $('body').on('change', '#swapSize', function(e) {
+            e && e.preventDefault();
+            selectSwapSize = $("#swapSize option:selected").val();
+        });
+
+        // 创建确认弹框
+        $('body').on('click', '#creSwap', function(e) {
+            e && e.preventDefault();
+            if ($(this).hasClass('btn-dft-disabled')) {
+                return;
+            }
+            var swapSize = $("#swapSize option:selected").val();
+            creSwapConfirm(swapSize);
+        });
+
+        // 添加选中样式
+        $('body').on('click', '.disk-box-singleline', function(e) {
+            $('#creConfirm .disk-box-singleline').removeClass('on');
+            $(this).addClass('on');
+            var hasChosen = $("#creConfirm .disk-box-singleline").hasClass('on');
+            if (hasChosen) {
+                $('#creSwapNow').removeClass('btn-dft-disabled').addClass('btn-primary');
+            }
+            else {
+                $('#creSwapNow').removeClass('btn-primary').addClass('btn-dft-disabled');
+            }
+        });
+
+        // 删除虚拟内存事件
+        $('body').on('click', '#delSwap', function(e) {
+            $.dialog({
+                title: '<%:删除虚拟内存%>',
+                content: $("#tmlDelConfirm").html(),
+                padding: '30px 30px',
+                lock: true,
+                width: 610,
+                ok: function() {
+                    var uuid = $("#delSwap").attr("data-uuid");
+                    delSwap(uuid);
+                },
+                cancel: function() {}
+            });
+
+        });
+    });
+} // swapmask
+$(function(){
+    $.pub('memEvents');
+    $.pub('usbEvents');
+if ('<%=sambaflag%>' == '1') {
+    $.pub('sambaEvents');
+}
+if ('<%=swapmask%>' != '0') {
+    $.pub('swapEvents');
+}
+});
+</script>

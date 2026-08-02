@@ -1,0 +1,9 @@
+Package: libtlvutil
+Version: miwifi_git-1
+Depends: libc, libpthread, libnl
+Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/qca/utils/libtlvutil
+Section: QTI
+Maintainer: Qualcomm Technologies, Inc
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 12302
+Description:  QTI libtlvutil utils

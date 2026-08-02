@@ -1,0 +1,8 @@
+Package: hotupgrade
+Version: 1-1.0
+Depends: libc
+Source: package/miwifi/hotupgrade
+Section: opt
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 3081
+Description:  Hotupgrade Version 1.0

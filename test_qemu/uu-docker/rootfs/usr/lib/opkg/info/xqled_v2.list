@@ -1,0 +1,9 @@
+/lib/xqled/xqled.sh
+/usr/sbin/xqled
+/lib/xqled/xqled_common.sh
+/etc/init.d/xqled
+/lib/xqled/xqled_hal.sh
+/lib/xqled/xqled_gpio.sh
+/lib/xqled/xqled_pwm.sh
+/usr/sbin/led_srv
+/lib/xqled/xqled_sysfs.sh

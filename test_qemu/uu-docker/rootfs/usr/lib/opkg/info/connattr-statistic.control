@@ -1,0 +1,8 @@
+Package: connattr-statistic
+Version: 1.0-1.0
+Depends: libc, kmod-connattr-statistic
+Source: package/miwifi/connattr-statistic
+Section: opt
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 2219
+Description:  TODO

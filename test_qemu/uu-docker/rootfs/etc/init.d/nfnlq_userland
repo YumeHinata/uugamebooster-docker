@@ -1,0 +1,28 @@
+#!/bin/sh /etc/rc.common
+
+START=98
+
+USE_PROCD=1
+NAME=nfnlq_userland
+PROG=/usr/sbin/${NAME}
+
+start_service() {
+    procd_open_instance
+    procd_set_param command ${PROG}
+    procd_close_instance
+}
+
+service_triggers() {
+    procd_add_reload_trigger ${NAME}
+}
+
+# so far haohan dpi cannot exit normaly
+#reload_service() {
+#    start
+#    procd_send_signal ${NAME}
+#}
+
+reload_service() {
+    stop
+    start
+}

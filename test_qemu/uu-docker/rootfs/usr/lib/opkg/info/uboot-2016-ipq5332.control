@@ -1,0 +1,8 @@
+Package: uboot-2016-ipq5332
+Version: miwifi_git-1
+Depends: libc, xiaoqiang-util
+Source: package/miwifi/system/uboot-qca
+Section: boot
+Architecture: aarch64_cortex-a53_neon-vfpv4
+Installed-Size: 105
+Description:  U-boot for IPQ5332 based platforms

@@ -1,0 +1,3 @@
+/etc/init.d/cnss_diag
+/usr/sbin/cnss_diag
+/etc/config/cnss_diag

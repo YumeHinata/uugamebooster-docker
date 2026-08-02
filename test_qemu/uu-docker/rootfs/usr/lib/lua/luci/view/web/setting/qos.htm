@@ -1,0 +1,775 @@
+<%
+--[[
+    Info    QoS
+]]--
+local ver = require("xiaoqiang.XQVersion").webVersion
+local sys = require "xiaoqiang.util.XQSysUtil"
+local wifiUtil = require("xiaoqiang.util.XQWifiUtil")
+local request_uri = luci.http.getenv("REMOTE_URI")
+local remote_addr = luci.http.getenv("REMOTE_ADDR") or ""
+local mac = luci.sys.net.ip4mac(remote_addr) or ""
+local lanType = wifiUtil.getDeviceWifiIndex(mac)
+local XQSysUtil = require "xiaoqiang.util.XQSysUtil"
+local hardware = string.lower( XQSysUtil.getHardware() )
+local multiwanEnable = require("xiaoqiang.util.XQPortServiceUtil").psMultiwanEnable()
+%>
+<%include("web/inc/head")%>
+<title><%:小米路由器%></title>
+<meta name="viewport" content="width=1200">
+<link href="<%=resource%>/web/css/bc.css?v=<%=ver%>" rel="stylesheet">
+<link href="<%=resource%>/web/css/qos.css?v=<%=ver%>" rel="stylesheet">
+</head>
+<body>
+<div id="doc">
+    <%include("web/inc/header")%>
+    <div id="bd">
+        <%if multiwanEnable == 1 then%>
+        <div class="help-cont">
+            <h3><br/><br/><%:此功能与双WAN功能冲突，若想使用，请您先关闭双WAN功能%></h3>
+        </div>
+        <%else%>
+        <div class="mod-set mod-bandwidth">
+            <div class="hd">
+                <h3><%:最高速度设置%></h3>
+            </div>
+            <div class="bd">
+                <div class="speed-needtest nospeed" style="display:none;">
+                <div class="speed-result">
+                        <div id="">
+                             <div class="mod-speed-result" style="text-align:left;">
+                                <ul class="clearfix">
+                                    <li class="first">
+                                        <span class="num" id="outband-up">--</span>
+                                        <span class="con">
+                                            MB/s<br>
+                                            <%:最高上传速度%>
+                                        </span>
+                                    </li>
+                                    <li>
+                                        <span class="num" id="outband-down">--</span>
+                                        <span class="con">
+                                            MB/s<br>
+                                            <%:最高下载速度%>
+                                        </span>
+                                    </li>
+                                </ul>
+                                <div class="btns">
+                                    <a href="#" id="btnBandset" class="btn btn-dft btn-m" data-upband="" data-downband=""><span><%:限速设置%></span></a>
+                                     <div class="result-tip" style="display:none"><%:无限速阈值，请先进行限速设置%></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                  
+
+                </div>
+                <div class="mod-qos-speedtest hasspeed" style="display:none;">
+                    <div class="speed-result">
+                        <div id="speedresult"></div>
+                    </div>
+                </div>
+                <div class="mod-qos-alert" style="display:none">
+                    <p><%:当外网下载带宽超过50Mbps时，建议无需开启QoS功能%></p>
+                </div>
+            </div>
+        </div>
+        <!--  -->
+        <div class="mod-set mod-qos">
+            <div class="hd" style="margin-bottom:0px;">
+                <h3><%:QoS智能分配%></h3>
+                <div class="switch">
+                    <a data-enable="1" class="btn-switch btn-switch-on" id="btnqos" href="#"></a>
+                </div>
+            </div>
+            <div class="bd">
+                <div class="mod-qos-set hasspeed">
+                    <div class="isoff" id="qosoff" style="display:none;"><%:当前QoS服务暂未开启%></div>
+                    <div class="ison" id="qosset" style="display:none;">
+                        <%if hardware ~= "d01" then%>
+                        <div class="models settings" style="padding-top:40px;">
+                            <h4 class="tit"><%:根据应用优先级分配网速%></h4>
+                            <div id="qosmode" class="tab clearfix">
+                                <ul>
+                                    <li data-value="0" style="display:none;"><%:自动模式%></li>
+                                    <li data-value="1" style="display:none;"><%:优先级模式%></li>
+                                    <li data-value="2" style="display:none;"><%:手工限速模式%></li>
+                                    <li data-value="3" class="first active"><%:自动模式%></li>
+                                    <li data-value="4"><%:游戏优先%></li>
+                                    <li data-value="5"><%:网页优先%></li>
+                                    <li data-value="6"><%:视频优先%></li>
+                                </ul>
+                            </div>
+                            <div id="qosmodedesc" class="tab-content" style="margin-bottom:25px;">
+                                <p><%:自动模式下路由器会根据当前网络使用情况动态调整带宽分配，保证网络体验流畅%></p>
+                                <p><%:优先级模式下路由器会动态调整带宽分配，保证优先级较高的设备网络体验流畅%></p>
+                                <p><%:手工模式下路由器会根据您设置的速度调整带宽分配%></p>
+                                <p><%:系统根据设备需要自动调配网速%></p>
+                                <p><%:优先保证打游戏的网速，不卡顿不掉线%></p>
+                                <p><%:优先保证浏览网页的网速，大图秒打开%></p>
+                                <p><%:优先保证看视频的网速，高清也流畅%></p>
+                            </div>
+                            <hr></hr>
+                        </div>
+                        <%end%>
+
+                        <div class="settings">
+                            <h4><%:家庭WiFi限速%> <i class="ico ico-refresh" id="refresh"></i></h4>
+                            <div class="table-devices" id="tableauto" style="display:none">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th width="270"><%:设备名称%></th>
+                                            <th width="270"><%:设备信息%></th>
+                                            <th><%:当前网速%></th>
+                                            <!--<th width="180" class="center"><%:限速模式%></th>-->
+                                            <th width="180"><%:最大速度%></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="devlistauto"></tbody>
+                                </table>
+                                <div class="btns-edit">
+                                    <a href="#" class="btn btn-dft btn-l btnEditQos" data-mode="0"><span><%:编辑%></span></a>
+                                </div>
+                            </div>
+                            <div id="tablepriority" class="table-devices" style="display:none">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th width="270"><%:设备名称%></th>
+                                            <th width="270"><%:设备信息%></th>
+                                            <th><%:当前网速%></th>
+                                            <th width="180" class="center"><%:优先级%></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="devlistpriority"></tbody>
+                                </table>
+                                <div class="btns-edit">
+                                    <a href="#" class="btn btn-dft btn-l btnEditQos" data-mode="1"><span><%:编辑%></span></a>
+                                </div>
+                            </div>
+                            <div class="table-devices" id="tablecustom" style="display:none">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th width="270"><%:设备名称%></th>
+                                            <th width="270"><%:设备信息%></th>
+                                            <th><%:当前网速%></th>
+                                            <th width="180"><%:最大速度%></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="devlistcustom"></tbody>
+                                </table>
+                                <div class="btns-edit">
+                                    <a href="#" class="btn btn-dft btn-l btnEditQos" data-mode="2"><span><%:编辑%></span></a>
+                                </div>
+                            </div>
+                            <hr></hr>
+                        </div>
+
+                        <%if hardware ~= "d01" then%>
+                        <div id="guest-limit" >
+
+                        </div>
+                        <%end%>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <%end%>
+    </div>
+    <%include( "web/inc/footer")%>
+</div>
+<%include( "web/inc/g.js")%>
+<%include( "web/inc/speedtest.js")%>
+<script type="tmpl/html" id="guest-limit-script">
+    <div class="mod-qos-speedtest settings">
+        <h4 class="tit"><%:访客WiFi限速%>:</h4>
+        <div class="mod-speed-result" style="padding-top:0px;">
+            <ul class="clearfix">
+                <li class="first">
+                    <span class="num">{$up}</span>
+                    <span class="con">
+                        KB/S<br>
+                        <%:上传限速%>
+                    </span>
+                </li>
+                <li>
+                    <span class="num">{$down}</span>
+                    <span class="con">
+                        KB/S<br>
+                        <%:下载限速%>
+                    </span>
+                </li>
+            </ul>
+            <div class="btns-edit">
+                <a href="#" class="btn-limit btn btn-dft" data-mode="guest" data-up="{$up}" data-down="{$down}">
+                    <span><%:编辑%></span>
+                </a>
+            </div>
+        </div>
+        <hr></hr>
+    </div>
+</script>
+
+<script type="tmpl/html" id="limit-set-tpl">
+    <div class="speedset" id="customset">
+        <form class="form form-horizontal form-qos" name="bandwidth" id="limit-form">
+            <div class="form-item form-item-input">
+                <label class="k"><%:上传%></label>
+                <span class="v">
+                    <input type="text" id="limit-up-input" reqMsg="<%:上传带宽%>" datatype="n-6.2" minValue="0.01" maxValue="" class="ipt-text" value="{$up}">
+                </span>
+                <em class="t">KB/S</em>
+            </div>
+            <div class="form-item form-item-input">
+                <label class="k"><%:下载%></label>
+                <span class="v">
+                    <input type="text" id="limit-down-input" reqMsg="<%:下载带宽%>" datatype="n-6.2" minValue="8" maxValue="" class="ipt-text" value="{$down}">
+                </span>
+                <em class="t">KB/S</em>
+            </div>
+            <div class="form-contral">
+                <button type="button" id="limit-submit-button" class="btn btn-primary btn-l"><span><%:确定%></span></button>
+            </div>
+        </form>
+    </div>
+</script>
+<script type="tmpl/html" id="tpldevlist1-back">
+<tr>
+    <td>{$devname}</td>
+    <td class="con">{$ip} <br> {$mac}</td>
+    <td class="con"><i class="ico ico-upspeed"></i> {$upspeed}/S <br><i class="ico ico-downspeed"></i> {$downspeed}/S</td>
+    <td class="con center"><%:系统自动%></td>
+</tr>
+</script>
+<script type="tmpl/html" id="tpldevlist">
+<tr data-mac="{$mac}">
+    <td>{$devname}</td>
+    <td class="con">{$ip} <br> {$mac}</td>
+    <td class="con"><i class="ico ico-upspeed"></i> {$upspeed}/S <br><i class="ico ico-downspeed"></i> {$downspeed}/S</td>
+    <td class="con"><i class="ico ico-upspeed"></i> {if($upmax == 0)}<%:无限制%>{else}{$upmax}KB/S{/if} <br><i class="ico ico-downspeed"></i> {if($downmax == 0)}<%:无限制%>{else}{$downmax}KB/S{/if}</td>
+</tr>
+</script>
+<script type="tmpl/html" id="tpldevlist2">
+<tr data-mac="{$mac}">
+    <td>{$devname}</td>
+    <td class="con">{$ip} <br> {$mac}</td>
+    <td class="con"><i class="ico ico-upspeed"></i> {$upspeed}/S <br><i class="ico ico-downspeed"></i> {$downspeed}/S</td>
+    <td class="center">
+        {$levelvalue}
+    </td>
+</tr>
+</script>
+<script type="tmpl/html" id="tpldevlist3">
+<tr data-mac="{$mac}">
+    <td>{$devname}</td>
+    <td class="con">{$ip} <br> {$mac}</td>
+    <td class="con"><i class="ico ico-upspeed"></i> {$upspeed}/S <br><i class="ico ico-downspeed"></i> {$downspeed}/S</td>
+    <td class="con"><i class="ico ico-upspeed"></i> {if($upmax == 0)}<%:无限制%>{else}{$upmax}KB/S{/if} <br><i class="ico ico-downspeed"></i> {if($downmax == 0)}<%:无限制%>{else}{$downmax}KB/S{/if}</td>
+</tr>
+</script>
+<script type="tmpl/html" id="tplqoseditform0">
+<div class="form-qos-set" id="qosEditForm">
+    <form name="qoseditform" id="qoseditform">
+    <table class="table table-devices form-table">
+        <thead>
+            <tr>
+                <th width="270"><%:设备名称%></th>
+                <th width="200"><%:设备信息%></th>
+                <th width="110"><%:当前网速%></th>
+                <th class="center"><%:上传速度%></th>
+                <th class="center"><%:下载速度%></th>
+            </tr>
+        </thead>
+        <tbody>
+        {for(var i = 0,len = $devlist.length; i<len; i++)}
+            <tr data-mac="{$devlist[i].mac}">
+                <td>{$devlist[i].devname}</td>
+                <td class="con">{$devlist[i].ip} <br> {$devlist[i].mac}</td>
+                <td class="con"><i class="ico ico-upspeed"></i> {$devlist[i].upspeed}/S <br><i class="ico ico-downspeed"></i> {$devlist[i].downspeed}/S</td>
+                <td class="center form-item">
+                    <input class="ipt-text" reqMsg="<%:上传速度%>" datatype="n-10.2" minValue="0" name="upmax" value="{$devlist[i].upmax}"> KB/S <em></em>
+                </td>
+                <td class="center form-item">
+                    <input class="ipt-text" reqMsg="<%:下载速度%>" datatype="n-10.2" minValue="0"  name="downmax" value="{$devlist[i].downmax}"> KB/S <em></em>
+                </td>
+            </tr>
+        {/for}
+        </tbody>
+    </table>
+    <div class="btns">
+        <button type="button" id="btnSaveQosSet" class="btn btn-primary btn-l" data-mode="{$mode}"><span><%:确定%></span></button>
+    </div>
+    </form>
+</div>
+</script>
+<script type="tmpl/html" id="tplqoseditform1">
+<div class="form-qos-set" id="qosEditForm">
+    <form name="qoseditform" id="qoseditform">
+    <table class="table table-devices form-table">
+        <thead>
+            <tr>
+                <th width="270"><%:名称%></th>
+                <th width="270"><%:IP和MAC%></th>
+                <th width="250"><%:当前网速%></th>
+                <th class="center"><%:优先级%></th>
+            </tr>
+        </thead>
+        <tbody>
+        {for(var i=0,len=$devlist.length;i<len;i++)}
+            <tr class="form-item" data-mac="{$devlist[i].mac}">
+                <td>{$devlist[i].devname}</td>
+                <td class="con">{$devlist[i].ip} <br> {$devlist[i].mac}</td>
+                <td class="con"><i class="ico ico-upspeed"></i> {$devlist[i].upspeed}/S <br><i class="ico ico-downspeed"></i> {$devlist[i].downspeed}/S</td>
+                <td class="center">
+                    <select name="level">
+                        <option value="1" {if($devlist[i].level == 1)}selected="selected"{/if}><%:低%></option>
+                        <option value="2" {if($devlist[i].level == 2 || $level == 0)}selected="selected"{/if}><%:中%></option>
+                        <option value="3" {if($devlist[i].level == 3)}selected="selected"{/if}><%:高%></option>
+                    </select>
+                </td>
+            </tr>
+        {/for}
+        </tbody>
+    </table>
+    <div class="btns">
+        <button type="button" id="btnSaveQosSet" class="btn btn-primary btn-l" data-mode="{$mode}"><span><%:确定%></span></button>
+    </div>
+    </form>
+</div>
+</script>
+<script type="tmpl/html" id="tplqoseditform2">
+<div class="form-qos-set" id="qosEditForm">
+    <form name="qoseditform" id="qoseditform">
+    <table class="table table-devices form-table">
+        <thead>
+            <tr>
+                <th width="270"><%:设备名称%></th>
+                <th width="200"><%:设备信息%></th>
+                <th width="110"><%:当前网速%></th>
+                <th class="center"><%:上传速度%></th>
+                <th class="center"><%:下载速度%></th>
+            </tr>
+        </thead>
+        <tbody>
+        {for(var i = 0,len = $devlist.length; i<len; i++)}
+            <tr data-mac="{$devlist[i].mac}">
+                <td>{$devlist[i].devname}</td>
+                <td class="con">{$devlist[i].ip} <br> {$devlist[i].mac}</td>
+                <td class="con"><i class="ico ico-upspeed"></i> {$devlist[i].upspeed}/S <br><i class="ico ico-downspeed"></i> {$devlist[i].downspeed}/S</td>
+                <td class="center form-item">
+                    <input class="ipt-text" reqMsg="<%:上传速度%>" datatype="n-10.2" minValue="0" name="upmax" value="{$devlist[i].upmax}"> KB/S <em></em>
+                </td>
+                <td class="center form-item">
+                    <input class="ipt-text" reqMsg="<%:下载速度%>" datatype="n-10.2" minValue="0"  name="downmax" value="{$devlist[i].downmax}"> KB/S <em></em>
+                </td>
+            </tr>
+        {/for}
+        </tbody>
+    </table>
+    <div class="btns">
+        <button type="button" id="btnSaveQosSet" class="btn btn-primary btn-l" data-mode="{$mode}"><span><%:确定%></span></button>
+    </div>
+    </form>
+</div>
+</script>
+<script>
+var multiwanEnable = '<%=multiwanEnable%>';
+var deviceListForm = '';
+var outbandUp;
+var outbandDown;
+var modelQos = (function(){
+    function setDefaultMode(){
+        $.pub('loading:start');
+        $.ajax({
+            url: '<%=luci.dispatcher.build_url("api", "misystem", "qos_mode")%>',
+            type: 'GET',
+            data: { mode: 3 },
+            datatype: 'json',
+            async: true,
+            success: function( rsp ){
+                rsp = $.parseJSON(rsp);
+                if(rsp.code==0){
+                    qosStatus();
+                }else{
+                    $.alert( rsp.msg );
+                }
+            },
+            error: function() {
+                location.reload( 1 );
+            }
+        });
+    }
+    // get Qos status
+    function qosStatus(){
+        $.pub('loading:start');
+        $.getJSON('<%=luci.dispatcher.build_url("api", "misystem", "qos_info")%>', { }, function(rsp){
+            $.pub('loading:stop');
+            $('#qosset').show();
+            if (rsp.code == 0) {
+                if(rsp.status.mode<3 && rsp.status.on==1){
+                    $.pub('loading:start');
+                    setDefaultMode();
+                    return;
+                }
+                modeGlobal = rsp.status.mode;
+                qosLimit(rsp);
+                var btnqos = $('#btnqos')[0],
+                    listqos = $('#qosset'),
+                    listqosoff = $('#qosoff');
+                if (rsp.status.on === 0) {
+                    btnqos.className = 'btn-switch btn-switch-off';
+                    listqos.hide();
+                    listqosoff.show();
+                }else{
+                    btnqos.className = 'btn-switch btn-switch-on';
+                    listqos.show();
+                    listqosoff.hide();
+                }
+                var model,
+                    upband = rsp.band.upload,
+                    downband = rsp.band.download;
+
+                if ( downband > 50 ) {
+                    $( '.mod-qos-alert' ).show();
+                } else {
+                    $( '.mod-qos-alert' ).hide();
+                }
+                
+                if ( downband  == 0 ) {
+                    $('.mod-bandwidth .nospeed').show();
+                    $('.mod-bandwidth .hasspeed').hide();
+                    $('.result-tip').show();
+                    return;
+                }
+                $('.mod-bandwidth .nospeed').hide();
+                $('.mod-bandwidth .hasspeed').show();
+                $('.result-tip').hide();
+
+                var tpl2 = $( '#tmplBandResult2' ).html();
+                var result2 = tpl2.tmpl({
+                    downband: parseFloat(downband/8).toFixed(2),
+                    upband: parseFloat(upband/8).toFixed(2)
+                });
+                $('#speedresult').html( result2 );
+
+                if ( rsp.status.on === 1 ) {
+                    model = rsp.status.mode;
+                    //var idx = [0,1,2][model];
+                    var idx = model;
+                    $('#qosmode li').removeClass('active');
+                    $('#qosmodedesc p').hide();
+
+                    $('#qosmode li').eq(idx).addClass( 'active' );
+                    $('#qosmodedesc p').eq(idx).show();
+                    // rander devlists
+                    var tpldata = randerDevlist( rsp );
+                    randerMode( tpldata );
+                }
+            }
+        });
+    }
+
+
+    function guestWifiSwitch(){
+        $.getJSON('<%=luci.dispatcher.build_url("api", "misns", "wifi_share_info")%>', { }, function(rsp){
+            if(!rsp.info&&rsp.info.guest){
+                $('#guest-limit').hide();
+            }
+        })
+    }
+
+    function qosLimit(rspBand){
+        var htmlGuest = $('#guest-limit-script').html();
+        outbandUp = rspBand.band.upload * 1024 / 8;
+        outbandDown = rspBand.band.download * 1024 / 8;
+        $('#guest-limit').html(htmlGuest.tmpl({'up':(rspBand.guest.percent_up*outbandUp).toFixed(2),'down':(rspBand.guest.percent*outbandDown).toFixed(2)}));
+
+        if(rspBand.guest.percent_up == 0){
+            $('#guest-limit li:first .num').text('<%:无限制%>').addClass('txt');
+            $('#guest-limit li:first .con').hide();
+        }
+        if(rspBand.guest.percent == 0){
+            $('#guest-limit li:last .num').text('<%:无限制%>').addClass('txt');
+            $('#guest-limit li:last .con').hide();
+        }
+    }
+    function randerMode1( tpldata ){
+        var tpl = $('#tpldevlist1').html();
+        var arrHtml = [];
+        if ( tpldata.length == 0 ) {
+            $('#devlistcustom').html( '<tr><td colspan="4"><%:暂无设备接入%></td></tr>' );
+            return;
+        }
+        for (var i = 0; i < tpldata.length; i++) {
+            arrHtml.push( tpl.tmpl(tpldata[i]) );
+        }
+        $('#devlistauto').html( arrHtml.join('') );
+        $('.table-devices').hide();
+        $('#tableauto').show();
+    }
+
+    function randerMode2( tpldata ){
+        var tpl = $('#tpldevlist2').html();
+        var arrHtml = [];
+        if ( tpldata.length == 0 ) {
+            $('#devlistcustom').html( '<tr><td colspan="4"><%:暂无设备接入%></td></tr>' );
+            return;
+        }
+        for (var i = 0; i < tpldata.length; i++) {
+            arrHtml.push( tpl.tmpl(tpldata[i]) );
+        }
+        $('#devlistpriority').html( arrHtml.join('') );
+        $('.table-devices').hide();
+        $('#tablepriority').show();
+    }
+
+    function randerMode3( tpldata ){
+        var tpl = $('#tpldevlist3').html();
+        var arrHtml = [];
+        if ( tpldata.length == 0 ) {
+            $('#devlistcustom').html( '<tr><td colspan="4"><%:暂无设备接入%></td></tr>' );
+            return;
+        }
+        for (var i = 0; i < tpldata.length; i++) {
+            arrHtml.push( tpl.tmpl(tpldata[i]) );
+        }
+        $('#devlistcustom').html( arrHtml.join('') );
+        $('.table-devices').hide();
+        $('#tablecustom').show();
+    }
+
+    //var randerMode = [randerMode1, randerMode2, randerMode3];
+    function randerMode(tpldata){
+        var tpl = $('#tpldevlist').html();
+        var arrHtml = [];
+        if ( tpldata.length == 0 ) {
+            $('#devlistcustom').html( '<tr><td colspan="4"><%:暂无设备接入%></td></tr>' );
+            $('#tablecustom').show();
+            return;
+        }
+        for (var i = 0; i < tpldata.length; i++) {
+            arrHtml.push( tpl.tmpl(tpldata[i]) );
+        }
+        $('#devlistcustom').html( arrHtml.join('') );
+        $('.table-devices').hide();
+        $('#tablecustom').show();
+    }
+
+    function randerModeEdit( tpldata, mode ){
+        var tpl = [$('#tplqoseditform0'), $('#tplqoseditform1'), $('#tplqoseditform2')][mode].html();
+        return tpl.tmpl({ devlist: tpldata, mode: mode});
+    }
+
+    // rander devices list DOM
+    function randerDevlist( rsp, callback ){
+        var devlist = rsp.list,
+            devdata = [];
+        for (var i = 0; i < devlist.length; i++) {
+            //访客wifi设备不需要单独展示
+            if (devlist[i].port != 3) {
+                var index = i,
+                upspeed = byteFormat(devlist[i].statistics.upspeed, 100),
+                downspeed = byteFormat(devlist[i].statistics.downspeed, 100),
+                upmax = devlist[i].qos.upmax,
+                downmax = devlist[i].qos.downmax,
+                upmaxper = devlist[i].qos.upmaxper,
+                maxdownper = devlist[i].qos.maxdownper,
+                level = devlist[i].qos.level,
+                ip = devlist[i].ip,
+                mac = devlist[i].mac,
+                dname = devlist[i]['name'],
+                tpldata = {
+                    index: index,
+                    devname: dname,
+                    ip: ip,
+                    mac: mac,
+                    upspeed: upspeed,
+                    downspeed: downspeed,
+                    upmax: parseFloat(upmax).toFixed(2),
+                    downmax: parseFloat(downmax).toFixed(2),
+                    upmaxper: upmaxper,
+                    downmaxper: maxdownper,
+                    level: level,
+                    levelvalue: ['<%:未设置%>','<%:低%>','<%:中%>','<%:高%>'][level]
+                };
+            devdata.push( tpldata );
+            }
+            
+        }
+        return devdata;
+    }
+
+    // switch QoS status 
+    function qosSwitch(){
+        var btnqos = $('#btnqos');
+        btnqos.on('click', function(e){
+            e.preventDefault();
+            var st = $(this).hasClass('btn-switch-on') ? 0 : 1,
+            btn = this;
+            //cookie.set("qosbtn", st, 24);
+            $.pub( 'qos:test',{st:st,cb:function(){
+                    $.pub('loading:start');
+                    $.getJSON('<%=luci.dispatcher.build_url("api", "misystem", "qos_switch")%>', {'on': st}, function(rsp){
+                        $.pub('loading:stop');
+                        if (rsp.code == 0) {
+                            qosStatus();
+                        }
+                    });
+                }});
+
+        });
+    }
+
+    // add Event
+    function addEvent(){
+
+        $( '#qosmode li' ).on( 'click', function( e ){
+            var checked = $( this ).hasClass( 'active' );
+            if ( !checked ) {
+                var self = this;
+                $.pub( 'loading:start' );
+                var val = $( this ).attr('data-value');
+                $.getJSON( '<%=luci.dispatcher.build_url("api","misystem","qos_mode")%>', { mode: val }, function( rsp ){
+                    $.pub( 'loading:stop' );
+                    if ( rsp.code === 0 ) {
+                        $($('#qosmode li')[0]).parent().children().removeClass('active');
+                        $(self).addClass('active');
+                        var idx = $(self).data('value');
+                        $('#qosmodedesc p').hide().eq(idx).show();
+                    } else {
+                        $.alert( rsp.msg );
+                    }
+                } );
+            }
+        } );
+
+        $( '#refresh' ).on( 'click', function( e ){
+            e.preventDefault();
+            qosStatus();
+        } );
+
+        $('body').delegate( '.btnEditQos', 'click', function( e ){
+            e.preventDefault();
+            $.pub('loading:start');
+            var mode = $(this).attr('data-mode');
+            mode = parseInt(mode, 10);
+            $.getJSON('<%=luci.dispatcher.build_url("api", "misystem", "qos_info")%>', {}, function(rsp){
+                $.pub('loading:stop');
+                var tpldata = randerDevlist( rsp );
+                var deveditform = randerModeEdit( tpldata, mode );
+                deviceListForm = $.dialog({
+                    title: '<%:设置QoS%>',
+                    content : deveditform,
+                    width: 930,
+                    lock: true,
+                    fixed: false
+                });
+            });
+        } );
+            
+        $('body').delegate('#btnSaveQosSet', 'click', function(e){
+            e.preventDefault();
+            var formdata = [];
+            $('#qosEditForm tbody tr').each(function(){
+                var that  = this,
+                    $this = $( this ),
+                    mac = $this.attr('data-mac'),
+                    level = $this.find('[name=level]').val(),
+                    $maxup = $this.find('[name=upmax]'),
+                    maxup = $maxup.val(),
+                    $maxdown = $this.find('[name=downmax]'),
+                    maxdown = $maxdown.val();
+
+                formdata.push({
+                    mac: mac,
+                    maxup: maxup,
+                    maxdown: maxdown
+                });
+
+            });
+
+            var validator = Valid.checkAll($('#qoseditform')[0]);
+            if ( validator ) {
+                $.pub( 'loading:start' );
+                $.ajax({
+                    url: '<%=luci.dispatcher.build_url("api","misystem","qos_limits")%>',
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {data: ObjectH.stringify( formdata )}
+                }).done(function( rsp ){
+                    // 关闭表单
+                    deviceListForm.close();
+                    if ( rsp.code == 0 ) {
+                        qosStatus();
+                    } else {
+                        $.pub( 'loading:stop' );
+                        $.alert( rsp.msg );
+                    }
+                }).fail(function(){
+                    $.alert( '<%:系统错误，请重试%>' );
+                    setTimeout(function(){
+                        location.reload( 1 );
+                    }, 1000);
+                    $.pub( 'loading:sop' );
+                });
+            }
+        });
+
+        $('body').delegate( '.btn-limit', 'click', function( e ){
+            e.preventDefault();
+            var self = this;
+            var mode = $(self).data('mode');
+            title = '<%:访客WiFi限速%>';
+
+            var up = $(this).data('up'),
+                down = $(this).data('down');
+            var guestDialog = $.dialog({
+                title: title,
+                content: $('#limit-set-tpl').html().tmpl({
+                    up: up,
+                    down: down
+                }),
+                lock: true
+            });
+            $('#limit-up-input').attr('maxValue', outbandUp);
+            $('#limit-down-input').attr('maxValue', outbandDown);
+            $('#limit-submit-button').bind('click',function(){
+                if($('#limit-form .form-item-err').length != 0){
+                    return;
+                }
+
+                var requestUrl = '<%=luci.dispatcher.build_url("api", "misystem", "qos_guest")%>';
+                var limitUp = $('#limit-up-input').val();
+                var limitDown = $('#limit-down-input').val();
+                limitUp = limitUp / outbandUp;
+                limitDown = limitDown / outbandDown;
+                $.pub('loading:start');
+                $.getJSON(requestUrl, {'percent':limitDown, 'percent_up':limitUp}, function(rsp){
+                    $.pub('loading:stop');
+                    guestDialog.close();
+                    if(rsp.code == 0){
+                        qosStatus();
+                    }else{
+                        $.alert('<%:系统错误，请重试%>');
+                    }
+                });
+            });
+        });
+    }
+
+    return {
+        init : function(){
+            qosStatus();
+            qosSwitch();
+            addEvent();
+        }
+    }
+}());
+$(function(){
+    if (multiwanEnable !== '1') {
+        modelQos.init();
+    }
+});
+</script>
+<%include("web/inc/qosapp.js")%>
