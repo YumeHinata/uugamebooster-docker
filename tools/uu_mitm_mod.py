@@ -483,6 +483,20 @@ class ModMITM:
                                 print(f"    RESPONSE: code={code}, msg={msg}")
                                 self.n_passed += 1
                         
+                        # ConnectReply (0x11): fix f2 type + f3 SN so server sees NX30Pro identity
+                        if is_client and msg_type == 0x11 and not self.dry_run:
+                            modified = fix_field2_binary_to_string(protobuf)
+                            parsed_cr = pb_parse(modified)
+                            sn_internal = str(parsed_cr.get(3, ''))
+                            if sn_internal and len(sn_internal) == len(NX30PRO_SN) and sn_internal != NX30PRO_SN:
+                                modified = modified.replace(sn_internal.encode(), NX30PRO_SN.encode())
+                            if modified != protobuf:
+                                forward_data = raw[:8] + modified
+                                new_total = 4 + len(modified)
+                                forward_data = struct.pack(">I", new_total) + forward_data[4:]
+                                print(f"    >>> ConnectReply: f2→h3c, f3={sn_internal}→{NX30PRO_SN}")
+                                modified_this_session = True
+                        
                         # Skip forwarding suppressed messages
                         if skip_forward:
                             continue
