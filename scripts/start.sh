@@ -41,7 +41,7 @@ export UU_PLUGIN_VESION="${UU_PLUGIN_VESION:-v14.4.20}"
 export UU_FIRMWARE_VERSION="${UU_FIRMWARE_VERSION:-1.0.0}"
 
 # Network config
-export UU_LAN_IP="${UU_LAN_IP:-192.168.1.1}"
+export UU_LAN_IP="${UU_LAN_IP:-192.168.0.1}"
 export UU_LAN_NAME="${UU_LAN_NAME:-br-lan}"
 export UU_WAN_IP="${UU_WAN_IP:-0.0.0.0}"
 
@@ -241,8 +241,14 @@ if [ ! -s /usr/sbin/uu/.sn ]; then
     echo "[INFO] /usr/sbin/uu/.sn written (SN=$SN)"
 fi
 
-# activate_status — uuplugin monitors this via inotify
-echo "0" > /tmp/uu/activate_status 2>/dev/null
+# activate_status — uuplugin monitors this via inotify to trigger acceleration.
+# Preserve existing value across restarts; default to 1 (force-activated).
+if [ -f /tmp/uu/activate_status ] && [ "$(cat /tmp/uu/activate_status 2>/dev/null)" = "1" ]; then
+    echo "[INFO] activate_status already 1, preserving"
+else
+    echo "1" > /tmp/uu/activate_status 2>/dev/null
+    echo "[INFO] activate_status set to 1 (force-activated)"
+fi
 
 # .uu_whoami.txt — authentication handshake cache (binary creates if missing,
 # but some code paths may fail if the file doesn't exist at all)
@@ -347,6 +353,14 @@ while true; do
         ORPHANS=$(ps | grep "$name" | grep -v grep | awk '{print $1}')
         [ -n "$ORPHANS" ] && kill $ORPHANS 2>/dev/null
     done
+
+    # Restart uuclearnat if it died (acceleration NAT companion)
+    if ! kill -0 $UUCLEARNAT_PID 2>/dev/null; then
+        echo "[NAT] Starting uuclearnat (acceleration NAT)..."
+        nohup /opt/uu/scripts/uuclearnat.sh > /dev/null 2>&1 &
+        UUCLEARNAT_PID=$!
+        echo "[NAT] uuclearnat PID=$UUCLEARNAT_PID"
+    fi
 
     # Restart proxy if it died
     if ! kill -0 $PROXY_PID 2>/dev/null; then

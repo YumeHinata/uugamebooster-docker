@@ -35,7 +35,7 @@ services:
       - UU_DEVICE_IP=127.0.0.1
       - UU_DEVICE_FWMARK=0
       - UU_DEVICE_LINK_TYPE=ethernet
-      - UU_LAN_IP=192.168.1.1
+      - UU_LAN_IP=192.168.0.1
       - UU_LAN_NAME=br-lan
       - UU_WAN_IP=0.0.0.0
       - UU_TUN_IP=10.0.0.1
@@ -49,7 +49,7 @@ services:
       # Override host HOSTNAME (iStoreOS→NX30Pro) — binary reads this as OS identifier!
       - HOSTNAME=NX30Pro
       # Debug: strace capture enabled
-      - STRACE_DEBUG=1
+      - STRACE_DEBUG=0
       # SSLKEYLOGFILE for Wireshark TLS decryption (MITM fallback)
       - SSLKEYLOGFILE=/tmp/sslkeys.log
       # MITM proxy: SET TO YOUR WINDOWS LAN IP (run uu_mitm_mod.py on Windows first!)

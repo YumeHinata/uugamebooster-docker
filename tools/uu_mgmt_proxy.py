@@ -75,12 +75,31 @@ else:
 
 
 def modify_response(data: bytes) -> bytes:
-    """Rewrite binary's HTTP response to match our NX30Pro identity."""
+    """Rewrite binary's HTTP response: internal SN → NX30Pro SN, 400 → 200."""
+    # Override HTTP 400 → 200 so app thinks activation succeeded.
+    # Also triggers acceleration by writing activate_status=1.
+    if data.startswith(b'HTTP/1.1 400'):
+        data = data.replace(b'HTTP/1.1 400 Bad Request', b'HTTP/1.1 200 OK', 1)
+        # Wake up binary's acceleration state machine
+        try:
+            with open('/tmp/uu/activate_status', 'w') as _f:
+                _f.write('1')
+            print('[PROXY] >>> Override 400→200 + wrote activate_status=1', flush=True)
+        except OSError:
+            print('[PROXY] >>> Override 400→200 (activate_status write failed)', flush=True)
     if INTERNAL_SN and INTERNAL_SN in data:
         data = data.replace(INTERNAL_SN, NX30PRO_SN)
     if INTERNAL_TYPE in data:
         data = data.replace(INTERNAL_TYPE, FIXED_TYPE)
     return data
+
+
+def modify_request(data: bytes) -> bytes:
+    """Rewrite APP's HTTP request: NX30Pro SN → internal SN."""
+    if NX30PRO_SN in data:
+        data = data.replace(NX30PRO_SN, INTERNAL_SN)
+    return data
+
 
 # ── Hex dump helper ─────────────────────────────────────────────────────────
 def hexdump(data, max_bytes=256):
@@ -143,13 +162,17 @@ def relay(client_sock, target_sock, client_addr, label):
                 # Forward with optional modification
                 if sock is client_sock:
                     direction = 'C→S'
+                    original = data
+                    data = modify_request(data)
+                    if data != original:
+                        print(f'[{label}] >>> MODIFIED C→S: NX30Pro SN → internal', flush=True)
                     target_sock.sendall(data)
                 else:
                     direction = 'S→C'
                     original = data
                     data = modify_response(data)
                     if data != original:
-                        print(f'[{label}] >>> MODIFIED S→C response: SN/type injected', flush=True)
+                        print(f'[{label}] >>> MODIFIED S→C: SN/type injected', flush=True)
                     client_sock.sendall(data)
 
                 # Log first few packets of each direction
