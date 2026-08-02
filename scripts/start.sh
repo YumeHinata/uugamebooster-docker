@@ -295,6 +295,34 @@ while ip rule show 2>/dev/null | grep -q "lookup 163"; do
 done
 echo "  ip rules: $DELETED removed"
 
+# ── Management proxy (bypass xu_tcp_server auth) ────────────────────────
+# The x86 binary requires password authentication on ports 16363/14554.
+# Real NX30Pro binary does NOT — it's a compile-time difference.
+# We use iptables REDIRECT + Python proxy to intercept and forward connections.
+# Phase 1: transparent forwarding with hex logging (for protocol analysis).
+# Phase 2: modify auth responses to skip password prompt entirely.
+
+echo "[PROXY] Setting up management port redirect..."
+
+# Kill any leftover proxy from previous runs
+pkill -f uu_mgmt_proxy.py 2>/dev/null || true
+sleep 0.5
+
+# Clean up previous redirect rules (if any)
+iptables -t nat -D PREROUTING -p tcp --dport 16363 -j REDIRECT --to-port 16365 2>/dev/null || true
+iptables -t nat -D PREROUTING -p tcp --dport 14554 -j REDIRECT --to-port 14555 2>/dev/null || true
+
+# Phone → Router:16363 → REDIRECT → Proxy:16365 → Binary:16363
+# Phone → Router:14554 → REDIRECT → Proxy:14555 → Binary:14554
+iptables -t nat -A PREROUTING -p tcp --dport 16363 -j REDIRECT --to-port 16365
+iptables -t nat -A PREROUTING -p tcp --dport 14554 -j REDIRECT --to-port 14555
+echo "[PROXY] iptables REDIRECT: 16363→16365, 14554→14555"
+
+# Start the proxy in background (it relays mobile app ↔ binary communication)
+UU_LAN_IP="${UU_LAN_IP}" python3 /opt/uu/scripts/uu_mgmt_proxy.py > /tmp/uu_mgmt_proxy.log 2>&1 &
+PROXY_PID=$!
+echo "[PROXY] Started PID=$PROXY_PID (log: /tmp/uu_mgmt_proxy.log)"
+
 # ── Network tool verification ──────────────────────────────────────────────
 iptables -w -L -n >/dev/null 2>&1 && echo "[OK] iptables works" || echo "[FAIL] iptables"
 XTABLES_LIBDIR=/lib iptables -w -A INPUT -p tcp --dport 65534 -j ACCEPT >/dev/null 2>&1 && \
@@ -319,6 +347,14 @@ while true; do
         ORPHANS=$(ps | grep "$name" | grep -v grep | awk '{print $1}')
         [ -n "$ORPHANS" ] && kill $ORPHANS 2>/dev/null
     done
+
+    # Restart proxy if it died
+    if ! kill -0 $PROXY_PID 2>/dev/null; then
+        echo "[PROXY] Restarting management proxy..."
+        UU_LAN_IP="${UU_LAN_IP}" python3 /opt/uu/scripts/uu_mgmt_proxy.py > /tmp/uu_mgmt_proxy.log 2>&1 &
+        PROXY_PID=$!
+        echo "[PROXY] Restarted PID=$PROXY_PID"
+    fi
 
     # Remove stale pid file (prevents "already running" false positive)
     rm -f /var/run/uuplugin.pid 2>/dev/null

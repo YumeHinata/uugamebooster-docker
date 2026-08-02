@@ -151,58 +151,86 @@ ACTIVATION_MESSAGES = [
 
 def fix_field2_binary_to_string(raw_pb):
     """
-    x86 binary sends f2 as 8-byte binary "h3c\0\0\0\0\0" (tag 0x12, len 0x08).
+    x86 binary sends f2 as "h3c_\x00\x00\x00\x00\x00" (tag 0x12, len 0x07, 7 bytes).
     NX30Pro sends f2 as 3-byte string "h3c" (tag 0x12, len 0x03).
     Fix the raw protobuf bytes in-place.
     """
-    # Find field 2: tag byte 0x12 followed by length 0x08 and "h3c"
+    # Pattern: \x12\x07 followed by "h3c_" (x86 binary format, 7-byte data)
+    idx = raw_pb.find(b'\x12\x07h3c_')
+    if idx >= 0:
+        # Replace 9 bytes (tag+len1+7 data) → 5 bytes (tag+len3+3 data)
+        before = raw_pb[:idx]
+        after = raw_pb[idx + 9:]
+        return before + pb_str(2, b'h3c') + after
+    # Fallback: try old 8-byte pattern (just in case)
     idx = raw_pb.find(b'\x12\x08h3c')
     if idx >= 0:
-        # Replace tag+len+data: \x12\x08 h3c 00 00 00 00 00 (10 bytes)
-        # With:                \x12\x03 h3c                   (5 bytes)
         before = raw_pb[:idx]
-        after = raw_pb[idx + 10:]  # skip 10 bytes (tag + len1 + 8 data bytes)
+        after = raw_pb[idx + 10:]
         return before + pb_str(2, b'h3c') + after
     return raw_pb  # no change needed
 
 
-def enhance_register(original_pb, mac_override=None):
+def enhance_register(original_pb, mac_override=None, sn_override=None):
     """
     Take the x86 binary's Register protobuf and inject NX30Pro-specific
     fields that were discovered from the real aarch64 binary:
     
     Real NX30Pro Register: {f1=rid, f2='h3c', f3=SN, f4='NX30Pro', f6='v14.4.20'}
-    x86 Register:          {f1=rid, f2='h3c\0\0\0\0\0'(8B), f3=SN}
+    x86 Register:          {f1=rid, f2='h3c_'(7B), f3=SN, f4='NX30Pro', f6='v14.3.0'}
     
     Returns: (modified_pb_bytes, fields_added_list)
     """
-    # Step 1: Fix f2 (binary 8B → string 3B)
+    # Step 1: Fix f2 (binary 7B "h3c_" → string 3B "h3c")
     pb_data = fix_field2_binary_to_string(original_pb)
+    
+    # Step 2: Fix f6 version (x86 sends v14.3.0, NX30Pro uses v14.4.20)
+    # Field 6 tag=0x32, old len=0x07, "v14.3.0" → new len=0x08, "v14.4.20"
+    idx = pb_data.find(b'\x32\x07v14.3.0')
+    if idx >= 0:
+        pb_data = pb_data[:idx] + pb_str(6, 'v14.4.20') + pb_data[idx+9:]
+    
+    # Step 3: Override SN with real NX30Pro SN (server may check SN range)
+    if sn_override:
+        idx = pb_data.find(sn_override['old'].encode())
+        if idx >= 0 and len(sn_override['old']) == len(sn_override['new']):
+            pb_data = pb_data[:idx] + sn_override['new'].encode() + pb_data[idx+len(sn_override['old']):]
     
     parsed = pb_parse(pb_data)
     added = []
     existing_fields = set(parsed.keys())
     pb = bytearray(pb_data)
     
-    # Step 2: Add f4 = product name (confirmed from real NX30Pro)
+    # Step 4: Add f4 = product name (confirmed from real NX30Pro)
     if 4 not in existing_fields:
         pb += pb_str(4, "NX30Pro")
         added.append("f4:product=NX30Pro")
+    elif parsed.get(4) != 'NX30Pro':
+        added.append("f4:exists=%s" % parsed.get(4))
     
-    # Step 3: Add f6 = firmware version (confirmed from real NX30Pro)
+    # Step 5: Add f6 = firmware version (confirmed from real NX30Pro)
     if 6 not in existing_fields:
         pb += pb_str(6, "v14.4.20")
         added.append("f6:version=v14.4.20")
     
-    # Note: NX30Pro does NOT send f5(MAC)/f8(bootver)/f9(firmware).
-    # Those are only needed if server rejects without them.
-    
     return bytes(pb), added
 
 
-def enhance_register_v2(original_pb, mac_override=None):
+def enhance_register_v2(original_pb, mac_override=None, sn_override=None):
     """Alternative: add f5(MAC) + f8(bootver) for testing if v1 is rejected."""
     pb_data = fix_field2_binary_to_string(original_pb)
+    
+    # Fix f6 version (same as v1)
+    idx = pb_data.find(b'\x32\x07v14.3.0')
+    if idx >= 0:
+        pb_data = pb_data[:idx] + pb_str(6, 'v14.4.20') + pb_data[idx+9:]
+    
+    # SN override (same as v1)
+    if sn_override:
+        idx = pb_data.find(sn_override['old'].encode())
+        if idx >= 0 and len(sn_override['old']) == len(sn_override['new']):
+            pb_data = pb_data[:idx] + sn_override['new'].encode() + pb_data[idx+len(sn_override['old']):]
+    
     parsed = pb_parse(pb_data)
     existing_fields = set(parsed.keys())
     pb = bytearray(pb_data)
@@ -233,6 +261,9 @@ REGISTER_ENHANCERS = [
     ("v1_f4f6", enhance_register),
     ("v2_f4f6+f5f8", enhance_register_v2),
 ]
+
+# Real NX30Pro SN captured from QEMU test (server may check H3C SN range)
+NX30PRO_SN = "55347901036946359222"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # MITM
@@ -391,7 +422,12 @@ class ModMITM:
                         
                         if is_client and msg_type == 0x24 and not self.dry_run:
                             enh_name, enh_func = REGISTER_ENHANCERS[success_idx % len(REGISTER_ENHANCERS)]
-                            enhanced_pb, added_fields = enh_func(protobuf)
+                            # Build SN override: replace random x86 SN with real NX30Pro SN
+                            sn_override = None
+                            current_sn = str(parsed.get(3, ''))
+                            if current_sn and len(current_sn) == len(NX30PRO_SN):
+                                sn_override = {'old': current_sn, 'new': NX30PRO_SN}
+                            enhanced_pb, added_fields = enh_func(protobuf, sn_override=sn_override)
                             forward_data = raw[:8] + enhanced_pb  # keep header, replace PB
                             # Update total length in header
                             # Protocol: [4B total_remaining] [4B msg_type] [protobuf]
@@ -401,6 +437,27 @@ class ModMITM:
                             print(f"    >>> INJECTED Register fields [{enh_name}]: {added_fields}")
                             print(f"    >>> Enhanced Raw[{len(forward_data)}]: {forward_data.hex()}")
                             modified_this_session = True
+                        
+                        # FullRegister (type 0x02): strip to NX30Pro format (f1+f2+f3 only)
+                        # x86 sends 11 fields incl. JWT/payload; real NX30Pro sends only 3.
+                        if is_client and msg_type == 0x02 and not self.dry_run:
+                            fixed_pb = fix_field2_binary_to_string(protobuf)
+                            # Strip all extra fields: keep only f1(rid), f2(vendor), f3(SN)
+                            parsed_fr = pb_parse(fixed_pb)
+                            sn_fr = str(parsed_fr.get(3, ''))
+                            sn = NX30PRO_SN if (sn_fr and len(sn_fr) == len(NX30PRO_SN)) else sn_fr
+                            clean_pb = b''
+                            clean_pb += pb_str(1, str(parsed_fr.get(1, '')))  # f1: rid
+                            clean_pb += pb_str(2, 'h3c')                        # f2: vendor
+                            clean_pb += pb_str(3, sn)                            # f3: SN (NX30Pro)
+                            if clean_pb != fixed_pb:
+                                forward_data = raw[:8] + clean_pb
+                                new_total = 4 + len(clean_pb)
+                                forward_data = struct.pack(">I", new_total) + forward_data[4:]
+                                print(f"    >>> FullRegister: stripped {len(parsed_fr)} fields → 3 (NX30Pro format), SN→{sn}")
+                                print(f"    >>> Was[{len(fixed_pb)}B]: {fixed_pb.hex()[:80]}...")
+                                print(f"    >>> Now[{len(clean_pb)}B]: {clean_pb.hex()}")
+                                modified_this_session = True
                         
                         if not is_client and msg_type == 0x25 and not self.dry_run:
                             msg = parsed.get(3, '')
@@ -447,8 +504,9 @@ class ModMITM:
             if n_fatal_suppressed:
                 print(f"  [FILT] Suppressed {n_fatal_suppressed} FATAL 'unmatched sn' logs")
             if modified_this_session:
-                print(f"  [MOD] Registration responses were MODIFIED this session!")
+                print(f"  [MOD] Registration messages were MODIFIED this session!")
             print(f"  [STATS] Total modified: {self.n_modified}, passed: {self.n_passed}")
+            print(f"  [REF] Expected NX30Pro flow: Register(4F)→'not bound'→FullRegister(3F)→0x03→Heartbeat")
 
 # ═══════════════════════════════════════════════════════════════════════════
 

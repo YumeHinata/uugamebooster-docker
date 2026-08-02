@@ -15,7 +15,8 @@ RUN apt-get update && \
         ca-certificates \
         curl \
         strace \
-        kmod && \
+        kmod \
+        python3 && \
     rm -rf /var/lib/apt/lists/*
 
 # ── Application files ──────────────────────────────────────────────────────
@@ -24,6 +25,7 @@ COPY bin/uuplugin           /opt/uu/bin/uuplugin
 COPY bin/xuplugin-guardian  /opt/uu/bin/xuplugin-guardian
 COPY scripts/start.sh       /opt/uu/scripts/start.sh
 COPY scripts/uuclearnat.sh  /opt/uu/scripts/uuclearnat.sh
+COPY tools/uu_mgmt_proxy.py /opt/uu/scripts/uu_mgmt_proxy.py
 
 # ── Binary patches: model identity only ────────────────────────────────
 #   "openwrt" at 0x3E64DB → "h3c_" + 3 nulls (matches NX30Pro's "h3c_")
@@ -43,7 +45,8 @@ RUN chmod +x \
         /opt/uu/bin/uuplugin \
         /opt/uu/bin/xuplugin-guardian \
         /opt/uu/scripts/start.sh \
-        /opt/uu/scripts/uuclearnat.sh && \
+        /opt/uu/scripts/uuclearnat.sh \
+        /opt/uu/scripts/uu_mgmt_proxy.py && \
     # uuplugin hardcodes /bin/uuclearnat (OpenWrt path)
     ln -sf /opt/uu/scripts/uuclearnat.sh /bin/uuclearnat && \
     ln -sf /opt/uu/scripts/uuclearnat.sh /usr/bin/uuclearnat && \
