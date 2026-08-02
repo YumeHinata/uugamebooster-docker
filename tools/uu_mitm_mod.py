@@ -399,10 +399,17 @@ class ModMITM:
                         # Log
                         type_names = {0x00:'Heartbeat',0x01:'Pong',0x24:'Register',0x25:'RegisterResp',
                                       0x02:'FullRegister',0x0A:'Log',0x06:'Device',0x10:'ConnectReq',
-                                      0x11:'ConnectReply'}
+                                      0x11:'ConnectReply',0x03:'FullRegisterResp',0x04:'DeviceInfo',
+                                      0x0e:'ScanTarget',0x3a:'DirectAddr',0x30:'ActivateResp'}
                         tname = type_names.get(msg_type, f'0x{msg_type:02x}')
-                        # Show ALL fields (not just first 3) and raw hex for key messages
-                        if tname in ('Register', 'RegisterResp', 'Log'):
+                        # Show ALL fields for key messages, full raw hex for unidentified types
+                        if tname in ('Register', 'RegisterResp', 'Log', 'FullRegister', 'DeviceInfo',
+                                     'Device', 'ScanTarget', 'ConnectReq', 'FullRegisterResp',
+                                     'DirectAddr', 'ActivateResp'):
+                            print(f"  [{ts}] {direction} {tname}: {parsed}")
+                            print(f"    Raw[{len(raw)}]: {raw.hex()}")
+                        elif msg_type not in type_names:
+                            # Unknown message type — dump everything
                             print(f"  [{ts}] {direction} {tname}: {parsed}")
                             print(f"    Raw[{len(raw)}]: {raw.hex()}")
                         else:

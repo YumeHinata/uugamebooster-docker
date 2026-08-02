@@ -20,6 +20,11 @@ services:
     # ── Host networking (iptables rules apply directly to host) ──
     network_mode: host
 
+    # ── Host filesystem mounts (device discovery) ──
+    volumes:
+      # DHCP lease file: binary reads this to discover LAN devices (PC/phone/console)
+      - /tmp/dhcp.leases:/tmp/dhcp.leases:ro
+
     # ── All env vars required by uuplugin (getenv() must not return NULL) ──
     environment:
       # Device identity
