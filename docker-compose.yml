@@ -2,8 +2,8 @@ version: "3.8"
 
 services:
   uuplugin:
-    image: yumehinata/uugamebooster-docker:main
-    # build: .   # Uncomment to build locally instead of pulling image
+    image: yumehinata/uugamebooster-docker:main   # Pull from Docker Hub
+    # build: .   # Or build locally if you have the repo cloned
     container_name: UUgamebooster
     hostname: NX30Pro
     restart: unless-stopped
@@ -52,7 +52,8 @@ services:
       - STRACE_DEBUG=1
       # SSLKEYLOGFILE for Wireshark TLS decryption (MITM fallback)
       - SSLKEYLOGFILE=/tmp/sslkeys.log
-      # MITM proxy: set to Windows IP to intercept & modify server responses
+      # MITM proxy: SET TO YOUR WINDOWS LAN IP (run uu_mitm_mod.py on Windows first!)
+      # Router → MITM(Windows:16000) → UU Server(106.2.95.34:16000)
       - UU_MITM_HOST=192.168.0.247
       # Skip start.sh DNS hijack when using MITM (set with UU_MITM_HOST)
       # - SKIP_DNS_HIJACK=1
