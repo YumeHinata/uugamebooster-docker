@@ -44,17 +44,39 @@ PROXY_RULES = [
 # ── Response injection ─────────────────────────────────────────────────────
 # The x86 binary returns its INTERNAL SN (generated) in the HTTP response.
 # But we injected the NX30Pro SN during registration. The phone app may
-# compare these and reject the device. Fix: replace the SN in HTTP responses.
+# compare these and reject the device. Fix: read binary's actual SN at
+# startup and replace it with the NX30Pro SN.
 
-INTERNAL_SN = b'15400444045641911538'       # Binary's generated SN
-NX30PRO_SN   = b'55347901036946359222'      # Our injected NX30Pro SN
+NX30PRO_SN    = b'55347901036946359222'      # Our injected NX30Pro SN
 INTERNAL_TYPE = b'type:h3c_\x00\x00\x00'    # Binary returns h3c_ with padding
 FIXED_TYPE    = b'type:h3c'                  # Clean H3C type
+
+# Dynamically detect the binary's internal SN
+INTERNAL_SN = b''
+_SN_PATHS = ['/usr/sbin/uu/.sn', '/var/tmp/uu/uu_sn']
+for _sp in _SN_PATHS:
+    try:
+        with open(_sp, 'rb') as _f:
+            _raw = _f.read().strip()
+        if _raw:
+            INTERNAL_SN = _raw
+            print(f'[PROXY] Detected internal SN from {_sp}: {INTERNAL_SN.decode()}', flush=True)
+            break
+    except (FileNotFoundError, PermissionError, OSError):
+        pass
+
+if INTERNAL_SN and INTERNAL_SN == NX30PRO_SN:
+    print('[PROXY] Internal SN already matches NX30Pro SN, no replacement needed', flush=True)
+    INTERNAL_SN = b''  # No replacement needed
+elif INTERNAL_SN:
+    print(f'[PROXY] Will replace {INTERNAL_SN.decode()} → {NX30PRO_SN.decode()} in HTTP responses', flush=True)
+else:
+    print('[PROXY] WARNING: Could not detect internal SN, response modification disabled', flush=True)
 
 
 def modify_response(data: bytes) -> bytes:
     """Rewrite binary's HTTP response to match our NX30Pro identity."""
-    if INTERNAL_SN in data:
+    if INTERNAL_SN and INTERNAL_SN in data:
         data = data.replace(INTERNAL_SN, NX30PRO_SN)
     if INTERNAL_TYPE in data:
         data = data.replace(INTERNAL_TYPE, FIXED_TYPE)
