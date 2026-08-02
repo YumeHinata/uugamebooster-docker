@@ -32,14 +32,33 @@ import os
 # Our proxy then connects BACK to the real binary on its original ports
 
 BINARY_HOST = os.environ.get('UU_LAN_IP', '192.168.1.1')
-# Fallback: also try 127.0.0.1 if binary binds to INADDR_ANY
-BINARY_HOSTS = [BINARY_HOST, '127.0.0.1']
+# Fallback addresses: try env var, common router LAN IPs, then loopback
+BINARY_HOSTS = [BINARY_HOST, '192.168.0.1', '192.168.1.1', '127.0.0.1']
 
 PROXY_RULES = [
     # (label, listen_port, binary_port)
     ('MGMT',  16365, 16363),
     ('ACCEL', 14555, 14554),
 ]
+
+# ── Response injection ─────────────────────────────────────────────────────
+# The x86 binary returns its INTERNAL SN (generated) in the HTTP response.
+# But we injected the NX30Pro SN during registration. The phone app may
+# compare these and reject the device. Fix: replace the SN in HTTP responses.
+
+INTERNAL_SN = b'15400444045641911538'       # Binary's generated SN
+NX30PRO_SN   = b'55347901036946359222'      # Our injected NX30Pro SN
+INTERNAL_TYPE = b'type:h3c_\x00\x00\x00'    # Binary returns h3c_ with padding
+FIXED_TYPE    = b'type:h3c'                  # Clean H3C type
+
+
+def modify_response(data: bytes) -> bytes:
+    """Rewrite binary's HTTP response to match our NX30Pro identity."""
+    if INTERNAL_SN in data:
+        data = data.replace(INTERNAL_SN, NX30PRO_SN)
+    if INTERNAL_TYPE in data:
+        data = data.replace(INTERNAL_TYPE, FIXED_TYPE)
+    return data
 
 # ── Hex dump helper ─────────────────────────────────────────────────────────
 def hexdump(data, max_bytes=256):
@@ -99,12 +118,16 @@ def relay(client_sock, target_sock, client_addr, label):
                                 pass
                     continue
 
-                # Forward and log
+                # Forward with optional modification
                 if sock is client_sock:
                     direction = 'C→S'
                     target_sock.sendall(data)
                 else:
                     direction = 'S→C'
+                    original = data
+                    data = modify_response(data)
+                    if data != original:
+                        print(f'[{label}] >>> MODIFIED S→C response: SN/type injected', flush=True)
                     client_sock.sendall(data)
 
                 # Log first few packets of each direction
