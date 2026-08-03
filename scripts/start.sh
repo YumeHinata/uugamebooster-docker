@@ -167,6 +167,14 @@ fi
 # absolute paths for its runtime data (not relative to binary location).
 mkdir -p /usr/sbin/uu /var/tmp/uu /tmp/uu /var/tmp/plugmnt/uu /usr/uufactory
 
+# Kernel params — binary's child processes write to /proc/sys for tunnel setup
+# Pre-set tcp_mtu_probing=1 so the write doesn't fail on read-only /proc/sys
+if [ -w /proc/sys/net/ipv4/tcp_mtu_probing ]; then
+    echo 1 > /proc/sys/net/ipv4/tcp_mtu_probing 2>/dev/null && echo "[OK] tcp_mtu_probing=1" || echo "[WARN] Cannot set tcp_mtu_probing"
+else
+    echo "[WARN] /proc/sys is read-only — binary tunnel setup may fail (need privileged:true)"
+fi
+
 # OpenSSL config — binary hardcodes build machine path for tunnel TLS init
 OPENSSL_DIR="/home/bing/git/tun2proxy/src/third_party/openssl-1.0.2q/build/ssl"
 if [ ! -f "$OPENSSL_DIR/openssl.cnf" ]; then

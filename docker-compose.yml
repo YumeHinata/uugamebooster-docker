@@ -8,12 +8,8 @@ services:
     hostname: NX30Pro
     restart: unless-stopped
 
-    # ── Network privileges (acceleration core requirements) ──
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-      - SYS_PTRACE
-      - SYS_NICE
+    # ── Full privileges: binary writes to /proc/sys (tcp_mtu_probing etc.) ──
+    privileged: true
     devices:
       - /dev/net/tun:/dev/net/tun
 
