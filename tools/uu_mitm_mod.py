@@ -25,6 +25,7 @@ import select
 import traceback
 from datetime import datetime
 from pathlib import Path
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Tee output: write to both console AND log file (for debugging)
@@ -319,6 +320,51 @@ def save_persisted_sn(sn):
     sn_path = Path(__file__).parent / SN_FILE
     sn_path.write_text(sn)
     print(f"[SN] Saved captured SN to {sn_path}: {sn}")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SN HTTP endpoint — container fetches captured SN from MITM for auto-unify
+# ═══════════════════════════════════════════════════════════════════════════
+
+SN_HTTP_PORT = 16999
+
+class SNHttpHandler(BaseHTTPRequestHandler):
+    """Minimal HTTP server that serves the captured SN."""
+    
+    def log_message(self, format, *args):
+        pass  # suppress access logs
+    
+    def do_GET(self):
+        if self.path == '/sn':
+            sn = load_persisted_sn()
+            if sn:
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/plain')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(sn.encode())
+            else:
+                self.send_response(404)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(b'SN not captured yet')
+        elif self.path == '/health':
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b'ok')
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+
+def start_sn_http_server():
+    """Start a tiny HTTP server in a daemon thread to serve captured SN."""
+    try:
+        server = HTTPServer(('0.0.0.0', SN_HTTP_PORT), SNHttpHandler)
+        print(f"[SN-HTTP] Serving captured SN on http://0.0.0.0:{SN_HTTP_PORT}/sn")
+        server.serve_forever()
+    except OSError as e:
+        print(f"[SN-HTTP] Cannot start on port {SN_HTTP_PORT}: {e}")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # MITM
@@ -658,6 +704,10 @@ def main():
     
     lh, lp = args.listen.split(":")
     th, tp = args.target.split(":")
+    
+    # ── Start SN HTTP server (daemon thread) for container auto-fetch ────
+    http_thread = threading.Thread(target=start_sn_http_server, daemon=True)
+    http_thread.start()
     
     mitm = ModMITM((lh, int(lp)), (th, int(tp)), args.dry_run)
     mitm.start()

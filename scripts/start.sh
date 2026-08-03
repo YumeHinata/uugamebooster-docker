@@ -195,47 +195,73 @@ chmod 755 /usr/sbin/uu
 # /usr/uufactory/factoryinfo = H3C hardware factory partition (simulated)
 # /var/tmp/uu/h3c_info        = copied by init.d script, read by uuplugin
 #
-# SN strategy: generate once, persist inside container.
-# First run → random SN → saved to /var/tmp/uu/uu_sn
-# uuplugin restarts reuse same SN; container rebuild resets.
+# SN strategy: SINGLE SOURCE OF TRUTH — fetched from MITM HTTP endpoint.
+# MITM (uu_mitm_mod.py) captures protobuf SN from binary's first Register
+# and serves it via HTTP on port 16999. This script fetches it, ensuring
+# file SN == protobuf SN == UU_SN — no mismatch, no scattered variables.
+#
+# Priority:
+#   1. HTTP fetch from MITM (http://MITM_HOST:16999/sn) — fully automated
+#   2. UU_FIXED_SN env var — manual override / first-run fallback
+#   3. Random generate — last resort (triggers "unmatched sn", fix ASAP)
 PERSIST_SN="/var/tmp/uu/uu_sn"
 
-# If UU_FIXED_SN is set (e.g. MITM-captured protobuf SN), use it directly.
-# This ensures file SN == protobuf SN, preventing "unmatched sn" FATAL
-# that can block acceleration tunnel setup.
-if [ -n "${UU_FIXED_SN}" ]; then
-    SN="${UU_FIXED_SN}"
-    echo "$SN" > "$PERSIST_SN"
-    echo "[INFO] Using fixed SN (protobuf-matched from MITM capture): $SN"
-elif [ -f "$PERSIST_SN" ] && [ -s "$PERSIST_SN" ]; then
-    SN=$(cat "$PERSIST_SN")
-    echo "[INFO] Reusing persisted SN: $SN"
-else
-    # Generate random 20-digit SN on first run (matching NX30Pro manucode format)
-    SN=$(cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '-' | tr 'a-f' '0-5' | head -c 20)
-    # Fallback: /dev/urandom
-    [ -z "$SN" ] && SN=$(head -c 10 /dev/urandom 2>/dev/null | od -An -tu8 | tr -d ' \n' | head -c 20)
-    [ -z "$SN" ] && SN="00000000000000000001"
-    echo "$SN" > "$PERSIST_SN"
-    echo "[INFO] Generated new SN: $SN → persisted to $PERSIST_SN"
+SN=""
+
+# ── Step 1: try HTTP fetch from MITM ────────────────────────────────────
+if [ -n "${UU_MITM_HOST}" ]; then
+    # MITM SN HTTP endpoint: serves captured protobuf SN from mitm_sn.txt
+    FETCHED_SN=$(curl -s --max-time 3 "http://${UU_MITM_HOST}:16999/sn" 2>/dev/null || true)
+    if [ -n "${FETCHED_SN}" ] && [ "${#FETCHED_SN}" -ge 18 ]; then
+        SN="${FETCHED_SN}"
+        echo "[SN] AUTO-FETCHED from MITM (http://${UU_MITM_HOST}:16999/sn): $SN"
+    else
+        echo "[SN] MITM HTTP not available or SN not captured yet"
+    fi
 fi
 
-if [ ! -f /usr/uufactory/factoryinfo ]; then
-    # Get real host MAC (critical: server may reject all-zeros MAC)
-    REAL_MAC=$(cat /sys/class/net/br-lan/address 2>/dev/null || \
-               cat /sys/class/net/eth0/address 2>/dev/null || \
-               cat /sys/class/net/eth1/address 2>/dev/null || \
-               echo "")
-    MAC="${REAL_MAC:-${UU_DEVICE_MAC:-00:00:00:00:00:00}}"
-    cat > /usr/uufactory/factoryinfo << FACTORYEOF
+# ── Step 2: fallback to UU_FIXED_SN env var ─────────────────────────────
+if [ -z "${SN}" ] && [ -n "${UU_FIXED_SN}" ]; then
+    SN="${UU_FIXED_SN}"
+    echo "[SN] Using UU_FIXED_SN (fallback): $SN"
+fi
+
+# ── Step 3: fallback to persisted file ──────────────────────────────────
+if [ -z "${SN}" ] && [ -f "$PERSIST_SN" ] && [ -s "$PERSIST_SN" ]; then
+    CACHED=$(cat "$PERSIST_SN")
+    if [ "${#CACHED}" -ge 18 ]; then
+        SN="${CACHED}"
+        echo "[SN] Using cached SN from $PERSIST_SN: $SN"
+    fi
+fi
+
+# ── Step 4: last resort — generate random ───────────────────────────────
+if [ -z "${SN}" ]; then
+    SN=$(cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '-' | tr 'a-f' '0-5' | head -c 20)
+    [ -z "$SN" ] && SN=$(head -c 10 /dev/urandom 2>/dev/null | od -An -tu8 | tr -d ' \n' | head -c 20)
+    [ -z "$SN" ] && SN="00000000000000000001"
+    echo "[SN] WARNING: Generated random SN: $SN (will NOT match protobuf!)"
+    echo "[SN] WARNING: Start MITM first so it captures the real protobuf SN."
+fi
+
+# ── Persist the definitive SN ───────────────────────────────────────────
+echo "$SN" > "$PERSIST_SN"
+echo "[SN] DEFINITIVE SN = $SN → persisted to $PERSIST_SN"
+
+# ── factoryinfo: always overwrite with current SN (single source of truth) ──
+REAL_MAC=$(cat /sys/class/net/br-lan/address 2>/dev/null || \
+           cat /sys/class/net/eth0/address 2>/dev/null || \
+           cat /sys/class/net/eth1/address 2>/dev/null || \
+           echo "")
+MAC="${REAL_MAC:-${UU_DEVICE_MAC:-00:00:00:00:00:00}}"
+cat > /usr/uufactory/factoryinfo << FACTORYEOF
 productname=NX30Pro
 ethaddr=$MAC
 hardversion=VER.A
 bootversion=100
 manucode=$SN
 FACTORYEOF
-    echo "[OK] /usr/uufactory/factoryinfo created (SN=$SN MAC=$MAC)"
-fi
+echo "[OK] /usr/uufactory/factoryinfo (SN=$SN MAC=$MAC)"
 # Copy to h3c_info (binary reads from here for registration)
 cp /usr/uufactory/factoryinfo /var/tmp/uu/h3c_info
 echo "[INFO] h3c_info copied from factoryinfo"
@@ -272,11 +298,9 @@ fi
 
 # h3c_info already created above from factoryinfo
 
-# .sn — serial number cache (binary reads this AFTER creating it empty, crashes on null)
-if [ ! -s /usr/sbin/uu/.sn ]; then
-    echo "$SN" > /usr/sbin/uu/.sn
-    echo "[INFO] /usr/sbin/uu/.sn written (SN=$SN)"
-fi
+# .sn — serial number cache (always overwrite with current definitive SN)
+echo "$SN" > /usr/sbin/uu/.sn
+echo "[INFO] /usr/sbin/uu/.sn overwritten (SN=$SN)"
 
 # activate_status — uuplugin monitors this via inotify to trigger acceleration.
 # Preserve existing value across restarts; default to 1 (force-activated).
