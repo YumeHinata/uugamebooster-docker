@@ -35,5 +35,13 @@ export UU_DEVICE_FWMARK="${UU_DEVICE_FWMARK:-0}"
 export UU_DEVICE_LINK_TYPE="${UU_DEVICE_LINK_TYPE:-ethernet}"
 export UU_FIRMWARE_VERSION="${UU_FIRMWARE_VERSION:-1.0.0}"
 export UU_N_PR_H="${UU_N_PR_H:-0}"
+export HOME="${HOME:-/root}"
+export HOSTNAME="${HOSTNAME:-$(hostname)}"
 
-exec /opt/uu/bin/uuplugin /opt/uu/conf/uu.conf
+# strace to catch the exact crash point
+strace -f -o /tmp/strace.log /opt/uu/bin/uuplugin /opt/uu/conf/uu.conf &
+UU_PID=$!
+wait $UU_PID
+RET=$?
+echo "uuplugin exited code=$RET, last strace lines:"
+tail -30 /tmp/strace.log
