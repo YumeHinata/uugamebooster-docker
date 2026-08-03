@@ -10,7 +10,7 @@ ip link set WAN1 up 2>/dev/null
 
 update-alternatives --set iptables /usr/sbin/iptables-legacy 2>/dev/null
 
-# env vars (set by OpenWrt procd on real devices)
+# env vars from OpenWrt procd
 export UU_LAN_IP="${UU_LAN_IP:-192.168.0.1}"
 export UU_LAN_NAME="${UU_LAN_NAME:-br-lan}"
 export UU_WAN_IP="${UU_WAN_IP:-0.0.0.0}"
@@ -20,6 +20,7 @@ export UU_VENDOR="${UU_VENDOR:-openwrt}"
 export UU_MODEL="${UU_MODEL:-openwrt-x86_64}"
 export UU_DEVICE_TYPE="${UU_DEVICE_TYPE:-router}"
 export UU_SN="${UU_SN:-}"
+export UU_RANDOM="${UU_RANDOM:-$(cat /proc/sys/kernel/random/uuid 2>/dev/null || echo default)}"
 export UU_PLUGIN_VESION="${UU_PLUGIN_VESION:-1.0.0}"
 export UU_ROUTE_DEFAULT_TABLE="${UU_ROUTE_DEFAULT_TABLE:-main}"
 export UU_ROUTE_FWMARK_TABLE="${UU_ROUTE_FWMARK_TABLE:-163}"
@@ -34,7 +35,7 @@ export HOSTNAME="${HOSTNAME:-$(hostname)}"
 export USER="${USER:-root}"
 export TZ="${TZ:-CST-8}"
 
-# OpenWrt runtime files that binary reads at startup
+# OpenWrt runtime files
 mkdir -p /var/run /usr/uufactory /var/tmp/plugmnt/uu
 echo "br-lan" > /var/run/landevname.txt
 touch /tmp/.uu_whoami.txt
@@ -50,13 +51,4 @@ for family in ip ip6; do
     done
 done
 
-# strace with SIGABRT search
-strace -f -o /tmp/strace.log /opt/uu/bin/uuplugin /opt/uu/conf/uu.conf &
-UU_PID=$!
-wait $UU_PID
-RET=$?
-echo "uuplugin exited code=$RET"
-echo "--- SIGABRT context ---"
-grep -n -B5 'ABRT' /tmp/strace.log | tail -30
-echo "--- Last 30 lines ---"
-tail -30 /tmp/strace.log
+exec /opt/uu/bin/uuplugin /opt/uu/conf/uu.conf
