@@ -92,6 +92,30 @@ def pb_str(fn, s):
 def pb_int(fn, v):
     return pb_varint((fn << 3) | 0) + pb_varint(v)
 
+def replace_pb_field_str(raw_pb, field_num, new_value):
+    """Replace field_num (string type) in raw protobuf with new_value.
+    Properly parses protobuf structure to find the exact field by number,
+    avoiding fragile string-matching on version numbers that change with updates."""
+    pos = 0
+    while pos < len(raw_pb):
+        fh, new_pos = pb_read_varint(raw_pb, pos)
+        fn = fh >> 3
+        wt = fh & 0x07
+        if fn == field_num and wt == 2:
+            old_len, after_len_pos = pb_read_varint(raw_pb, new_pos)
+            old_field_end = after_len_pos + old_len
+            new_field = pb_str(field_num, new_value)
+            return raw_pb[:pos] + new_field + raw_pb[old_field_end:]
+        elif wt == 0:
+            _, new_pos = pb_read_varint(raw_pb, new_pos)
+        elif wt == 2:
+            length, new_pos = pb_read_varint(raw_pb, new_pos)
+            new_pos += length
+        else:
+            break
+        pos = new_pos
+    return raw_pb  # field not found — no change
+
 def make_frame(msg_type, protobuf):
     total = 4 + len(protobuf)
     return struct.pack(">I", total) + struct.pack(">I", msg_type) + protobuf
@@ -210,21 +234,24 @@ def fix_field4_vendor_binary_to_string(raw_pb):
 def enhance_register(original_pb, mac_override=None, sn_override=None):
     """
     Take the x86 binary's Register protobuf and inject NX30Pro-specific
-    fields that were discovered from the real aarch64 binary:
+    fields that were discovered from the real aarch64 binary.
     
-    Real NX30Pro Register: {f1=rid, f2='h3c', f3=SN, f4='NX30Pro', f6='v14.4.20'}
-    x86 Register:          {f1=rid, f2='h3c_'(7B), f3=SN, f4='NX30Pro', f6='v14.3.0'}
+    Real NX30Pro Register: {f1=rid, f2='h3c', f3=SN, f4='NX30Pro', f6='<fw version>'}
+    x86 Register:          {f1=rid, f2='h3c_'(7B), f3=SN, f4='NX30Pro', f6='<binary version>'}
+    
+    Version: f6 is replaced with TARGET_FW_VERSION (set via --target-fw, default v14.4.20).
     
     Returns: (modified_pb_bytes, fields_added_list)
     """
     # Step 1: Fix f2 (binary 7B "h3c_" → string 3B "h3c")
     pb_data = fix_field2_binary_to_string(original_pb)
     
-    # Step 2: Fix f6 version (x86 sends v14.3.0, NX30Pro uses v14.4.20)
-    # Field 6 tag=0x32, old len=0x07, "v14.3.0" → new len=0x08, "v14.4.20"
-    idx = pb_data.find(b'\x32\x07v14.3.0')
-    if idx >= 0:
-        pb_data = pb_data[:idx] + pb_str(6, 'v14.4.20') + pb_data[idx+9:]
+    # Step 2: Fix f6 version (field-based, works regardless of binary's hardcoded version)
+    # Replaces whatever version the binary sends with the NX30Pro target firmware version
+    new_pb = replace_pb_field_str(pb_data, 6, TARGET_FW_VERSION)
+    if new_pb != pb_data:
+        print(f"    [VER] f6 version field replaced → {TARGET_FW_VERSION}")
+    pb_data = new_pb
     
     # Step 3: Override SN with real NX30Pro SN (server may check SN range)
     if sn_override:
@@ -246,8 +273,8 @@ def enhance_register(original_pb, mac_override=None, sn_override=None):
     
     # Step 5: Add f6 = firmware version (confirmed from real NX30Pro)
     if 6 not in existing_fields:
-        pb += pb_str(6, "v14.4.20")
-        added.append("f6:version=v14.4.20")
+        pb += pb_str(6, TARGET_FW_VERSION)
+        added.append(f"f6:version={TARGET_FW_VERSION}")
     
     return bytes(pb), added
 
@@ -256,10 +283,11 @@ def enhance_register_v2(original_pb, mac_override=None, sn_override=None):
     """Alternative: add f5(MAC) + f8(bootver) for testing if v1 is rejected."""
     pb_data = fix_field2_binary_to_string(original_pb)
     
-    # Fix f6 version (same as v1)
-    idx = pb_data.find(b'\x32\x07v14.3.0')
-    if idx >= 0:
-        pb_data = pb_data[:idx] + pb_str(6, 'v14.4.20') + pb_data[idx+9:]
+    # Fix f6 version (field-based, same as v1)
+    new_pb = replace_pb_field_str(pb_data, 6, TARGET_FW_VERSION)
+    if new_pb != pb_data:
+        print(f"    [VER] f6 version field replaced → {TARGET_FW_VERSION}")
+    pb_data = new_pb
     
     # SN override (same as v1)
     if sn_override:
@@ -277,8 +305,8 @@ def enhance_register_v2(original_pb, mac_override=None, sn_override=None):
         pb += pb_str(4, "NX30Pro")
         added.append("f4:product=NX30Pro")
     if 6 not in existing_fields:
-        pb += pb_str(6, "v14.4.20")
-        added.append("f6:version=v14.4.20")
+        pb += pb_str(6, TARGET_FW_VERSION)
+        added.append(f"f6:version={TARGET_FW_VERSION}")
     
     # Optional: try adding MAC + bootver in case server needs them
     if 5 not in existing_fields:
@@ -303,6 +331,8 @@ REGISTER_ENHANCERS = [
 # persistent file, or set via --sn argument. Different per deployment.
 TARGET_SN = None          # Set at runtime
 SN_FILE = "mitm_sn.txt"   # Persisted alongside this script
+
+TARGET_FW_VERSION = "v14.4.20"  # NX30Pro firmware version to inject (override with --target-fw)
 
 
 def load_persisted_sn():
@@ -394,6 +424,7 @@ class ModMITM:
         print(f"  UU REGISTRATION MITM — Response Modifier")
         print(f"  Listen:  {self.listen_addr[0]}:{self.listen_addr[1]}")
         print(f"  Upstream: {self.target_addr[0]}:{self.target_addr[1]}")
+        print(f"  Target FW: {TARGET_FW_VERSION}")
         print(f"  Mode: {'DRY RUN (no modification)' if self.dry_run else 'NX30Pro Register injection + register-resp fix'}")
         print(f"{'='*60}\n")
         
@@ -671,6 +702,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Pass through without modification")
     parser.add_argument("--log", default="", help="Write all output to log file as well as console")
     parser.add_argument("--sn", default="", help="Target SN (overrides auto-capture from Register). If empty, SN is auto-captured and persisted.")
+    parser.add_argument("--target-fw", default="v14.4.20", help="NX30Pro target firmware version to inject into Register f6 (default: v14.4.20). Change this when NX30Pro firmware updates.")
     args = parser.parse_args()
     
     # ── SN setup ──────────────────────────────────────────────────────────
@@ -685,6 +717,11 @@ def main():
             print(f"[SN] Loaded persisted SN from {SN_FILE}: {TARGET_SN}")
         else:
             print("[SN] No persisted SN yet — will auto-capture from first Register")
+    
+    # ── FW version setup ─────────────────────────────────────────────────
+    global TARGET_FW_VERSION
+    TARGET_FW_VERSION = args.target_fw.strip()
+    print(f"[FW] Target NX30Pro firmware version: {TARGET_FW_VERSION}")
     
     # ── Log file setup ────────────────────────────────────────────────────
     if args.log:

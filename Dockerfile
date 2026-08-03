@@ -63,6 +63,15 @@ RUN chmod +x \
     mkdir -p /usr/sbin/uu /var/tmp/uu /tmp/uu && \
     # uuplugin calls xtables-nft-multi from its own directory
     ln -sf /usr/sbin/xtables-nft-multi /opt/uu/bin/xtables-nft-multi && \
+    # OpenSSL cert paths (binary hardcodes build-machine paths for tunnel TLS)
+    mkdir -p /home/bing/git/tun2proxy/src/third_party/openssl-1.0.2q/build/ssl/certs && \
+    ln -sf /etc/ssl/certs/ca-certificates.crt /home/bing/git/tun2proxy/src/third_party/openssl-1.0.2q/build/ssl/cert.pem && \
+    # OpenWrt paths the binary may read (dhcp/dnsmasq) — touch empty to avoid ENOENT
+    touch /etc/dnsmasq.conf && \
+    touch /tmp/nmp_client_list && \
+    mkdir -p /etc/config && touch /etc/config/dhcpd.leases && \
+    mkdir -p /var/lib/misc /tmp/var/lib/misc && \
+    touch /var/lib/misc/dnsmasq.leases /tmp/var/lib/misc/dnsmasq.leases && \
     # iptables legacy mode (Debian default is nft, but xtables modules need legacy)
     update-alternatives --set iptables /usr/sbin/iptables-legacy 2>/dev/null || true && \
     update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy 2>/dev/null || true

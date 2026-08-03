@@ -27,11 +27,13 @@ services:
       - UU_MODEL=h3c-nx30pro
       - UU_VENDOR=h3c
       - UU_DEVICE_TYPE=router
-      - UU_FIRMWARE_VERSION=v14.3.0
+      # NX30Pro 目标固件版本（唯一真相源！MITM 会将 protobuf 中的版本替换为此值）
+      # NX30Pro 固件更新时只需改这一个数字
+      - UU_NX30PRO_FW_VERSION=v14.4.20
+      - UU_PLUGIN_VESION=v14.4.20
       # SN — auto-fetched from MITM HTTP (http://MITM_HOST:16999/sn) at startup.
       # UU_FIXED_SN is fallback when MITM HTTP is unreachable (e.g. first run).
       - UU_FIXED_SN=57359124322442130201
-      - UU_PLUGIN_VESION=v14.3.0
       - UU_RANDOM=default
       # Network interfaces (populated at runtime but must be non-null)
       - UU_DEVICE_MAC=00:00:00:00:00:00
@@ -52,7 +54,7 @@ services:
       # Override host HOSTNAME (iStoreOS→NX30Pro) — binary reads this as OS identifier!
       - HOSTNAME=NX30Pro
       # Debug: strace capture enabled
-      - STRACE_DEBUG=0
+      - STRACE_DEBUG=1
       # SSLKEYLOGFILE for Wireshark TLS decryption (MITM fallback)
       - SSLKEYLOGFILE=/tmp/sslkeys.log
       # MITM proxy: SET TO YOUR WINDOWS LAN IP (run uu_mitm_mod.py on Windows first!)

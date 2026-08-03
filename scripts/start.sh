@@ -44,7 +44,10 @@ export DEVICE_TYPE="${DEVICE_TYPE:-router}"
 export UU_VENDOR="${UU_VENDOR:-h3c}"
 export UU_MODEL="${UU_MODEL:-h3c-nx30pro}"
 # UU_SN set below after generate_proc/sn_read/sn_file logic
-export UU_PLUGIN_VESION="${UU_PLUGIN_VESION:-v14.4.20}"
+# Version: single source of truth is UU_NX30PRO_FW_VERSION from docker-compose.
+# NX30Pro firmware updates → change ONE number in docker-compose.yml
+export UU_NX30PRO_FW_VERSION="${UU_NX30PRO_FW_VERSION:-v14.4.20}"
+export UU_PLUGIN_VESION="${UU_PLUGIN_VESION:-$UU_NX30PRO_FW_VERSION}"
 export UU_FIRMWARE_VERSION="${UU_FIRMWARE_VERSION:-1.0.0}"
 
 # Network config
@@ -164,6 +167,14 @@ fi
 # uuplugin was compiled for OpenWrt x86_64; statically linked but uses hardcoded
 # absolute paths for its runtime data (not relative to binary location).
 mkdir -p /usr/sbin/uu /var/tmp/uu /tmp/uu /var/tmp/plugmnt/uu /usr/uufactory
+# OpenSSL cert path (binary hardcodes build-machine path for tunnel TLS)
+mkdir -p /home/bing/git/tun2proxy/src/third_party/openssl-1.0.2q/build/ssl/certs
+[ -e /home/bing/git/tun2proxy/src/third_party/openssl-1.0.2q/build/ssl/cert.pem ] || \
+    ln -sf /etc/ssl/certs/ca-certificates.crt /home/bing/git/tun2proxy/src/third_party/openssl-1.0.2q/build/ssl/cert.pem 2>/dev/null
+# OpenWrt DHCP/dnsmasq paths (binary may stat/read these)
+mkdir -p /etc/config /var/lib/misc /tmp/var/lib/misc
+touch /etc/dnsmasq.conf /tmp/nmp_client_list /etc/config/dhcpd.leases 2>/dev/null
+touch /var/lib/misc/dnsmasq.leases /tmp/var/lib/misc/dnsmasq.leases 2>/dev/null
 
 # Kernel params — binary's child processes write to /proc/sys for tunnel setup
 # Pre-set tcp_mtu_probing=1 so the write doesn't fail on read-only /proc/sys
