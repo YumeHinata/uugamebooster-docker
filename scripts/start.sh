@@ -435,6 +435,22 @@ echo "[INFO] Starting uuplugin (x86_64 native)..."
 rm -f /var/run/uuplugin.pid 2>/dev/null
 echo "[OK] Stale pid file cleaned"
 
+# ── Guardian crash debug: wrap xuplugin-guardian with strace ────────────
+# xuplugin-guardian is the suspected crash culprit during acceleration.
+# Wrap it so every invocation gets its own strace log.
+GUARDIAN_REAL="/opt/uu/bin/xuplugin-guardian.real"
+GUARDIAN_WRAPPER="/opt/uu/bin/xuplugin-guardian"
+if [ ! -f "$GUARDIAN_REAL" ] && [ -f "$GUARDIAN_WRAPPER" ]; then
+    mv "$GUARDIAN_WRAPPER" "$GUARDIAN_REAL"
+    cat > "$GUARDIAN_WRAPPER" << 'WRAPEOF'
+#!/bin/sh
+GUARDIAN_STAMP=$(date +%s)
+exec strace -f -o "/tmp/guardian_strace_${GUARDIAN_STAMP}.log" /opt/uu/bin/xuplugin-guardian.real "$@"
+WRAPEOF
+    chmod +x "$GUARDIAN_WRAPPER"
+    echo "[DEBUG] xuplugin-guardian wrapped → /tmp/guardian_strace_*.log"
+fi
+
 RESTART_COUNT=0
 
 while true; do
@@ -465,9 +481,10 @@ while true; do
 
     echo "[INFO] Starting uuplugin (attempt $((RESTART_COUNT + 1)))..."
     if [ "$STRACE_DEBUG" = "1" ]; then
-        strace -f -o /tmp/strace_${RESTART_COUNT}.log "$UU_BIN" /opt/uu/conf/uu.conf >/tmp/uuplugin_stdout.log 2>/tmp/uuplugin_stderr.log &
+        STAMP=$(date +%s)
+        strace -f -o "/tmp/strace_${STAMP}.log" "$UU_BIN" /opt/uu/conf/uu.conf >/tmp/uuplugin_stdout.log 2>/tmp/uuplugin_stderr.log &
         UU_PID=$!
-        echo "[DEBUG] strace PID=$UU_PID log=/tmp/strace_${RESTART_COUNT}.log"
+        echo "[DEBUG] strace PID=$UU_PID log=/tmp/strace_${STAMP}.log"
     else
         "$UU_BIN" /opt/uu/conf/uu.conf >/tmp/uuplugin_stdout.log 2>/tmp/uuplugin_stderr.log &
         UU_PID=$!
