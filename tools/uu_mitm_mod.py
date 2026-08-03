@@ -297,8 +297,28 @@ REGISTER_ENHANCERS = [
     ("v2_f4f6+f5f8", enhance_register_v2),
 ]
 
-# Real NX30Pro SN captured from QEMU test (server may check H3C SN range)
-NX30PRO_SN = "55347901036946359222"
+# ── SN management ─────────────────────────────────────────────────────────
+# Target SN: captured from binary's first Register message, or loaded from
+# persistent file, or set via --sn argument. Different per deployment.
+TARGET_SN = None          # Set at runtime
+SN_FILE = "mitm_sn.txt"   # Persisted alongside this script
+
+
+def load_persisted_sn():
+    """Try to load previously captured SN from disk."""
+    sn_path = Path(__file__).parent / SN_FILE
+    if sn_path.exists():
+        sn = sn_path.read_text().strip()
+        if sn and len(sn) >= 18:
+            return sn
+    return None
+
+
+def save_persisted_sn(sn):
+    """Save captured SN to disk for future runs."""
+    sn_path = Path(__file__).parent / SN_FILE
+    sn_path.write_text(sn)
+    print(f"[SN] Saved captured SN to {sn_path}: {sn}")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # MITM
@@ -472,11 +492,17 @@ class ModMITM:
                         
                         if is_client and msg_type == 0x24 and not self.dry_run:
                             enh_name, enh_func = REGISTER_ENHANCERS[success_idx % len(REGISTER_ENHANCERS)]
-                            # Build SN override: replace random x86 SN with real NX30Pro SN
+                            # Build SN override: capture binary's native SN once, reuse
+                            global TARGET_SN
                             sn_override = None
                             current_sn = str(parsed.get(3, ''))
-                            if current_sn and len(current_sn) == len(NX30PRO_SN):
-                                sn_override = {'old': current_sn, 'new': NX30PRO_SN}
+                            if current_sn and len(current_sn) >= 18:
+                                if TARGET_SN is None:
+                                    TARGET_SN = current_sn
+                                    save_persisted_sn(TARGET_SN)
+                                    print(f"[SN] Captured device SN from Register: {TARGET_SN}")
+                                if current_sn != TARGET_SN:
+                                    sn_override = {'old': current_sn, 'new': TARGET_SN}
                             enhanced_pb, added_fields = enh_func(protobuf, sn_override=sn_override)
                             forward_data = raw[:8] + enhanced_pb  # keep header, replace PB
                             # Update total length in header
@@ -495,7 +521,7 @@ class ModMITM:
                             # Strip all extra fields: keep only f1(rid), f2(vendor), f3(SN)
                             parsed_fr = pb_parse(fixed_pb)
                             sn_fr = str(parsed_fr.get(3, ''))
-                            sn = NX30PRO_SN if (sn_fr and len(sn_fr) == len(NX30PRO_SN)) else sn_fr
+                            sn = TARGET_SN if (sn_fr and TARGET_SN and len(sn_fr) == len(TARGET_SN)) else (sn_fr or '')
                             clean_pb = b''
                             clean_pb += pb_str(1, str(parsed_fr.get(1, '')))  # f1: rid
                             clean_pb += pb_str(2, 'h3c')                        # f2: vendor
@@ -538,13 +564,13 @@ class ModMITM:
                             modified = fix_field2_binary_to_string(protobuf)
                             parsed_cr = pb_parse(modified)
                             sn_internal = str(parsed_cr.get(3, ''))
-                            if sn_internal and len(sn_internal) == len(NX30PRO_SN) and sn_internal != NX30PRO_SN:
-                                modified = modified.replace(sn_internal.encode(), NX30PRO_SN.encode())
+                            if sn_internal and TARGET_SN and len(sn_internal) == len(TARGET_SN) and sn_internal != TARGET_SN:
+                                modified = modified.replace(sn_internal.encode(), TARGET_SN.encode())
                             if modified != protobuf:
                                 forward_data = raw[:8] + modified
                                 new_total = 4 + len(modified)
                                 forward_data = struct.pack(">I", new_total) + forward_data[4:]
-                                print(f"    >>> ConnectReply: f2→h3c, f3={sn_internal}→{NX30PRO_SN}")
+                                print(f"    >>> ConnectReply: f2→h3c, f3={sn_internal}→{TARGET_SN}")
                                 modified_this_session = True
                         
                         # DeviceInfo (0x04): fix f4 vendor + f5 SN so server sees NX30Pro identity
@@ -555,9 +581,9 @@ class ModMITM:
                             fixes = []
                             if modified != protobuf:
                                 fixes.append("f4 vendor h3c_→h3c")
-                            if sn_di and len(sn_di) == len(NX30PRO_SN) and sn_di != NX30PRO_SN:
-                                modified = modified.replace(sn_di.encode(), NX30PRO_SN.encode())
-                                fixes.append(f"f5 SN {sn_di}→{NX30PRO_SN}")
+                            if sn_di and TARGET_SN and len(sn_di) == len(TARGET_SN) and sn_di != TARGET_SN:
+                                modified = modified.replace(sn_di.encode(), TARGET_SN.encode())
+                                fixes.append(f"f5 SN {sn_di}→{TARGET_SN}")
                             if fixes:
                                 forward_data = raw[:8] + modified
                                 new_total = 4 + len(modified)
@@ -598,7 +624,21 @@ def main():
     parser.add_argument("--target", default="106.2.95.34:16000")
     parser.add_argument("--dry-run", action="store_true", help="Pass through without modification")
     parser.add_argument("--log", default="", help="Write all output to log file as well as console")
+    parser.add_argument("--sn", default="", help="Target SN (overrides auto-capture from Register). If empty, SN is auto-captured and persisted.")
     args = parser.parse_args()
+    
+    # ── SN setup ──────────────────────────────────────────────────────────
+    global TARGET_SN
+    if args.sn:
+        TARGET_SN = args.sn.strip()
+        save_persisted_sn(TARGET_SN)
+        print(f"[SN] Using user-provided SN: {TARGET_SN}")
+    else:
+        TARGET_SN = load_persisted_sn()
+        if TARGET_SN:
+            print(f"[SN] Loaded persisted SN from {SN_FILE}: {TARGET_SN}")
+        else:
+            print("[SN] No persisted SN yet — will auto-capture from first Register")
     
     # ── Log file setup ────────────────────────────────────────────────────
     if args.log:

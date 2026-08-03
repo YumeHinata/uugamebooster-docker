@@ -87,11 +87,9 @@ NETEASE_HOST="rglg.uu.netease.com"
 RGLG_163="rglg.uu.163.com"
 
 if [ -n "${UU_MITM_HOST}" ]; then
-    echo "[MITM] Redirecting ALL UU traffic to ${UU_MITM_HOST}:16000"
-    for DOMAIN in "$NETEASE_HOST" "$RGLG_163" "$H3C_HOST" \
-        "devrglg.uu.163.com" "gw.router.uu.163.com" \
-        "router.uu.163.com" "uurouter.gdl.netease.com" \
-        "log.uu.163.com"; do
+    echo "[MITM] Redirecting registration traffic to ${UU_MITM_HOST}:16000"
+    echo "[MITM] (gw.router, devrglg, log, etc. resolve normally for acceleration)"
+    for DOMAIN in "$NETEASE_HOST" "$RGLG_163" "$H3C_HOST"; do
         sed -i "/$DOMAIN/d" /etc/hosts 2>/dev/null
         echo "${UU_MITM_HOST} $DOMAIN" >> /etc/hosts
     done

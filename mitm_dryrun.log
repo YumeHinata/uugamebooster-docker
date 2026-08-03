@@ -1,0 +1,19 @@
+
+============================================================
+  MITM Log started: 2026-08-03 15:23:02
+============================================================
+[MITM] Logging to file: D:\code03\uugamebooster-docker\mitm_dryrun.log
+
+============================================================
+  UU REGISTRATION MITM — Response Modifier
+  Listen:  0.0.0.0:16000
+  Upstream: 106.2.95.34:16000
+  Mode: DRY RUN (no modification)
+============================================================
+
+
+[+] Connection #1 from 192.168.0.1:47380
+  [TLS] Waiting for client TLS handshake...
+  [TLS] Client connected: TLSv1.2, cipher: ECDHE-RSA-AES256-GCM-SHA384
+  [TCP] Connecting to upstream 106.2.95.34:16000...
+  [TLS] Server connected: TLSv1.2, cipher: ECDHE-ECDSA-AES128-GCM-SHA256
