@@ -26,6 +26,26 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Tee output: write to both console AND log file (for debugging)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TeeWriter:
+    """Duplicate writes to two file objects."""
+    def __init__(self, *files):
+        self.files = files
+    def write(self, data):
+        for f in self.files:
+            try: f.write(data)
+            except: pass
+    def flush(self):
+        for f in self.files:
+            try: f.flush()
+            except: pass
+
+LOG_FILE = None  # Set by main() if --log is provided
+LOG_FP   = None
+
 SCRIPT_DIR = Path(__file__).parent
 CERT_FILE = SCRIPT_DIR / "mitm_cert.pem"
 KEY_FILE = SCRIPT_DIR / "mitm_key.pem"
@@ -577,7 +597,24 @@ def main():
     parser.add_argument("--listen", default="0.0.0.0:16000")
     parser.add_argument("--target", default="106.2.95.34:16000")
     parser.add_argument("--dry-run", action="store_true", help="Pass through without modification")
+    parser.add_argument("--log", default="", help="Write all output to log file as well as console")
     args = parser.parse_args()
+    
+    # ── Log file setup ────────────────────────────────────────────────────
+    if args.log:
+        log_path = Path(args.log)
+        try:
+            global LOG_FILE, LOG_FP
+            LOG_FILE = str(log_path)
+            LOG_FP = open(str(log_path), 'a', encoding='utf-8')
+            LOG_FP.write(f"\n{'='*60}\n")
+            LOG_FP.write(f"  MITM Log started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            LOG_FP.write(f"{'='*60}\n")
+            LOG_FP.flush()
+            sys.stdout = TeeWriter(sys.stdout, LOG_FP)
+            print(f"[MITM] Logging to file: {log_path.resolve()}")
+        except Exception as e:
+            print(f"[WARN] Cannot open log file {args.log}: {e}")
     
     lh, lp = args.listen.split(":")
     th, tp = args.target.split(":")
