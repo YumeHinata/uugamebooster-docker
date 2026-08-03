@@ -1,24 +1,18 @@
 #!/bin/sh
-# ── Minimal start.sh: place 3 binaries at correct paths, start uuplugin ──
-# uuplugin spawns xuplugin-guardian + /bin/uuclearnat internally.
-
 echo "nameserver 114.114.114.114" > /etc/resolv.conf
 echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 
-# TUN device
 mkdir -p /dev/net
 [ -e /dev/net/tun ] || mknod /dev/net/tun c 10 200
 
-# WAN1 dummy (binary hardcodes this interface)
 ip link add WAN1 type dummy 2>/dev/null
 ip link set WAN1 up 2>/dev/null
 
-# iptables legacy mode
 update-alternatives --set iptables /usr/sbin/iptables-legacy 2>/dev/null
 
+# env vars (set by OpenWrt procd on real devices)
 export UU_LAN_IP="${UU_LAN_IP:-192.168.0.1}"
 export UU_LAN_NAME="${UU_LAN_NAME:-br-lan}"
-# These are set by OpenWrt init on real devices; binary getenv(NULL) → SIGABRT
 export UU_WAN_IP="${UU_WAN_IP:-0.0.0.0}"
 export UU_TUN_IP="${UU_TUN_IP:-10.0.0.1}"
 export UU_TUN_NAME="${UU_TUN_NAME:-tun163}"
@@ -37,11 +31,32 @@ export UU_FIRMWARE_VERSION="${UU_FIRMWARE_VERSION:-1.0.0}"
 export UU_N_PR_H="${UU_N_PR_H:-0}"
 export HOME="${HOME:-/root}"
 export HOSTNAME="${HOSTNAME:-$(hostname)}"
+export USER="${USER:-root}"
+export TZ="${TZ:-CST-8}"
 
-# strace to catch the exact crash point
+# OpenWrt runtime files that binary reads at startup
+mkdir -p /var/run /usr/uufactory /var/tmp/plugmnt/uu
+echo "br-lan" > /var/run/landevname.txt
+touch /tmp/.uu_whoami.txt
+echo "CST-8" > /etc/TZ
+cat > /etc/lsb-release << 'LSB'
+DISTRIB_ID="OpenWrt"
+DISTRIB_RELEASE="21.02.0"
+DISTRIB_TARGET="x86/64"
+LSB
+for family in ip ip6; do
+    for table in XU_ACC_MAIN_filter XU_ACC_MAIN_nat XU_ACC_MAIN_mangle; do
+        nft add table $family $table 2>/dev/null || true
+    done
+done
+
+# strace with SIGABRT search
 strace -f -o /tmp/strace.log /opt/uu/bin/uuplugin /opt/uu/conf/uu.conf &
 UU_PID=$!
 wait $UU_PID
 RET=$?
-echo "uuplugin exited code=$RET, last strace lines:"
+echo "uuplugin exited code=$RET"
+echo "--- SIGABRT context ---"
+grep -n -B5 'ABRT' /tmp/strace.log | tail -30
+echo "--- Last 30 lines ---"
 tail -30 /tmp/strace.log
