@@ -64,6 +64,8 @@ services:
       # - UU_MITM_HOST=192.168.0.247
       # Skip start.sh DNS hijack when using MITM (set with UU_MITM_HOST)
       - SKIP_DNS_HIJACK=1
+      # Skip management proxy (bypass xu_tcp_server auth on 16363/14554)
+      - SKIP_MGMT_PROXY=1
 
     # ── Log rotation ──
     logging:
