@@ -435,45 +435,6 @@ echo "[INFO] Starting uuplugin (x86_64 native)..."
 rm -f /var/run/uuplugin.pid 2>/dev/null
 echo "[OK] Stale pid file cleaned"
 
-# ── Guardian noop replacement ────────────────────────────────────────
-# xuplugin-guardian normally monitors uuplugin via heartbeat and kills it
-# on timeout. Replace with a harmless daemon that stays alive forever.
-GUARDIAN_REAL="/opt/uu/bin/xuplugin-guardian.real"
-GUARDIAN_WRAPPER="/opt/uu/bin/xuplugin-guardian"
-if [ ! -f "$GUARDIAN_REAL" ] && [ -f "$GUARDIAN_WRAPPER" ]; then
-    mv "$GUARDIAN_WRAPPER" "$GUARDIAN_REAL"
-fi
-cat > "$GUARDIAN_WRAPPER" << 'WRAPEOF'
-#!/usr/bin/env python3
-import socket, os, time
-
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-s.bind(("127.0.0.1", 0))
-port = s.getsockname()[1]
-s.listen(1)
-
-# Send port as little-endian uint16 to uuplugin via fd 0
-try:
-    os.write(0, bytes([port & 0xFF, (port >> 8) & 0xFF]))
-except:
-    pass
-
-# Accept uuplugin connection and echo back heartbeats forever
-while True:
-    try:
-        conn, addr = s.accept()
-        while True:
-            data = conn.recv(4096)
-            if not data:
-                break
-            conn.sendall(data)  # echo heartbeat
-    except:
-        pass  # reconnect on error
-WRAPEOF
-chmod +x "$GUARDIAN_WRAPPER"
-echo "[DEBUG] xuplugin-guardian replaced with noop daemon (Python)"
-
 RESTART_COUNT=0
 
 while true; do
