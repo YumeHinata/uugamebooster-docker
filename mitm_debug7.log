@@ -1,0 +1,21 @@
+
+============================================================
+  MITM Log started: 2026-08-03 16:53:07
+============================================================
+[MITM] Logging to file: D:\code03\uugamebooster-docker\mitm_debug7.log
+
+============================================================
+  UU REGISTRATION MITM — Response Modifier
+  Listen:  0.0.0.0:16000
+  Upstream: 106.2.95.34:16000
+  Target FW: v14.4.20
+  Mode: NX30Pro Register injection + register-resp fix
+============================================================
+
+[SN-HTTP] Serving captured SN on http://0.0.0.0:16999/sn
+
+[+] Connection #1 from 192.168.0.1:45878
+  [TLS] Waiting for client TLS handshake...
+  [TLS] Client connected: TLSv1.2, cipher: ECDHE-RSA-AES256-GCM-SHA384
+  [TCP] Connecting to upstream 106.2.95.34:16000...
+  [TLS] Server connected: TLSv1.2, cipher: ECDHE-ECDSA-AES128-GCM-SHA256

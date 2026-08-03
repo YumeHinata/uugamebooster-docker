@@ -10,6 +10,8 @@ services:
 
     # ── Full privileges: binary writes to /proc/sys (tcp_mtu_probing etc.) ──
     privileged: true
+    cap_add:
+      - SYS_PTRACE    # strace needs explicit ptrace even with privileged
     devices:
       - /dev/net/tun:/dev/net/tun
 
