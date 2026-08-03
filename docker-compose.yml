@@ -2,62 +2,25 @@ version: "3.8"
 
 services:
   uuplugin:
-    image: yumehinata/uugamebooster-docker:main   # Pull from Docker Hub
+    image: yumehinata/uugamebooster-docker:main
     container_name: UUgamebooster
     hostname: NX30Pro
     restart: unless-stopped
 
-    # ── Full privileges: binary writes to /proc/sys (tcp_mtu_probing etc.) ──
     privileged: true
     cap_add:
-      - SYS_PTRACE    # strace needs explicit ptrace even with privileged
+      - SYS_PTRACE
     devices:
       - /dev/net/tun:/dev/net/tun
-
-    # ── Host networking (iptables rules apply directly to host) ──
     network_mode: host
 
-    # ── Host filesystem mounts (device discovery) ──
     volumes:
       - /tmp/dhcp.leases:/tmp/dhcp.leases:ro
 
-    # ── Environment ───────────────────────────────────────────────────────
     environment:
-      # ═══════════════════════════════════════════════════════════════════
-      # Feature flags — uncomment to enable, one layer at a time.
-      # See docs/plan-clean-version.md for the test plan.
-      # ═══════════════════════════════════════════════════════════════════
-
-      # L1: Runtime binary patches (openwrt → h3c-nx30pro)
-      # - UU_FEATURE_BINARY_PATCH=1
-
-      # L2: DNS hijack to H3C endpoint (rglg.uu.163.com → h3crglg.uu.163.com)
-      # - UU_FEATURE_DNS_HIJACK=1
-
-      # L3: H3C identity (env vars, SN, factoryinfo, hostname, activate_status)
-      # - UU_FEATURE_IDENTITY=1
-
-      # L4: Management proxy (mobile app binding via 16363/14554)
-      # - UU_FEATURE_MGMT_PROXY=1
-
-      # L5: MITM proxy (protobuf modification)
-      # Requires uu_mitm_mod.py running on Windows first.
-      # - UU_MITM_HOST=192.168.0.247
-
-      # ═══════════════════════════════════════════════════════════════════
-      # Runtime essentials (always needed)
-      # ═══════════════════════════════════════════════════════════════════
       - UU_LAN_IP=192.168.0.1
       - UU_LAN_NAME=br-lan
-      - HOME=/root
-      - TZ=CST-8
 
-      # Debug: strace capture enabled
-      - STRACE_DEBUG=1
-      # SSLKEYLOGFILE for Wireshark TLS decryption
-      - SSLKEYLOGFILE=/tmp/sslkeys.log
-
-    # ── Log rotation ──
     logging:
       driver: json-file
       options:

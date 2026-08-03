@@ -25,23 +25,13 @@ COPY bin/uuplugin           /opt/uu/bin/uuplugin
 COPY bin/xuplugin-guardian  /opt/uu/bin/xuplugin-guardian
 COPY scripts/start.sh       /opt/uu/scripts/start.sh
 COPY scripts/uuclearnat.sh  /opt/uu/scripts/uuclearnat.sh
-COPY tools/uu_mgmt_proxy.py /opt/uu/scripts/uu_mgmt_proxy.py
-
-# ── Binary patches are applied at RUNTIME by start.sh ─────────────────────
-# Controlled by UU_FEATURE_BINARY_PATCH env var (set in docker-compose.yml).
-# This avoids rebuilding images when toggling between L0 (pure) and L1+ (patched).
-# Patches applied:
-#   "openwrt" at 0x3E64DB → "h3c_" + 3 nulls
-#   "OpenWrt" at 0x3EA86F → "NX30Pro"
-#   "openwrt-x86_64\0" at 0x3E6D5F → "h3c-nx30pro\0\0\0"
 
 # ── One-time setup ─────────────────────────────────────────────────────────
 RUN chmod +x \
         /opt/uu/bin/uuplugin \
         /opt/uu/bin/xuplugin-guardian \
         /opt/uu/scripts/start.sh \
-        /opt/uu/scripts/uuclearnat.sh \
-        /opt/uu/scripts/uu_mgmt_proxy.py && \
+        /opt/uu/scripts/uuclearnat.sh && \
     # uuplugin hardcodes /bin/uuclearnat (OpenWrt path)
     ln -sf /opt/uu/scripts/uuclearnat.sh /bin/uuclearnat && \
     ln -sf /opt/uu/scripts/uuclearnat.sh /usr/bin/uuclearnat && \
