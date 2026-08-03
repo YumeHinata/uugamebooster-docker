@@ -61,9 +61,9 @@ services:
       - SSLKEYLOGFILE=/tmp/sslkeys.log
       # MITM proxy: SET TO YOUR WINDOWS LAN IP (run uu_mitm_mod.py on Windows first!)
       # Router → MITM(Windows:16000) → UU Server(106.2.95.34:16000)
-      - UU_MITM_HOST=192.168.0.247
+      # - UU_MITM_HOST=192.168.0.247
       # Skip start.sh DNS hijack when using MITM (set with UU_MITM_HOST)
-      # - SKIP_DNS_HIJACK=1
+      - SKIP_DNS_HIJACK=1
 
     # ── Log rotation ──
     logging:

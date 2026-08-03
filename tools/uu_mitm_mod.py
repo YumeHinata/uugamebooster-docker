@@ -401,10 +401,11 @@ def start_sn_http_server():
 # ═══════════════════════════════════════════════════════════════════════════
 
 class ModMITM:
-    def __init__(self, listen, target, dry_run=False):
+    def __init__(self, listen, target, dry_run=False, minimal=False):
         self.listen_addr = listen
         self.target_addr = target
         self.dry_run = dry_run
+        self.minimal = minimal
         self.n_modified = 0
         self.n_passed = 0
         self.conn_id = 0
@@ -425,7 +426,8 @@ class ModMITM:
         print(f"  Listen:  {self.listen_addr[0]}:{self.listen_addr[1]}")
         print(f"  Upstream: {self.target_addr[0]}:{self.target_addr[1]}")
         print(f"  Target FW: {TARGET_FW_VERSION}")
-        print(f"  Mode: {'DRY RUN (no modification)' if self.dry_run else 'NX30Pro Register injection + register-resp fix'}")
+        label = 'DRY RUN (passthrough)' if self.dry_run else ('MINIMAL (f2 fix + version only)' if self.minimal else 'NX30Pro Register injection + register-resp fix')
+        print(f"  Mode: {label}")
         print(f"{'='*60}\n")
         
         while True:
@@ -567,7 +569,17 @@ class ModMITM:
                         # Check if this is a CLIENT→SERVER Register — inject H3C fields
                         forward_data = raw
                         
-                        if is_client and msg_type == 0x24 and not self.dry_run:
+                        # Minimal mode: only fix f2 null bytes + f6 version, no field injection
+                        if is_client and msg_type == 0x24 and self.minimal:
+                            pb_fixed = fix_field2_binary_to_string(protobuf)
+                            pb_fixed = replace_pb_field_str(pb_fixed, 6, TARGET_FW_VERSION)
+                            if pb_fixed != protobuf:
+                                forward_data = raw[:8] + pb_fixed
+                                new_total = 4 + len(pb_fixed)
+                                forward_data = struct.pack(">I", new_total) + forward_data[4:]
+                                print(f"    >>> MINIMAL: f2→h3c, f6→{TARGET_FW_VERSION}")
+                                modified_this_session = True
+                        elif is_client and msg_type == 0x24 and not self.dry_run:
                             enh_name, enh_func = REGISTER_ENHANCERS[success_idx % len(REGISTER_ENHANCERS)]
                             # Build SN override: capture binary's native SN once, reuse
                             global TARGET_SN
@@ -593,7 +605,15 @@ class ModMITM:
                         
                         # FullRegister (type 0x02): strip to NX30Pro format (f1+f2+f3 only)
                         # x86 sends 11 fields incl. JWT/payload; real NX30Pro sends only 3.
-                        if is_client and msg_type == 0x02 and not self.dry_run:
+                        if is_client and msg_type == 0x02 and self.minimal:
+                            pb_fixed = fix_field2_binary_to_string(protobuf)
+                            if pb_fixed != protobuf:
+                                forward_data = raw[:8] + pb_fixed
+                                new_total = 4 + len(pb_fixed)
+                                forward_data = struct.pack(">I", new_total) + forward_data[4:]
+                                print(f"    >>> MINIMAL: FullRegister f2→h3c")
+                                modified_this_session = True
+                        elif is_client and msg_type == 0x02 and not self.dry_run:
                             fixed_pb = fix_field2_binary_to_string(protobuf)
                             # Strip all extra fields: keep only f1(rid), f2(vendor), f3(SN)
                             parsed_fr = pb_parse(fixed_pb)
@@ -700,6 +720,7 @@ def main():
     parser.add_argument("--listen", default="0.0.0.0:16000")
     parser.add_argument("--target", default="106.2.95.34:16000")
     parser.add_argument("--dry-run", action="store_true", help="Pass through without modification")
+    parser.add_argument("--minimal", action="store_true", help="Minimal: only fix f2 null-bytes + f6 version, no injection")
     parser.add_argument("--log", default="", help="Write all output to log file as well as console")
     parser.add_argument("--sn", default="", help="Target SN (overrides auto-capture from Register). If empty, SN is auto-captured and persisted.")
     parser.add_argument("--target-fw", default="v14.4.20", help="NX30Pro target firmware version to inject into Register f6 (default: v14.4.20). Change this when NX30Pro firmware updates.")
@@ -746,7 +767,7 @@ def main():
     http_thread = threading.Thread(target=start_sn_http_server, daemon=True)
     http_thread.start()
     
-    mitm = ModMITM((lh, int(lp)), (th, int(tp)), args.dry_run)
+    mitm = ModMITM((lh, int(lp)), (th, int(tp)), args.dry_run, args.minimal)
     mitm.start()
 
 if __name__ == "__main__":
