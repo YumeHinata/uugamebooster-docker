@@ -445,7 +445,12 @@ if [ ! -f "$GUARDIAN_REAL" ] && [ -f "$GUARDIAN_WRAPPER" ]; then
     cat > "$GUARDIAN_WRAPPER" << 'WRAPEOF'
 #!/bin/sh
 GUARDIAN_STAMP=$(date +%s)
-exec strace -f -o "/tmp/guardian_strace_${GUARDIAN_STAMP}.log" /opt/uu/bin/xuplugin-guardian.real "$@"
+# -ff: one output file per process (fixes truncated logs)
+# -s 4096: full string content
+# Also capture stderr separately
+exec strace -ff -s 4096 -o "/tmp/guardian_${GUARDIAN_STAMP}" \
+    /opt/uu/bin/xuplugin-guardian.real "$@" \
+    2>/tmp/guardian_stderr_${GUARDIAN_STAMP}.log
 WRAPEOF
     chmod +x "$GUARDIAN_WRAPPER"
     echo "[DEBUG] xuplugin-guardian wrapped → /tmp/guardian_strace_*.log"
