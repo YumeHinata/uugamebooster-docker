@@ -1,16 +1,26 @@
-# Analysis scripts (reverse engineering reference, not needed for build)
-analysis/
+# ── Development tools (not needed in image) ──────────────────────────────
+tools/
+docs/
 
-# Git
+# ── Test / QEMU environments ─────────────────────────────────────────────
+test_qemu/
+
+# ── Reference binaries (NX30Pro extraction) ──────────────────────────────
+bin/NX30Pro_v14.4.20/
+bin/uu.nx30pro/
+
+# ── Git ──────────────────────────────────────────────────────────────────
 .git/
 .gitignore
 .gitattributes
 
-# Temp files
+# ── Config / compose (not copied into image) ─────────────────────────────
+docker-compose.yml
+.dockerignore
+
+# ── Temp / cache ─────────────────────────────────────────────────────────
 *.txt
 *.pyc
+*.ps1
+*.log
 __pycache__/
-
-# Docker
-.dockerignore
-docker-compose.yml

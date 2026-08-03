@@ -27,18 +27,13 @@ COPY scripts/start.sh       /opt/uu/scripts/start.sh
 COPY scripts/uuclearnat.sh  /opt/uu/scripts/uuclearnat.sh
 COPY tools/uu_mgmt_proxy.py /opt/uu/scripts/uu_mgmt_proxy.py
 
-# ── Binary patches: model identity only ────────────────────────────────
-#   "openwrt" at 0x3E64DB → "h3c_" + 3 nulls (matches NX30Pro's "h3c_")
-#   "OpenWrt" at 0x3EA86F → "NX30Pro" (7 bytes)
-#   "openwrt-x86_64\0" at 0x3E6D5F → "h3c-nx30pro\0\0\0" (12+2 nulls)
-# NOTE: UU_* → XX_* patches REMOVED — x86 binary NEEDS getenv("UU_*").
-# Missing H3C fields are injected by MITM (uu_mitm_mod.py) at transit.
-RUN printf 'h3c_' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4089051 conv=notrunc && \
-    dd if=/dev/zero of=/opt/uu/bin/uuplugin bs=1 count=3 seek=4089055 conv=notrunc && \
-    printf 'NX30Pro' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4106351 conv=notrunc && \
-    printf 'h3c-nx30pro' | dd of=/opt/uu/bin/uuplugin bs=1 seek=4091231 conv=notrunc && \
-    dd if=/dev/zero of=/opt/uu/bin/uuplugin bs=1 count=2 seek=4091243 conv=notrunc && \
-    echo "[OK] uuplugin patched: model→h3c_+h3c-nx30pro"
+# ── Binary patches are applied at RUNTIME by start.sh ─────────────────────
+# Controlled by UU_FEATURE_BINARY_PATCH env var (set in docker-compose.yml).
+# This avoids rebuilding images when toggling between L0 (pure) and L1+ (patched).
+# Patches applied:
+#   "openwrt" at 0x3E64DB → "h3c_" + 3 nulls
+#   "OpenWrt" at 0x3EA86F → "NX30Pro"
+#   "openwrt-x86_64\0" at 0x3E6D5F → "h3c-nx30pro\0\0\0"
 
 # ── One-time setup ─────────────────────────────────────────────────────────
 RUN chmod +x \

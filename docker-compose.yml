@@ -3,7 +3,6 @@ version: "3.8"
 services:
   uuplugin:
     image: yumehinata/uugamebooster-docker:main   # Pull from Docker Hub
-    # build: .   # Or build locally if you have the repo cloned
     container_name: UUgamebooster
     hostname: NX30Pro
     restart: unless-stopped
@@ -20,53 +19,43 @@ services:
 
     # ── Host filesystem mounts (device discovery) ──
     volumes:
-      # DHCP lease file: binary reads this to discover LAN devices (PC/phone/console)
       - /tmp/dhcp.leases:/tmp/dhcp.leases:ro
 
-    # ── All env vars required by uuplugin (getenv() must not return NULL) ──
+    # ── Environment ───────────────────────────────────────────────────────
     environment:
-      # Device identity
-      - UU_MODEL=h3c-nx30pro
-      - UU_VENDOR=h3c
-      - UU_DEVICE_TYPE=router
-      # NX30Pro 目标固件版本（唯一真相源！MITM 会将 protobuf 中的版本替换为此值）
-      # NX30Pro 固件更新时只需改这一个数字
-      - UU_NX30PRO_FW_VERSION=v14.4.20
-      - UU_PLUGIN_VESION=v14.4.20
-      # SN — auto-fetched from MITM HTTP (http://MITM_HOST:16999/sn) at startup.
-      # UU_FIXED_SN is fallback when MITM HTTP is unreachable (e.g. first run).
-      - UU_FIXED_SN=57359124322442130201
-      - UU_RANDOM=default
-      # Network interfaces (populated at runtime but must be non-null)
-      - UU_DEVICE_MAC=00:00:00:00:00:00
-      - UU_DEVICE_IP=127.0.0.1
-      - UU_DEVICE_FWMARK=0
-      - UU_DEVICE_LINK_TYPE=ethernet
+      # ═══════════════════════════════════════════════════════════════════
+      # Feature flags — uncomment to enable, one layer at a time.
+      # See docs/plan-clean-version.md for the test plan.
+      # ═══════════════════════════════════════════════════════════════════
+
+      # L1: Runtime binary patches (openwrt → h3c-nx30pro)
+      # - UU_FEATURE_BINARY_PATCH=1
+
+      # L2: DNS hijack to H3C endpoint (rglg.uu.163.com → h3crglg.uu.163.com)
+      # - UU_FEATURE_DNS_HIJACK=1
+
+      # L3: H3C identity (env vars, SN, factoryinfo, hostname, activate_status)
+      # - UU_FEATURE_IDENTITY=1
+
+      # L4: Management proxy (mobile app binding via 16363/14554)
+      # - UU_FEATURE_MGMT_PROXY=1
+
+      # L5: MITM proxy (protobuf modification)
+      # Requires uu_mitm_mod.py running on Windows first.
+      # - UU_MITM_HOST=192.168.0.247
+
+      # ═══════════════════════════════════════════════════════════════════
+      # Runtime essentials (always needed)
+      # ═══════════════════════════════════════════════════════════════════
       - UU_LAN_IP=192.168.0.1
       - UU_LAN_NAME=br-lan
-      - UU_WAN_IP=0.0.0.0
-      - UU_TUN_IP=10.0.0.1
-      - UU_TUN_NAME=tun163
-      - UU_ROUTE_DEFAULT_TABLE=main
-      - UU_ROUTE_FWMARK_TABLE=163
-      - UU_N_PR_H=0
-      # Standard
       - HOME=/root
       - TZ=CST-8
-      # Override host HOSTNAME (iStoreOS→NX30Pro) — binary reads this as OS identifier!
-      - HOSTNAME=NX30Pro
+
       # Debug: strace capture enabled
       - STRACE_DEBUG=1
-      # SSLKEYLOGFILE for Wireshark TLS decryption (MITM fallback)
+      # SSLKEYLOGFILE for Wireshark TLS decryption
       - SSLKEYLOGFILE=/tmp/sslkeys.log
-      # ── MITM: OFF (no traffic modification) ──
-      # UU_MITM_HOST disabled → start.sh does DNS hijack ONLY:
-      #   rglg.uu.163.com → h3crglg.uu.163.com (H3C endpoint)
-      # No protobuf tampering, no RegisterResp injection.
-      # - UU_MITM_HOST=192.168.0.247
-      # - SKIP_DNS_HIJACK=1
-      # ── Management proxy: ON (mobile app binding) ──
-      # - SKIP_MGMT_PROXY=1
 
     # ── Log rotation ──
     logging:
