@@ -171,6 +171,21 @@ def fix_field2_binary_to_string(raw_pb):
     return raw_pb  # no change needed
 
 
+def fix_field4_vendor_binary_to_string(raw_pb):
+    """
+    x86 binary sends f4 vendor as "h3c_\x00\x00\x00\x00" (tag 0x22, len 0x07, 7 bytes)
+    in DeviceInfo messages. NX30Pro sends f4 vendor as 3-byte string "h3c".
+    Fix the raw protobuf bytes in-place.
+    """
+    # Pattern: \x22\x07 followed by "h3c_" (x86 binary format, 7-byte data)
+    idx = raw_pb.find(b'\x22\x07h3c_')
+    if idx >= 0:
+        before = raw_pb[:idx]
+        after = raw_pb[idx + 9:]  # tag(1) + len(1) + data(7) = 9 bytes
+        return before + pb_str(4, b'h3c') + after
+    return raw_pb  # no change needed
+
+
 def enhance_register(original_pb, mac_override=None, sn_override=None):
     """
     Take the x86 binary's Register protobuf and inject NX30Pro-specific
@@ -423,6 +438,14 @@ class ModMITM:
                                 print(f"    >>> SUPPRESSED FATAL: 'unmatched sn' log hidden from server")
                                 n_fatal_suppressed += 1
                                 skip_forward = True  # Don't let server see this
+                            # Replace x86_64 architecture leak with aarch64 (H3C routers are ARM)
+                            if 'Machine type x86_64' in msg_content or 'x86_64' in msg_content:
+                                modified_log = protobuf.replace(b'x86_64', b'aarch64')
+                                if modified_log != protobuf:
+                                    forward_data = raw[:8] + modified_log
+                                    new_total = 4 + len(modified_log)
+                                    forward_data = struct.pack(">I", new_total) + forward_data[4:]
+                                    print(f"    >>> Log: x86_64 → aarch64 (architecture leak fixed)")
                         
                         # Check if this is a CLIENT→SERVER Register — inject H3C fields
                         forward_data = raw
@@ -502,6 +525,24 @@ class ModMITM:
                                 new_total = 4 + len(modified)
                                 forward_data = struct.pack(">I", new_total) + forward_data[4:]
                                 print(f"    >>> ConnectReply: f2→h3c, f3={sn_internal}→{NX30PRO_SN}")
+                                modified_this_session = True
+                        
+                        # DeviceInfo (0x04): fix f4 vendor + f5 SN so server sees NX30Pro identity
+                        if is_client and msg_type == 0x04 and not self.dry_run:
+                            modified = fix_field4_vendor_binary_to_string(protobuf)
+                            parsed_di = pb_parse(modified)
+                            sn_di = str(parsed_di.get(5, ''))
+                            fixes = []
+                            if modified != protobuf:
+                                fixes.append("f4 vendor h3c_→h3c")
+                            if sn_di and len(sn_di) == len(NX30PRO_SN) and sn_di != NX30PRO_SN:
+                                modified = modified.replace(sn_di.encode(), NX30PRO_SN.encode())
+                                fixes.append(f"f5 SN {sn_di}→{NX30PRO_SN}")
+                            if fixes:
+                                forward_data = raw[:8] + modified
+                                new_total = 4 + len(modified)
+                                forward_data = struct.pack(">I", new_total) + forward_data[4:]
+                                print(f"    >>> DeviceInfo: {', '.join(fixes)}")
                                 modified_this_session = True
                         
                         # Skip forwarding suppressed messages

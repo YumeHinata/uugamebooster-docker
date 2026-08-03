@@ -17,6 +17,13 @@ echo "========================================="
 echo "UU Game Booster - x86_64 Docker Runtime"
 echo "========================================="
 
+# ── DNS: iStoreOS dnsmasq blocks uu.*.163.com domains → use public DNS ─────
+# Container uses host networking, so it inherits host's /etc/resolv.conf
+# which may be filtered by iStoreOS dnsmasq. Override with public DNS.
+echo "nameserver 114.114.114.114" > /etc/resolv.conf
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+echo "[OK] DNS set to 114.114.114.114 + 8.8.8.8 (bypass iStoreOS filter)"
+
 # ── Environment Variables ──────────────────────────────────────────────────
 # uuplugin (statically linked C++ binary) reads ALL of these via getenv().
 # Any missing → std::string(nullptr) → SIGABRT "basic_string::_M_construct null not valid"
@@ -159,6 +166,23 @@ fi
 # uuplugin was compiled for OpenWrt x86_64; statically linked but uses hardcoded
 # absolute paths for its runtime data (not relative to binary location).
 mkdir -p /usr/sbin/uu /var/tmp/uu /tmp/uu /var/tmp/plugmnt/uu /usr/uufactory
+
+# OpenSSL config — binary hardcodes build machine path for tunnel TLS init
+OPENSSL_DIR="/home/bing/git/tun2proxy/src/third_party/openssl-1.0.2q/build/ssl"
+if [ ! -f "$OPENSSL_DIR/openssl.cnf" ]; then
+    mkdir -p "$OPENSSL_DIR"
+    cat > "$OPENSSL_DIR/openssl.cnf" << 'EOF'
+openssl_conf = default_conf
+[default_conf]
+ssl_conf = ssl_sect
+[ssl_sect]
+system_default = system_default_sect
+[system_default_sect]
+CipherString = DEFAULT:@SECLEVEL=0
+MinProtocol = TLSv1
+EOF
+    echo "[OK] OpenSSL config created at $OPENSSL_DIR"
+fi
 chmod 755 /usr/sbin/uu
 
 # ── H3C factory info (real device identity from community port) ────────────
@@ -345,6 +369,11 @@ fi
 # ── Start uuplugin (x86_64 native, no QEMU!) ──────────────────────────────
 UU_BIN="/opt/uu/bin/uuplugin"
 echo "[INFO] Starting uuplugin (x86_64 native)..."
+
+# Remove stale pid file BEFORE first start (crashes leave lock behind)
+rm -f /var/run/uuplugin.pid 2>/dev/null
+echo "[OK] Stale pid file cleaned"
+
 RESTART_COUNT=0
 
 while true; do
