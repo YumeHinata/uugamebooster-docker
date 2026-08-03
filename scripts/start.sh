@@ -435,26 +435,44 @@ echo "[INFO] Starting uuplugin (x86_64 native)..."
 rm -f /var/run/uuplugin.pid 2>/dev/null
 echo "[OK] Stale pid file cleaned"
 
-# ── Guardian crash debug: wrap xuplugin-guardian with strace ────────────
-# xuplugin-guardian is the suspected crash culprit during acceleration.
-# Wrap it so every invocation gets its own strace log.
+# ── Guardian noop replacement ────────────────────────────────────────
+# xuplugin-guardian normally monitors uuplugin via heartbeat and kills it
+# on timeout. Replace with a harmless daemon that stays alive forever.
 GUARDIAN_REAL="/opt/uu/bin/xuplugin-guardian.real"
 GUARDIAN_WRAPPER="/opt/uu/bin/xuplugin-guardian"
 if [ ! -f "$GUARDIAN_REAL" ] && [ -f "$GUARDIAN_WRAPPER" ]; then
     mv "$GUARDIAN_WRAPPER" "$GUARDIAN_REAL"
-    cat > "$GUARDIAN_WRAPPER" << 'WRAPEOF'
-#!/bin/sh
-GUARDIAN_STAMP=$(date +%s)
-# -ff: one output file per process (fixes truncated logs)
-# -s 4096: full string content
-# Also capture stderr separately
-exec strace -ff -s 4096 -o "/tmp/guardian_${GUARDIAN_STAMP}" \
-    /opt/uu/bin/xuplugin-guardian.real "$@" \
-    2>/tmp/guardian_stderr_${GUARDIAN_STAMP}.log
-WRAPEOF
-    chmod +x "$GUARDIAN_WRAPPER"
-    echo "[DEBUG] xuplugin-guardian wrapped → /tmp/guardian_strace_*.log"
 fi
+cat > "$GUARDIAN_WRAPPER" << 'WRAPEOF'
+#!/usr/bin/env python3
+import socket, os, time
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+s.bind(("127.0.0.1", 0))
+port = s.getsockname()[1]
+s.listen(1)
+
+# Send port as little-endian uint16 to uuplugin via fd 0
+try:
+    os.write(0, bytes([port & 0xFF, (port >> 8) & 0xFF]))
+except:
+    pass
+
+# Accept uuplugin connection and echo back heartbeats forever
+while True:
+    try:
+        conn, addr = s.accept()
+        while True:
+            data = conn.recv(4096)
+            if not data:
+                break
+            conn.sendall(data)  # echo heartbeat
+    except:
+        pass  # reconnect on error
+WRAPEOF
+chmod +x "$GUARDIAN_WRAPPER"
+echo "[DEBUG] xuplugin-guardian replaced with noop daemon (Python)"
 
 RESTART_COUNT=0
 
