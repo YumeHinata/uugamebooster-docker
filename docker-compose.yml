@@ -59,13 +59,14 @@ services:
       - STRACE_DEBUG=1
       # SSLKEYLOGFILE for Wireshark TLS decryption (MITM fallback)
       - SSLKEYLOGFILE=/tmp/sslkeys.log
-      # MITM proxy: SET TO YOUR WINDOWS LAN IP (run uu_mitm_mod.py on Windows first!)
-      # Router → MITM(Windows:16000) → UU Server(106.2.95.34:16000)
+      # ── MITM: OFF (no traffic modification) ──
+      # UU_MITM_HOST disabled → start.sh does DNS hijack ONLY:
+      #   rglg.uu.163.com → h3crglg.uu.163.com (H3C endpoint)
+      # No protobuf tampering, no RegisterResp injection.
       # - UU_MITM_HOST=192.168.0.247
-      # Skip start.sh DNS hijack when using MITM (set with UU_MITM_HOST)
-      - SKIP_DNS_HIJACK=1
-      # Skip management proxy (bypass xu_tcp_server auth on 16363/14554)
-      - SKIP_MGMT_PROXY=1
+      # - SKIP_DNS_HIJACK=1
+      # ── Management proxy: ON (mobile app binding) ──
+      # - SKIP_MGMT_PROXY=1
 
     # ── Log rotation ──
     logging:
