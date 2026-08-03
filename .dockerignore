@@ -1,5 +1,6 @@
 # ── Development tools (not needed in image) ──────────────────────────────
 tools/
+!tools/uu_mgmt_proxy.py
 docs/
 
 # ── Test / QEMU environments ─────────────────────────────────────────────
