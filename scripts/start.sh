@@ -373,6 +373,19 @@ while ip rule show 2>/dev/null | grep -q "lookup 163"; do
 done
 echo "  ip rules: $DELETED removed"
 
+# ── Pre-create nftables tables to avoid SIGSEGV crash ─────────────────────
+# Debian bullseye's nft v0.9.8 has a NULL dereference bug:
+# `nft delete table XU_ACC_MAIN_*` on non-existent table → SIGSEGV.
+# uuplugin does flush+delete on these 6 tables during initialization.
+# Pre-creating them ensures delete succeeds even on first run.
+echo "[DIAG] Pre-creating nftables tables (workaround for nft v0.9.8 bug)..."
+for family in ip ip6; do
+    for table in XU_ACC_MAIN_filter XU_ACC_MAIN_nat XU_ACC_MAIN_mangle; do
+        nft add table $family $table 2>/dev/null || true
+    done
+done
+echo "[OK] nftables tables pre-created (ip/ip6 × filter/nat/mangle)"
+
 # ── Management proxy (bypass xu_tcp_server auth) ────────────────────────
 # The x86 binary requires password authentication on ports 16363/14554.
 # Real NX30Pro binary does NOT — it's a compile-time difference.
