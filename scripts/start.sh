@@ -64,7 +64,7 @@ export ROUTE_FWMARK_TABLE="${ROUTE_FWMARK_TABLE:-163}"
 export N_PR_H="${N_PR_H:-0}"
 export RANDOM_UUID="${RANDOM_UUID:-$(cat /proc/sys/kernel/random/uuid 2>/dev/null || echo 'default')}"
 
-echo "[INFO] Identity: from_file=0 mode, UU_* env vars set, MITM injects extra H3C fields"
+echo "[INFO] Identity: UU_FIXED_SN=${UU_FIXED_SN:-<random>}, UU_* env vars set, MITM injects extra H3C fields"
 
 # ── Hostname override (binary reads hostname as OS identifier!) ──────────────
 # Docker host networking may leak host's HOSTNAME (e.g. iStoreOS).
@@ -200,7 +200,14 @@ chmod 755 /usr/sbin/uu
 # uuplugin restarts reuse same SN; container rebuild resets.
 PERSIST_SN="/var/tmp/uu/uu_sn"
 
-if [ -f "$PERSIST_SN" ] && [ -s "$PERSIST_SN" ]; then
+# If UU_FIXED_SN is set (e.g. MITM-captured protobuf SN), use it directly.
+# This ensures file SN == protobuf SN, preventing "unmatched sn" FATAL
+# that can block acceleration tunnel setup.
+if [ -n "${UU_FIXED_SN}" ]; then
+    SN="${UU_FIXED_SN}"
+    echo "$SN" > "$PERSIST_SN"
+    echo "[INFO] Using fixed SN (protobuf-matched from MITM capture): $SN"
+elif [ -f "$PERSIST_SN" ] && [ -s "$PERSIST_SN" ]; then
     SN=$(cat "$PERSIST_SN")
     echo "[INFO] Reusing persisted SN: $SN"
 else
@@ -235,7 +242,7 @@ echo "[INFO] h3c_info copied from factoryinfo"
 
 # SN persistence: generated above, exported as UU_SN (binary needs getenv).
 export UU_SN="${SN}"
-echo "[INFO] SN=$SN exported as UU_SN (from_file=0 mode, MITM injects extra fields)"
+echo "[INFO] SN=$SN exported as UU_SN (file/protobuf match, no 'unmatched sn' expected)"
 
 # /var/run/landevname.txt — H3C init.d writes bridge name here
 # Binary reads this to determine which interface to scan for LAN devices!
