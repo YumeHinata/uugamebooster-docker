@@ -10,7 +10,6 @@ ip link set WAN1 up 2>/dev/null
 
 update-alternatives --set iptables /usr/sbin/iptables-legacy 2>/dev/null
 
-# env vars from OpenWrt procd
 export UU_LAN_IP="${UU_LAN_IP:-192.168.0.1}"
 export UU_LAN_NAME="${UU_LAN_NAME:-br-lan}"
 export UU_WAN_IP="${UU_WAN_IP:-0.0.0.0}"
@@ -35,7 +34,6 @@ export HOSTNAME="${HOSTNAME:-$(hostname)}"
 export USER="${USER:-root}"
 export TZ="${TZ:-CST-8}"
 
-# OpenWrt runtime files
 mkdir -p /var/run /usr/uufactory /var/tmp/plugmnt/uu
 echo "br-lan" > /var/run/landevname.txt
 touch /tmp/.uu_whoami.txt
@@ -51,4 +49,8 @@ for family in ip ip6; do
     done
 done
 
-exec /opt/uu/bin/uuplugin /opt/uu/conf/uu.conf
+# gdb backtrace on crash
+echo "=== gdb backtrace ==="
+gdb -batch -ex run -ex bt -ex "info registers" -ex quit \
+    --args /opt/uu/bin/uuplugin /opt/uu/conf/uu.conf 2>&1
+echo "=== gdb done ==="
