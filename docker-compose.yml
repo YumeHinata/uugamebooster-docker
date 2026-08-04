@@ -8,14 +8,9 @@ services:
     restart: unless-stopped
 
     privileged: true
-    cap_add:
-      - SYS_PTRACE
     devices:
       - /dev/net/tun:/dev/net/tun
     network_mode: host
-
-    volumes:
-      - /tmp/dhcp.leases:/tmp/dhcp.leases:ro
 
     environment:
       - UU_LAN_IP=192.168.0.1
