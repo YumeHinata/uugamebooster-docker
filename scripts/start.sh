@@ -37,6 +37,8 @@ cd "$RUNDIR"
 echo "=== gdb break __cxa_throw ==="
 gdb -batch \
     -ex "set pagination off" \
+    -ex "set confirm off" \
+    -ex "set breakpoint pending on" \
     -ex "break __cxa_throw" \
     -ex "run" \
     -ex "bt 50" \
