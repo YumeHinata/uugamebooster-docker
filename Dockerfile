@@ -12,8 +12,7 @@ RUN apt-get update && \
         procps \
         kmod \
         ca-certificates \
-        curl \
-        gdb && \
+        curl && \
     rm -rf /var/lib/apt/lists/* && \
     update-alternatives --set iptables /usr/sbin/iptables-legacy 2>/dev/null || true
 
