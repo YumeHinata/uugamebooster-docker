@@ -49,8 +49,13 @@ for family in ip ip6; do
     done
 done
 
-# gdb backtrace on crash
-echo "=== gdb backtrace ==="
-gdb -batch -ex run -ex bt -ex "info registers" -ex quit \
+echo "=== gdb catch throw ==="
+gdb -batch \
+    -ex "catch throw" \
+    -ex "run" \
+    -ex "bt 30" \
+    -ex "info registers" \
+    -ex "x/20i \$rip-16" \
+    -ex "quit" \
     --args /opt/uu/bin/uuplugin /opt/uu/conf/uu.conf 2>&1
 echo "=== gdb done ==="
