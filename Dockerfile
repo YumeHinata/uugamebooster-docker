@@ -12,7 +12,9 @@ RUN apt-get update && \
         procps \
         kmod \
         ca-certificates \
-        curl && \
+        curl \
+        python3 \
+        openssl && \
     rm -rf /var/lib/apt/lists/* && \
     update-alternatives --set iptables /usr/sbin/iptables-legacy 2>/dev/null || true
 
@@ -23,12 +25,14 @@ COPY bin/xtables-nft-multi  /opt/uu/bin/xtables-nft-multi
 COPY bin/uuplugin_monitor.sh /opt/uu/bin/uuplugin_monitor.sh
 COPY conf/uu.conf           /opt/uu/conf/uu.conf
 COPY scripts/start.sh       /opt/uu/scripts/start.sh
+COPY scripts/uu_mitm.py     /opt/uu/bin/uu_mitm.py
 COPY scripts/uuclearnat.sh  /bin/uuclearnat
 
 RUN chmod +x \
         /opt/uu/bin/uuplugin \
         /opt/uu/bin/xuplugin-guardian \
         /opt/uu/scripts/start.sh \
+        /opt/uu/bin/uu_mitm.py \
         /bin/uuclearnat && \
     mkdir -p /tmp/uu /var/run && \
     mkdir -p /lib && \
@@ -39,7 +43,14 @@ RUN chmod +x \
     done && \
     mkdir -p /home/bing/git/tun2proxy/src/third_party/openssl-1.0.2q/build/ssl/certs && \
     ln -sf /etc/ssl/certs/ca-certificates.crt \
-        /home/bing/git/tun2proxy/src/third_party/openssl-1.0.2q/build/ssl/cert.pem
+        /home/bing/git/tun2proxy/src/third_party/openssl-1.0.2q/build/ssl/cert.pem && \
+    mkdir -p /opt/uu/certs && \
+    openssl req -x509 -newkey rsa:2048 -nodes \
+        -keyout /opt/uu/certs/mitm_key.pem \
+        -out /opt/uu/certs/mitm_cert.pem \
+        -days 3650 \
+        -subj "/CN=rglg.uu.163.com" \
+        -addext "subjectAltName=DNS:rglg.uu.163.com" 2>/dev/null
 
 WORKDIR /opt/uu
 ENTRYPOINT ["/opt/uu/scripts/start.sh"]
