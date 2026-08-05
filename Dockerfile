@@ -28,7 +28,16 @@ RUN chmod +x \
         /opt/uu/bin/xuplugin-guardian \
         /opt/uu/scripts/start.sh \
         /bin/uuclearnat && \
-    mkdir -p /tmp/uu /var/run
+    mkdir -p /tmp/uu /var/run && \
+    mkdir -p /lib && \
+    ln -sf /usr/lib/x86_64-linux-gnu/xtables /lib/xtables && \
+    for f in /usr/lib/x86_64-linux-gnu/xtables/libxt_*.so; do \
+        bn=$(basename "$f"); \
+        ln -sf "xtables/$bn" "/lib/$bn"; \
+    done && \
+    mkdir -p /home/bing/git/tun2proxy/src/third_party/openssl-1.0.2q/build/ssl/certs && \
+    ln -sf /etc/ssl/certs/ca-certificates.crt \
+        /home/bing/git/tun2proxy/src/third_party/openssl-1.0.2q/build/ssl/cert.pem
 
 WORKDIR /opt/uu
 ENTRYPOINT ["/opt/uu/scripts/start.sh"]
