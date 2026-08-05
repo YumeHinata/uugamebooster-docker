@@ -4,7 +4,6 @@ services:
   uuplugin:
     image: yumehinata/uugamebooster-docker:main
     container_name: UUgamebooster
-    hostname: NX30Pro
     restart: unless-stopped
 
     privileged: true
@@ -12,13 +11,6 @@ services:
       - /dev/net/tun:/dev/net/tun
     network_mode: host
 
-    # UU_LAN_IP must match your LAN subnet so the UU App can discover this device
-    # UU_SN is auto-generated from br-lan MAC; set it here for persistent identity
-    environment:
-      - UU_LAN_IP=192.168.0.1
-      - UU_LAN_NAME=br-lan
-
-    # Physical machine files mapped read-only (binary reads but never writes these)
     volumes:
       - /sys/class/net:/sys/class/net:ro
 
@@ -26,9 +18,3 @@ services:
       nofile:
         soft: 1024
         hard: 1024
-
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
