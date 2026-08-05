@@ -19,6 +19,8 @@ RUN apt-get update && \
 # ── copy binaries ──────────────────────────────────────────────────────────
 COPY bin/uuplugin           /opt/uu/bin/uuplugin
 COPY bin/xuplugin-guardian  /opt/uu/bin/xuplugin-guardian
+COPY bin/xtables-nft-multi  /opt/uu/bin/xtables-nft-multi
+COPY bin/uuplugin_monitor.sh /opt/uu/bin/uuplugin_monitor.sh
 COPY conf/uu.conf           /opt/uu/conf/uu.conf
 COPY scripts/start.sh       /opt/uu/scripts/start.sh
 COPY scripts/uuclearnat.sh  /bin/uuclearnat
