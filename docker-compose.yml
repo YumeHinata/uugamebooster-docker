@@ -15,7 +15,6 @@ services:
     environment:
       - UU_LAN_IP=192.168.0.1
       - UU_LAN_NAME=br-lan
-      - UU_SN=DEFAULT000000000000
 
     ulimits:
       nofile:

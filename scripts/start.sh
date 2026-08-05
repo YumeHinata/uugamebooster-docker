@@ -9,7 +9,8 @@ ip link add WAN1 type dummy 2>/dev/null
 ip link set WAN1 up 2>/dev/null
 update-alternatives --set iptables /usr/sbin/iptables-legacy 2>/dev/null || true
 
-# ── env vars (all 20 UU_* strings found in binary) ────────────────────────
+# ── env vars ──────────────────────────────────────────────────────────────
+# All 20 UU_* strings referenced in binary — must be set to prevent NULL getenv
 export UU_LAN_IP="${UU_LAN_IP:-192.168.0.1}"
 export UU_LAN_NAME="${UU_LAN_NAME:-br-lan}"
 export UU_WAN_IP="${UU_WAN_IP:-0.0.0.0}"
@@ -18,25 +19,29 @@ export UU_TUN_NAME="${UU_TUN_NAME:-tun163}"
 export UU_VENDOR="${UU_VENDOR:-openwrt}"
 export UU_MODEL="${UU_MODEL:-x86_64}"
 export UU_DEVICE_TYPE="${UU_DEVICE_TYPE:-router}"
-export UU_SN="${UU_SN:-DEFAULT000000000000}"
-export UU_RANDOM="${UU_RANDOM:-$(cat /proc/sys/kernel/random/uuid 2>/dev/null || echo default)}"
+# SN: auto-generate 20-char hex on first run if not provided
+if [ -z "${UU_SN}" ]; then
+    UU_SN=$(head -c 16 /dev/urandom | md5sum | head -c 20)
+fi
+export UU_SN
+export UU_RANDOM="${UU_RANDOM:-default}"
 export UU_PLUGIN_VESION="${UU_PLUGIN_VESION:-1.0.0}"
 export UU_ROUTE_DEFAULT_TABLE="${UU_ROUTE_DEFAULT_TABLE:-main}"
 export UU_ROUTE_FWMARK_TABLE="${UU_ROUTE_FWMARK_TABLE:-163}"
-export UU_DEVICE_MAC="${UU_DEVICE_MAC:-00:00:00:00:00:00}"
-export UU_DEVICE_IP="${UU_DEVICE_IP:-127.0.0.1}"
-export UU_DEVICE_FWMARK="${UU_DEVICE_FWMARK:-0}"
-export UU_DEVICE_LINK_TYPE="${UU_DEVICE_LINK_TYPE:-ethernet}"
+# Device vars: empty = auto-detect from real hardware
+export UU_DEVICE_MAC="${UU_DEVICE_MAC:-}"
+export UU_DEVICE_IP="${UU_DEVICE_IP:-}"
+export UU_DEVICE_FWMARK="${UU_DEVICE_FWMARK:-}"
+export UU_DEVICE_LINK_TYPE="${UU_DEVICE_LINK_TYPE:-}"
 export UU_FIRMWARE_VERSION="${UU_FIRMWARE_VERSION:-1.0.0}"
 export UU_N_PR_H="${UU_N_PR_H:-0}"
 export HOME="${HOME:-/root}"
 export USER="${USER:-root}"
 export TZ="${TZ:-CST-8}"
-export HOSTNAME="${HOSTNAME:-$(hostname)}"
 
-# ── running directory ─────────────────────────────────────────────────────
+# ── runtime directory ─────────────────────────────────────────────────────
 RUNDIR="/tmp/uu"
-mkdir -p "$RUNDIR" /var/run /etc/config
+mkdir -p "$RUNDIR" /var/run /etc/config /usr/sbin/uu
 
 cp /opt/uu/bin/uuplugin         "$RUNDIR/"
 cp /opt/uu/bin/xuplugin-guardian "$RUNDIR/"
@@ -44,12 +49,7 @@ cp /opt/uu/conf/uu.conf         "$RUNDIR/"
 cp /usr/sbin/xtables-nft-multi  "$RUNDIR/" 2>/dev/null || true
 chmod +x "$RUNDIR/uuplugin" "$RUNDIR/xuplugin-guardian"
 
-# ── .sn file (critical for SN identity, prevents std::logic_error) ────────
-mkdir -p /usr/sbin/uu
-echo "${UU_SN}" > "$RUNDIR/.sn"
-echo "${UU_SN}" > /usr/sbin/uu/.sn
-
-# ── files binary reads (from .rodata strings) ─────────────────────────────
+# ── runtime files ─────────────────────────────────────────────────────────
 echo "${UU_LAN_NAME:-br-lan}" > /var/run/landevname.txt
 touch /tmp/.uu_whoami.txt
 echo "CST-8" > /etc/TZ
@@ -60,7 +60,9 @@ DISTRIB_TARGET="x86/64"
 LSBEOF
 touch /etc/config/dhcpd.leases
 touch /etc/dnsmasq.conf
-
+# Persist SN to disk so subsequent runs use the same identity
+echo "${UU_SN}" > "$RUNDIR/.sn"
+echo "${UU_SN}" > /usr/sbin/uu/.sn
 cat > "$RUNDIR/uuplugin_monitor.config" << 'EOF'
 router=openwrt
 model=x86_64
