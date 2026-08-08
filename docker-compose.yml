@@ -19,7 +19,7 @@
 services:
 
   uuplugin:
-    image: docker.io/YumeHinata/uugamebooster-docker:main
+    image: docker.io/yumehinata/uugamebooster-docker:main
     pull_policy: always
     container_name: UUgamebooster
     restart: unless-stopped
