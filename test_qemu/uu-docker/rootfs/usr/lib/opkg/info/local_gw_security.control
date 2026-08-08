@@ -1,8 +1,0 @@
-Package: local_gw_security
-Version: 0
-Depends: libc, kmod-local_gw_security
-Source: package/miwifi/local_gw_security
-Section: net
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 736
-Description:  MIWIFI Gateway Security

@@ -1,9 +1,0 @@
-Package: luci-mod-admin-base
-Version: 0.11.1-1
-Depends: libc, luci-mod-admin-core, luci-lib-ipkg
-Source: feeds/luci/luci
-Section: luci
-Maintainer: LuCI Development Team <luci@lists.subsignal.org>
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 761330
-Description:  LuCI Administration - base-featured for full control

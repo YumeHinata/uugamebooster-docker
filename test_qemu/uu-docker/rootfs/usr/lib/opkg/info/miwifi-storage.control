@@ -1,8 +1,0 @@
-Package: miwifi-storage
-Version: 1.0-0
-Depends: libc, block-mount
-Source: package/miwifi/miwifi-storage
-Section: opt
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 3566
-Description:  miwifi storage service

@@ -1,4 +1,0 @@
-/lib/preinit/91_mount_hotupgrade
-/usr/sbin/hotupgrade.sh
-/lib/miwifi/hotupgrade/hotupgrade_func.sh
-/usr/lib/lua/hotupgrade.lua

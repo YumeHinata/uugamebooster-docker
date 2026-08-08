@@ -1,0 +1,31 @@
+#!/bin/sh
+# uuclearnat — stub that uuplugin fork+exec's (/usr/bin/uuclearnat)
+#
+# uuplugin calls: /bin/sh /usr/bin/uuclearnat > /dev/null
+# This stub starts natflushd.sh if not already running, then stays alive
+# (uuplugin may monitor this process and kill/restart it).
+
+LOG=/tmp/natflushd.log
+
+echo "[$(date +%H:%M:%S)] $$ uuclearnat invoked (stub)" >> "$LOG"
+
+# natflushd.sh uses a PID file to ensure single instance.
+# If already running, just stay alive as a no-op (uuplugin expects us to persist).
+if [ -f /var/run/natflushd.pid ]; then
+    OLD_PID=$(cat /var/run/natflushd.pid 2>/dev/null)
+    if kill -0 "$OLD_PID" 2>/dev/null; then
+        echo "[$(date +%H:%M:%S)] $$ natflushd already running (pid=$OLD_PID), standing by" >> "$LOG"
+        # Stay alive — uuplugin may be watching this process
+        while true; do sleep 3600; done
+    fi
+fi
+
+# Start natflushd if not running
+if [ -x /tmp/natflushd.sh ]; then
+    echo "[$(date +%H:%M:%S)] $$ starting natflushd.sh" >> "$LOG"
+    exec /tmp/natflushd.sh
+else
+    echo "[$(date +%H:%M:%S)] $$ FATAL: /tmp/natflushd.sh not found" >> "$LOG"
+    # Don't exit — uuplugin might restart us
+    while true; do sleep 60; done
+fi

@@ -1,8 +1,0 @@
-Package: packagesign
-Version: 1_0_0-1
-Depends: libc, libstdcpp, libopenssl, gtest, boost-thread, boost-filesystem, libpthread
-Source: package/miwifi/packagesign
-Section: opt
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 18219
-Description:  package sign tool

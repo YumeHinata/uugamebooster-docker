@@ -1,8 +1,5 @@
-tools/
-docs/
-test_qemu/
-bin/NX30Pro_v14.4.20/
-bin/uu.nx30pro/
+# Build context exclusions
+archive/
 .git/
 .gitignore
 .gitattributes
@@ -13,3 +10,6 @@ docker-compose.yml
 *.ps1
 *.log
 __pycache__/
+*.tar.gz
+*.tar
+*.zip

@@ -1,8 +1,0 @@
-Package: iwevent-call
-Version: 0.0.1-1
-Depends: libc, wireless-tools
-Source: package/miwifi/iwevent-call
-Section: net
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 2775
-Description:  This package is used for listen wireless event

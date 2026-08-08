@@ -1,8 +1,0 @@
-Package: qca-ssdk-shell
-Version: miwifi_git-1
-Depends: libc
-Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/ssdk/qca-ssdk-shell
-Section: QCA
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 234246
-Description:  Shell application for QCA SSDK

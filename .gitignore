@@ -1,2 +1,5 @@
-# QEMU test rootfs (101MB, exceeds GitHub limit, only needed for aarch64 emulation)
-test_qemu/uu-docker/rootfs.zip
+*.tar.gz
+*.tar
+*.zip
+archive/
+*.pcap

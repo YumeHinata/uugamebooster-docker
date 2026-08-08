@@ -1,8 +1,0 @@
-Package: mesh_cmd
-Version: 1.0-a
-Depends: libc
-Source: package/miwifi/mesh_cmd
-Section: net
-Architecture: all
-Installed-Size: 13590
-Description:  mesh common commands.

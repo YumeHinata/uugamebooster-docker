@@ -1,8 +1,0 @@
-Package: lua_crypto_lib
-Version: 1.0-1
-Depends: libc, lua, librt, libmbedtls
-Source: package/miwifi/lua_crypto_lib
-Section: opt
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 8364
-Description:  lua rsa lib form polarssl

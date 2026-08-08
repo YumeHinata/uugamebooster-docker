@@ -1,9 +1,0 @@
-Package: openswan
-Version: 2.6.51.3-1
-Depends: libc, libgmp
-Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/networking/openswan
-Section: net
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 1030637
-Description:  Openswan is an IPsec implementation for Linux.
- This package contains the Openswan user-land daemon.

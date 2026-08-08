@@ -1,20 +1,39 @@
-name: uugamebooster
+version: "3.8"
+
+# ── QEMU NX30Pro uuplugin — 生产环境 ──────────────────────────────────────
+# 直连 H3C 注册服，运行真正的 aarch64 uuplugin + guardian (Plan A)
+#
+# Usage:
+#   docker compose up --build    # 构建并启动
+#   docker compose down          # 停止并清理
+#   docker logs nx30pro-qemu     # 查看日志
+#   docker exec -it nx30pro-qemu sh  # 调试
+#
+# 环境变量（可选覆盖）:
+#   UU_SN=xxx       设备序列号（默认从 MAC 生成）
+#   UU_STRACE=1     启用 strace 调试
+#   UU_DEBUG=1      详细日志输出
 
 services:
-  uuplugin:
-    image: yumehinata/uugamebooster-docker:main
-    container_name: UUgamebooster
-    restart: unless-stopped
 
-    privileged: true
+  # ── QEMU runner: 执行 NX30Pro aarch64 uuplugin ─────────────────────────
+  qemu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nx30pro-qemu
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - UU_STRACE=${UU_STRACE:-0}
+      - UU_DEBUG=${UU_DEBUG:-0}
+      - UU_SN=${UU_SN:-}
+    cap_add:
+      - NET_ADMIN           # iptables, nftables, ip rule
+      - NET_RAW             # raw socket (conntrack)
+      - SYS_PTRACE          # strace 调试
+      - SYS_ADMIN           # tun/tap 设备创建
+    volumes:
+      - /usr/sbin/nft:/usr/sbin/nft.host:ro
     devices:
       - /dev/net/tun:/dev/net/tun
-    network_mode: host
-
-    volumes:
-      - /sys/class/net:/sys/class/net:ro
-
-    ulimits:
-      nofile:
-        soft: 1024
-        hard: 1024

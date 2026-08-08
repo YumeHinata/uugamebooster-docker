@@ -1,9 +1,0 @@
-#!/bin/sh
-timeout=$1
-shift
-cmdline=$@
-usage(){
-	echo "USAGE: $0 <timeout> <command>"
-}
-
-timeout -t $timeout $@

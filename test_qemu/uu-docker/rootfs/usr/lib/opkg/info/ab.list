@@ -1,9 +1,0 @@
-/etc/config/ab
-/usr/bin/upload_speedtest
-/etc/init.d/auto_speedtest
-/usr/bin/download_speedtest
-/usr/sbin/auto_speedtestd
-/usr/sbin/speedtest_cmd
-/usr/bin/ab
-/usr/bin/speedtest
-/usr/share/speedtest.xml

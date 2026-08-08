@@ -1,9 +1,0 @@
-Package: luci-lib-lua-cjson
-Version: 0.11.1-1
-Depends: libc, luci-lib-core, liblua
-Source: feeds/luci/luci
-Section: luci
-Maintainer: LuCI Development Team <luci@lists.subsignal.org>
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 8358
-Description:  Lua CJSON library

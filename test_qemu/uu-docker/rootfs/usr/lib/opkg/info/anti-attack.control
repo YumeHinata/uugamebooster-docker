@@ -1,8 +1,0 @@
-Package: anti-attack
-Version: 1.0-1.0
-Depends: libc, kmod-ipt-raw, kmod-ipt-raw6, iptables-mod-hashlimit, iptables-mod-rpfilter, luci-mod-func-anti_attack, miwifi-xthostlog
-Source: package/miwifi/anti-attack
-Section: opt
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 580
-Description:  TODO

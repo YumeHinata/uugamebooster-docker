@@ -1,8 +1,0 @@
-Package: breakpad-wrapper
-Version: 1.0-1
-Depends: libc, breakpad, libstdcpp
-Source: sdk/qca_qsdk/qca_qsdk_spf12.2/feeds/platform_utils/breakpad/breakpad-wrapper
-Section: breakpad-wrapper
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 56790
-Description:  Breakpad Wrapper Shared Library for QSDK.

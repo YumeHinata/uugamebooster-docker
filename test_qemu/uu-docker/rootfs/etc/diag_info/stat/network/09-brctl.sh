@@ -1,3 +1,0 @@
-#!/bin/ash
-
-brctl show

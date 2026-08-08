@@ -1,9 +1,0 @@
-Package: libnl-core
-Version: 3.4.0-2
-Depends: libc, libpthread
-Source: package/libs/libnl
-License: LGPL-2.1
-Section: libs
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 38412
-Description:  Common code for all netlink libraries

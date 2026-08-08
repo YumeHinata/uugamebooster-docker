@@ -1,8 +1,0 @@
-Package: wan_check_v2
-Version: 1.1-1.1
-Depends: libc, libubus, libuci, xqled_v2, kmod-wan_check_v2
-Source: package/miwifi/wan_check_v2
-Section: util
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 10548
-Description:  Check status of net and port, then light the led.

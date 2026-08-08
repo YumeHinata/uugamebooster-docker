@@ -1,9 +1,0 @@
-Package: mi_docker
-Version: 1-1.0
-Depends: libc, libdevmapper, iptables-mod-extra, kmod-nf-nat, kmod-veth, uci, miwifi-storage, ca-bundle, curl
-Source: package/miwifi/mi_docker
-Section: util
-Require-User: docker:docker
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 6219
-Description:  support miwifi docker feature.

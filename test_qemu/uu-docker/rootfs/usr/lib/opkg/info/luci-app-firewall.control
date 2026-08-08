@@ -1,9 +1,0 @@
-Package: luci-app-firewall
-Version: 0.11.1-1
-Depends: libc, firewall
-Source: feeds/luci/luci
-Section: luci
-Maintainer: LuCI Development Team <luci@lists.subsignal.org>
-Architecture: aarch64_cortex-a53_neon-vfpv4
-Installed-Size: 14627
-Description:  Firewall and Portforwarding application
