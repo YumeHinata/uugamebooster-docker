@@ -1,13 +1,15 @@
-version: "3.8"
-
-# ── QEMU NX30Pro uuplugin — 生产环境 ──────────────────────────────────────
-# 直连 H3C 注册服，运行真正的 aarch64 uuplugin + guardian (Plan A)
+# ── QEMU NX30Pro uuplugin — 生产部署 ────────────────────────────────────────
+# 从 Docker Hub 拉取预构建镜像，运行 aarch64 uuplugin + guardian
+#
+# 前置条件（路由器上一次性执行）:
+#   echo ':qemu-aarch64:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xb7\x00:\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xfe\xff\xff\xff:/usr/bin/qemu-aarch64-static:OCF' > /proc/sys/fs/binfmt_misc/register
 #
 # Usage:
-#   docker compose up --build    # 构建并启动
-#   docker compose down          # 停止并清理
-#   docker logs nx30pro-qemu     # 查看日志
-#   docker exec -it nx30pro-qemu sh  # 调试
+#   docker compose pull           # 拉取最新镜像
+#   docker compose up -d          # 后台启动
+#   docker compose down           # 停止并清理
+#   docker logs UUgamebooster     # 查看日志
+#   docker exec -it UUgamebooster sh  # 进入调试
 #
 # 环境变量（可选覆盖）:
 #   UU_SN=xxx       设备序列号（默认从 MAC 生成）
@@ -16,12 +18,10 @@ version: "3.8"
 
 services:
 
-  # ── QEMU runner: 执行 NX30Pro aarch64 uuplugin ─────────────────────────
-  qemu:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: nx30pro-qemu
+  uuplugin:
+    image: YumeHinata/uugamebooster-docker:main
+    pull_policy: always
+    container_name: UUgamebooster
     restart: unless-stopped
     network_mode: host
     environment:
