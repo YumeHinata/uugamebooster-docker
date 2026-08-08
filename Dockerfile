@@ -73,6 +73,6 @@ RUN printf '#!/bin/sh\nexec /usr/bin/qemu-aarch64 /opt/uu/bin/xuplugin-guardian.
 
 # ── 运行时路径 ───────────────────────────────────────────────────────────
 RUN mkdir -p /usr/uufactory /var/tmp/uu /tmp/uu /var/run /opt/uu/conf /opt/uu/log /var/tmp/plugmnt/uu && \
-    chmod +x /opt/uu/bin/uuplugin /entry.sh
+    chmod +x /opt/uu/bin/uuplugin /opt/uu/bin/xuplugin-guardian.real /entry.sh
 
 ENTRYPOINT ["/entry.sh"]
