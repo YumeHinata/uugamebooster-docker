@@ -7,10 +7,11 @@
 # Build (from repo root):
 #   docker compose up --build
 
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 # ── QEMU + 网络工具 + nftables/conntrack ────────────────────────────────
-# nftables 从 bookworm 安装 (v1.0.6+)，bullseye 的 v0.9.8 在 kernel 6.6 上 SIGSEGV
+# nftables 强制使用 iptables-legacy 兼容模式 (bookworm v1.0.6 libnftables
+# 在 kernel 6.6 上 list ruleset 会 SIGSEGV, 但 add/delete/insert 正常)
 RUN apt-get update && apt-get install -y \
         strace \
         tcpdump \
@@ -23,11 +24,8 @@ RUN apt-get update && apt-get install -y \
         net-tools \
         python3 \
         openssl \
-    && echo "deb http://deb.debian.org/debian bookworm main" > /etc/apt/sources.list.d/bookworm.list \
-    && apt-get update \
-    && apt-get install -y -t bookworm nftables qemu-user \
-    && rm -f /etc/apt/sources.list.d/bookworm.list \
-    && apt-get update \
+        nftables \
+        qemu-user \
     && update-alternatives --set iptables /usr/sbin/iptables-legacy \
     && update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy \
     && rm -rf /var/lib/apt/lists/*
